@@ -1,0 +1,63 @@
+---
+description: SQLite schema rules, query patterns, and migration conventions.
+globs: ["backend/database/**", "backend/src/**Repository.php"]
+alwaysApply: false
+---
+Database Rules
+Schema Immutability
+
+Never modify schema.sql directly after the first migration
+All schema changes go in numbered migration files: migrations/001_add_column.sql, migrations/002_create_index.sql
+migrate.php tracks applied migrations in a _migrations table
+Production migrations must be reversible — include a -- DOWN section in each migration file
+
+Query Patterns
+Always Filter Soft Deletes
+sql-- CORRECT
+SELECT * FROM tasks WHERE project_id = ? AND deleted_at IS NULL
+-- WRONG — never omit this
+SELECT * FROM tasks WHERE project_id = ?
+Fractional Display Order Queries
+sql-- Get tasks for Kanban column ordered correctly
+SELECT * FROM tasks
+WHERE status = ? AND deleted_at IS NULL
+ORDER BY display_order ASC, created_at ASC
+Joining for Relations
+sql-- Always LEFT JOIN — don't INNER JOIN relations that may be NULL
+SELECT t.*, p.title AS project_title, p.color AS project_color
+FROM tasks t
+LEFT JOIN projects p ON t.project_id = p.id AND p.deleted_at IS NULL
+WHERE t.id = ? AND t.deleted_at IS NULL
+Pagination
+sqlSELECT * FROM tasks WHERE deleted_at IS NULL
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?
+-- Always pair with a COUNT(*) query for total
+SELECT COUNT(*) FROM tasks WHERE deleted_at IS NULL
+Index Rules
+
+Every foreign key column must have an index
+Every column used in WHERE filters must have an index
+Compound index for Kanban: (status, display_order)
+Compound index for diary timeline: (logged_at DESC)
+Never index columns that are only in SELECT — only WHERE/ORDER BY/JOIN columns
+
+SQLite-Specific Gotchas
+
+AUTOINCREMENT is slower than just INTEGER PRIMARY KEY — use the latter unless you need guaranteed non-reuse of IDs (we do not)
+WAL mode must be set on every new connection — it's not persisted in the file header reliably
+unixepoch() is the correct SQLite function for current Unix timestamp (not strftime('%s','now'))
+Foreign key enforcement is OFF by default — always PRAGMA foreign_keys = ON
+JSON columns are TEXT — SQLite has no native JSON type; validate structure in PHP before writing
+Boolean columns: INTEGER NOT NULL DEFAULT 0 CHECK(col IN (0,1)) — never BOOLEAN type
+
+Daily Snapshot Builder
+SnapshotService::buildForDate(string $date) must:
+
+Count tasks where due_date falls within the day and deleted_at IS NULL → tasks_planned
+Count tasks where completed_at falls within the day → tasks_completed
+Count tasks where created_at falls within the day → tasks_added
+Count diary logs for the day → log_count
+AVG mood/energy from diary logs for the day
+UPSERT into daily_snapshots (INSERT OR REPLACE)
+Run automatically at midnight via a cron job hitting POST /api/snapshots/build

@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.git
+backend/database/*.sqlite
+backend/database/*.sqlite-journal
+backend/database/*.sqlite-wal
+backend/database/*.sqlite-shm
+*.log

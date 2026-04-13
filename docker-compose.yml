@@ -1,0 +1,40 @@
+# Project Codex — local dev stack (PHP API + Vite)
+#
+# 1. Copy docker.env.example to .env in this directory (same folder as this file).
+# 2. Copy backend/.env.example to backend/.env and set the same CODEX_API_KEY.
+# 3. docker compose up --build
+# 4. Initialize DB: docker compose exec php php database/migrate.php
+#
+# App: http://localhost:5273  ·  API: http://localhost:8180  (host → container: 5273→5173, 8180→80)
+
+services:
+  php:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    ports:
+      - "8180:80"
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      CODEX_API_KEY: ${CODEX_API_KEY:-dev-codex-key}
+
+  frontend:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "5273:5173"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    environment:
+      DOCKER: "true"
+      VITE_API_PROXY_TARGET: http://php:80
+      VITE_CODEX_API_KEY: ${CODEX_API_KEY:-dev-codex-key}
+      CHOKIDAR_USEPOLLING: "true"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    depends_on:
+      - php
+
+volumes:
+  frontend_node_modules:

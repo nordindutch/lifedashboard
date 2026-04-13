@@ -1,0 +1,112 @@
+---
+description: React + TypeScript + Tailwind rules for the Project Codex frontend.
+globs: ["frontend/src/**/.{ts,tsx}", "frontend/.{ts,json}"]
+alwaysApply: false
+---
+Frontend React Rules
+TypeScript Strictness
+
+tsconfig.json must have "strict": true — no exceptions
+No any types — ever. Use unknown and narrow, or define a proper interface
+All component props must be explicitly typed interfaces, not inline { prop: type }
+Prefer interface over type for object shapes; use type for unions and aliases
+All imports from '../types' — never redefine types locally that exist in types/index.ts
+
+Component Structure
+Every component file follows this order:
+tsx// 1. Imports (external libs → internal components → hooks → types → utils)
+// 2. Local types/interfaces (only if component-specific)
+// 3. Component function (named export, not default for most)
+// 4. Sub-components (if small and tightly coupled)
+// 5. Default export at bottom
+Use named exports for all components. Default export only for page-level components and lazy-loaded routes.
+TanStack Query Conventions
+Query key factory pattern — define in api/queryKeys.ts:
+tsexport const queryKeys = {
+  goals: () => ['goals'] as const,
+  goal: (id: number) => ['goals', id] as const,
+  tasks: (filters?: TaskFilters) => ['tasks', filters] as const,
+  briefing: (date: string) => ['briefing', date] as const,
+}
+
+staleTime: goals/projects = 5 minutes, tasks = 2 minutes, briefing = 5 minutes, diary = 30 seconds
+gcTime: 10 minutes for all
+Mutations must invalidateQueries on success — never manually update cache except for optimistic updates
+Optimistic updates only for: QuickLogBar submissions, Kanban drag-drop reorders, task checkbox toggles
+
+Zustand Store Rules
+Two stores only:
+
+uiStore: active tab, open modal IDs, toast queue, drawer state, sidebar collapsed
+canvasStore: viewport {x, y, zoom}, selected item IDs, drag state
+
+Never put server data in Zustand — that belongs in TanStack Query cache.
+Store shape must be typed with an explicit interface:
+tsinterface UiStore {
+  activeTab: TabId
+  openModalId: string | null
+  // ...
+  setActiveTab: (tab: TabId) => void
+  openModal: (id: string) => void
+}
+Tailwind Rules
+
+Dark mode only for initial build — add dark class to <html> in index.html
+Custom semantic colors defined in tailwind.config.ts under theme.extend.colors:
+
+ts  'codex-bg': '#0f0f11',        // page background
+  'codex-surface': '#1a1a1f',   // card background
+  'codex-border': '#2a2a30',    // border color
+  'codex-accent': '#6366f1',    // primary accent (indigo)
+  'codex-muted': '#71717a',     // muted text
+
+Use these semantic tokens, not raw Tailwind grays/indigos, for structural UI elements
+Mobile-first: write base classes for mobile, md: for tablet, lg: for desktop
+No inline styles except for dynamic values (canvas positions, user-defined colors)
+No style={{ color: '...' }} for static colors — always a Tailwind class
+
+Component-Specific Rules
+KanbanBoard
+
+Use @dnd-kit/core DndContext + @dnd-kit/sortable SortableContext per column
+onDragEnd handler calls PATCH /api/tasks/reorder with fractional display_order
+Wrap in React.memo — re-renders only when task list for that column changes
+Column task lists derived via useMemo from the full tasks query
+
+CanvasWorkspace
+
+Transform state (x, y, zoom) lives in canvasStore — not component state
+Pan via pointermove while pointerdown (not mouse events — supports touch)
+Zoom via wheel event — clamp between 0.25 and 3.0
+Sticky note positions updated optimistically on drag end, then synced via PATCH /api/tasks/:id/canvas
+z-index managed in canvasStore — clicking a note brings it to front
+
+QuickLogBar
+
+Controlled input — useState for text, log type, linked project/task
+On submit: optimistic update to diary query cache, then POST, then invalidate
+Clear and refocus input immediately after submit (don't wait for server)
+Keyboard: Enter submits, Escape clears, @ triggers project/task mention picker
+
+Forms & Drawers
+
+No <form> elements — use div with onClick handlers
+TaskDrawer: slide up from bottom on mobile (translate-y transition), right panel on desktop
+All drawers use AnimatePresence + motion.div from Framer Motion
+Drawer backdrop click closes the drawer
+
+Performance Rules
+
+React.memo on: KanbanColumn, TaskCard, StickyNote, LogEntry
+useMemo for: filtered/sorted task lists, canvas item transforms, chart data
+useCallback for: drag handlers, form submit handlers passed as props
+Lazy load page components with React.lazy + Suspense
+Images (weather icons, avatar initials): always specify width and height
+
+File Organization
+api/          — one file per resource, typed return values
+components/   — organized by feature domain (home/, productivity/, canvas/, diary/, ui/)
+hooks/        — one hook per concern, prefixed with `use`
+stores/       — uiStore.ts, canvasStore.ts only
+types/        — index.ts only, never split
+pages/        — one file per route

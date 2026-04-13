@@ -1,0 +1,65 @@
+# --- Secrets & local env (never commit) ---
+.env
+.env.*
+!.env.example
+!**/.env.example
+!docker.env.example
+
+# --- SQLite (database files & WAL) ---
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# --- Dependencies ---
+node_modules/
+vendor/
+
+# --- Frontend build & tooling ---
+frontend/dist/
+frontend/.vite/
+dist/
+*.local
+
+# --- PHP ---
+.phpunit.result.cache
+.php-cs-fixer.cache
+
+# --- Logs & temp ---
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tmp
+*.temp
+.cache/
+
+# --- Tests & coverage ---
+coverage/
+.nyc_output/
+
+# --- IDE & editors ---
+.idea/
+.vscode/
+*.code-workspace
+*.swp
+*.swo
+*~
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Capacitor / native (generated or local) ---
+android/app/build/
+android/.gradle/
+android/local.properties
+ios/App/build/
+ios/Pods/
+*.keystore
+*.jks
+
+# --- Tauri (when present) ---
+src-tauri/target/

@@ -1,0 +1,63 @@
+---
+description: Core project identity, naming conventions, and cross-cutting rules for Project Codex. Apply to every file in the repo.
+globs: ["**/*"]
+alwaysApply: true
+---
+Project Codex — Core Rules
+Project Identity
+
+Name: Project Codex — a personal "Life OS" dashboard
+Purpose: Daily Briefing + Kanban Task Manager + Canvas Workspace + Interstitial Diary + AI Planning
+Single user, self-hosted on shared PHP hosting + SQLite
+
+Stack at a Glance
+
+Backend: PHP 8.2+, PDO/SQLite, no framework
+Frontend: React 18, Vite, TypeScript (strict), Tailwind CSS v3
+State: TanStack Query v5 (server state) + Zustand v5 (UI state)
+Native: Capacitor v6 (mobile) + Tauri v2 (desktop)
+AI: Anthropic API (claude-sonnet-4-20250514)
+
+Universal Naming Conventions
+
+Database columns and PHP variables: snake_case
+TypeScript types, interfaces, React components: PascalCase
+TypeScript variables, functions, hooks: camelCase
+API route segments: kebab-case (/api/diary-logs, not /api/diary_logs)
+File names — PHP: PascalCase.php; TS/TSX: PascalCase.tsx for components, camelCase.ts for utils/hooks
+CSS classes: Tailwind utility classes only — no custom CSS classes except in tailwind.config.ts theme extension
+
+Timestamps
+
+All timestamps stored as Unix integers (seconds) in SQLite
+PHP: use time() for current timestamp; never date() for storage
+TypeScript: type alias UnixTimestamp = number; convert to Date only for display
+All display formatting uses date-fns — never new Date().toLocaleString()
+
+Soft Deletes
+
+Goals, Projects, Tasks, Notes, DiaryLogs: never hard delete
+Set deleted_at = unixepoch() instead
+Every query MUST include WHERE deleted_at IS NULL unless explicitly fetching archived/trash items
+PHP repositories expose a restore(int $id) method that sets deleted_at = NULL
+
+Error Handling
+
+PHP: all exceptions caught at the front controller; return ApiError JSON envelope; never expose stack traces
+TypeScript: all API calls check response.success before accessing .data
+No console.log in committed code — use console.error only for genuine errors
+User-facing errors shown via the toast system (uiStore.addToast()), never alert()
+
+Security
+
+API protected by X-Codex-Key header middleware on every non-public endpoint
+API key stored in backend .env, never in frontend source or git
+Frontend reads API key from VITE_API_KEY env var (Vite strips it at build time for native targets)
+SQLite file location: backend/database/codex.sqlite — outside public/ webroot
+All PDO queries use prepared statements — no string interpolation in SQL ever
+OAuth tokens stored in integration_tokens table — never in localStorage or cookies
+
+Git Hygiene
+
+Never commit .env, *.sqlite, *.sqlite-wal, *.sqlite-shm, node_modules/, vendor/
+.cursorrules and .cursor/ ARE committed — they are project configuration

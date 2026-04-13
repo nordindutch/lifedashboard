@@ -1,0 +1,61 @@
+---
+description: Capacitor (mobile) and Tauri (desktop) integration rules, plus responsive design requirements.
+globs: ["frontend/src//*.tsx", "capacitor.config.ts", "src-tauri/"]
+alwaysApply: false
+---
+Mobile & Desktop Rules
+Responsive Breakpoints (Tailwind)
+
+base (0px+): mobile — single column, bottom nav, full-width components
+md (768px+): tablet — two-column layouts appear, sidebar replaces bottom nav
+lg (1024px+): desktop — full sidebar, multi-column dashboard grid
+Never design for desktop first. Every component must be usable at 375px width.
+
+Touch & Interaction
+
+Minimum tap target: 44×44px (WCAG) — apply min-h-[44px] min-w-[44px] to all interactive elements
+No hover-only affordances — anything on hover must also be accessible on long-press or secondary tap
+Kanban drag-and-drop: use @dnd-kit pointer sensors (works for both mouse and touch)
+Canvas workspace: use Pointer Events API (not Mouse Events) for pan/drag — enables touch support
+Swipe gestures (diary log dismiss, task complete): implement with useSwipe hook using touchstart/touchend
+
+Capacitor-Specific
+
+Import native plugins only inside if (Capacitor.isNativePlatform()) guards
+Haptic feedback on: task completion, quick log submit, drag-and-drop drop
+
+ts  import { Haptics, ImpactStyle } from '@capacitor/haptics';
+  await Haptics.impact({ style: ImpactStyle.Medium });
+
+Pull-to-refresh on: Home Hub, Diary feed
+
+ts  // Use @capacitor/push-notifications only after user explicitly enables in Settings
+
+Deep links: codex:// scheme — configure in capacitor.config.ts
+Status bar: dark content on light, light content on dark — set in App.tsx on mount
+Safe area insets: use env(safe-area-inset-bottom) for bottom nav padding (iPhone notch)
+
+css  padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+Tauri-Specific
+
+System tray: show unread task count badge
+Global shortcut: Cmd/Ctrl+Shift+L opens QuickLogBar in a floating mini-window
+Auto-launch: optional, user-controlled in Settings
+Window size: remember last window size/position in Tauri store
+File system access: SQLite path uses Tauri appDataDir() on desktop, not hardcoded path
+
+AppShell Layout
+tsx// Mobile: bottom nav tabs
+<nav className="fixed bottom-0 left-0 right-0 flex h-16 items-center justify-around
+                bg-codex-surface border-t border-codex-border
+                pb-[env(safe-area-inset-bottom)] md:hidden">
+
+// Desktop: left sidebar
+<aside className="hidden md:flex md:w-16 lg:w-60 flex-col h-screen
+                  bg-codex-surface border-r border-codex-border">
+Network & Offline
+
+TanStack Query's networkMode: 'offlineFirst' for all queries
+Show offline banner when navigator.onLine === false
+Diary QuickLogBar works offline: queue in IndexedDB, sync on reconnect (implement in Phase 2)
+API base URL: VITE_API_URL env var — different values for dev/mobile/desktop builds

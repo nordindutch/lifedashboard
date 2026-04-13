@@ -1,0 +1,45 @@
+---
+description: Testing conventions and what to test in Project Codex.
+globs: ["backend/tests/", "frontend/src//.test.{ts,tsx}", "frontend/src/**/.spec.{ts,tsx}"]
+alwaysApply: false
+---
+Testing Rules
+What to Test (Prioritised)
+
+PHP Repository methods — all SQL queries, filter combinations, soft delete, boolean casting
+PHP API response envelopes — correct shape, correct status codes
+TypeScript type guards — isApiSuccess(), enum validators
+React hooks — useKanbanReorder, useQuickLog, useCanvasDrag
+Utility functions — date formatting, fractional order calculation, prompt builder
+
+What NOT to Test
+
+Tailwind class names
+Framer Motion animation values
+Zustand store shape (covered by TypeScript)
+External API responses (mock them, don't test the mocks)
+
+PHP Testing (PHPUnit)
+
+Test file mirrors source: src/Repositories/TaskRepository.php → tests/Repositories/TaskRepositoryTest.php
+Use in-memory SQLite (:memory:) — run schema before each test, wipe after
+Never test via HTTP in unit tests — test Repository and Service classes directly
+Mock external services (AnthropicService, GoogleAuthService) with PHPUnit mocks
+
+TypeScript Testing (Vitest)
+
+Co-locate tests: hooks/useTasks.test.ts next to hooks/useTasks.ts
+Mock TanStack Query with @tanstack/react-query test utilities
+Mock Axios with vi.mock('../api/client')
+Component tests use @testing-library/react — test behaviour not implementation
+
+Test Data Factories
+PHP:
+php// tests/Factories/TaskFactory.php
+TaskFactory::make(['status' => 'in_progress', 'project_id' => 1])
+TaskFactory::makeMany(5, ['status' => 'backlog'])
+TypeScript:
+ts// tests/factories/task.ts
+export const makeTask = (overrides: Partial<Task> = {}): Task => ({
+  id: 1, title: 'Test task', status: 'backlog', priority: 2, ...overrides
+})

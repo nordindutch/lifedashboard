@@ -1,0 +1,97 @@
+---
+description: PHP backend rules — architecture, patterns, and coding standards for the REST API layer.
+globs: ["backend/**/*.php"]
+alwaysApply: false
+---
+Backend PHP Rules
+Architecture Pattern
+Strict three-layer separation — never skip layers:
+Request → Router → Middleware → Controller → Repository → Database
+                                           → Service (external APIs)
+
+Controllers: validate input, call repository/service, return response. No SQL. No business logic.
+Repositories: all SQL lives here. No HTTP logic. Return plain arrays or null.
+Services: external API calls (Anthropic, Google, OpenWeather). No SQL. No HTTP response logic.
+Core classes: Router, Request, Response, Database, Middleware — no feature logic.
+
+Database.php — PDO Singleton
+php// Always bootstrap with these pragmas on every connection
+$pdo->exec('PRAGMA journal_mode = WAL');
+$pdo->exec('PRAGMA foreign_keys = ON');
+$pdo->exec('PRAGMA synchronous = NORMAL');
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+Repository Conventions
+Every repository must implement these base methods:
+
+findAll(array $filters = [], int $page = 1, int $perPage = 50): array
+findById(int $id): ?array
+create(array $data): int — returns new row ID
+update(int $id, array $data): bool
+delete(int $id): bool — soft delete (sets deleted_at)
+restore(int $id): bool
+
+Filters array maps to WHERE clauses. Example:
+php// TaskRepository::findAll(['project_id' => 3, 'status' => 'in_progress'])
+// becomes: WHERE project_id = ? AND status = ? AND deleted_at IS NULL
+Always build WHERE clauses dynamically from the filters array — never with string concatenation.
+Boolean Casting
+SQLite stores booleans as 0|1. Always cast before JSON encoding:
+php// In repository, before returning:
+$row['canvas_pinned'] = (bool) $row['canvas_pinned'];
+$row['is_pinned'] = (bool) $row['is_pinned'];
+$row['is_all_day'] = (bool) $row['is_all_day'];
+Define a castRow(array $row): array method in each repository listing all boolean fields.
+JSON Column Handling
+Columns storing JSON (tasks_snapshot, logs_snapshot, parsed_schedule, etc.):
+php// On read: always decode
+$row['tasks_snapshot'] = json_decode($row['tasks_snapshot'] ?? '[]', true);
+// On write: always encode
+$data['tasks_snapshot'] = json_encode($data['tasks_snapshot'] ?? []);
+Response Envelope
+All responses use Response::json() which wraps in the standard envelope:
+php// Success
+Response::json(['data' => $result]);
+// Success with pagination
+Response::paginated($items, $total, $page, $perPage);
+// Error
+Response::error('NOT_FOUND', 'Task not found', 404);
+Response::error('VALIDATION_ERROR', 'Title is required', 422, 'title');
+Never echo JSON directly. Never die() with JSON.
+Transactions
+Any endpoint that writes to multiple tables must use a transaction:
+php$db->beginTransaction();
+try {
+    // ... multiple writes
+    $db->commit();
+} catch (\Exception $e) {
+    $db->rollBack();
+    Response::error('DB_ERROR', 'Write failed', 500);
+}
+display_order — Fractional Indexing
+When inserting a task at a Kanban position, calculate fractional order:
+
+Inserting at end: max(display_order) + 1.0
+Inserting between A and B: (A.display_order + B.display_order) / 2
+If gap < 0.001, renumber the entire column: 1.0, 2.0, 3.0, ...
+
+Input Validation
+Validate in controller before calling repository. Required pattern:
+php$title = trim($request->getBody()['title'] ?? '');
+if (empty($title)) {
+    Response::error('VALIDATION_ERROR', 'Title is required', 422, 'title');
+    return;
+}
+Validate enums against allowlists — never trust raw input for status, priority, log_type, etc.
+CORS Headers
+Set in index.php front controller for every request:
+phpheader('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, X-Codex-Key');
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
+PHP Version & Features
+
+Minimum PHP 8.2 — use named arguments, match expressions, readonly properties, fibers if needed
+Use declare(strict_types=1) at the top of every file
+Type hint all method parameters and return types
+Use ?Type for nullable, never mixed unless unavoidable

@@ -1,0 +1,60 @@
+---
+description: Anthropic API integration rules — prompt construction, response parsing, and cost controls.
+globs: ["backend/src/Services/AnthropicService.php", "frontend/src/components/home/AiPlanCard.tsx", "frontend/src/hooks/useAiPlan.ts"]
+alwaysApply: false
+---
+AI Integration Rules
+Model
+Always use claude-sonnet-4-20250514. Never hardcode any other model string. Read from settings if overridden, but validate against an allowlist.
+Prompt Construction (AnthropicService.php)
+System Prompt Template
+You are a personal productivity coach for a single user's Life OS system.
+Today is {date} ({day_of_week}). The user's work hours are {work_start}:00–{work_end}:00.
+Weather: {temp}°C, {condition}.
+Be concise, practical, and specific. Avoid generic advice.
+User Prompt — Morning Plan
+Here are my planned tasks for today:
+{foreach task: "- [{priority_label}] {title} (est. {estimated_mins}min, project: {project_title})"}
+
+Recent diary logs (last 24h):
+{foreach log: "- [{log_type}] {body} ({duration_mins}min)"}
+
+Today's calendar:
+{foreach event: "- {title} {start_time}–{end_time}"}
+
+Please provide a morning plan as JSON only. No markdown, no explanation outside the JSON.
+Required structure:
+{
+  "parsed_schedule": [{"start_time": "HH:MM", "end_time": "HH:MM", "task_id": null|number, "task_title": "string", "notes": "string", "is_break": boolean}],
+  "suggested_tasks": [{"task_id": number, "action": "defer|reschedule|prioritize|split|delegate|drop", "reason": "string"}],
+  "reflection": "string (2-3 sentences max)",
+  "score": number (1-100)
+}
+User Prompt — Evening Reflection
+Same structure but focus on what was completed vs planned, energy pattern, and one key insight.
+Response Parsing
+php$raw = $response['content'][0]['text'];
+// Strip any accidental markdown fences
+$clean = preg_replace('/^```json\s*|\s*```$/m', '', trim($raw));
+$parsed = json_decode($clean, true);
+if (json_last_error() !== JSON_ERROR_NONE) {
+    // Store raw_response for debugging, return partial result
+    // Never throw — return what we have
+}
+Always store raw_response even if parsing fails. Log prompt_tokens and completion_tokens to ai_plans table for cost tracking.
+Cost Controls
+
+Rate limit AI plan generation: max 3 calls per day per plan_type
+Check ai_plans table before generating: if a plan exists for today+type and force_regenerate is false, return cached
+Truncate task list to max 20 tasks in prompt (prioritize by priority DESC, due_date ASC)
+Truncate diary logs to last 10 entries in prompt
+Max max_tokens: 1500 for morning/evening plans, 2000 for weekly
+
+Frontend Plan Card (AiPlanCard.tsx)
+
+Show loading skeleton during generation (can take 5-15 seconds)
+Display schedule as a visual timeline (time blocks, color-coded by task priority)
+"Suggested Tasks" shown as action chips — clicking one opens the task drawer
+reflection text shown in a subtle card below the timeline
+Score shown as a circular progress indicator (1-100)
+"Regenerate" button calls POST /api/ai/plan/generate with force_regenerate: true; confirm dialog first (costs tokens)

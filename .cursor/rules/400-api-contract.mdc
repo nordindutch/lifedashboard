@@ -1,0 +1,74 @@
+---
+description: REST API contract — request/response shapes, status codes, and frontend/backend sync rules.
+globs: ["backend/src/Controllers/", "frontend/src/api/"]
+alwaysApply: false
+---
+API Contract Rules
+Response Envelope — Strict
+Every response must be one of these two shapes:
+typescript// Success
+{ "success": true, "data": T, "meta"?: { "total": number, "page": number, "per_page": number } }
+
+// Error
+{ "success": false, "error": { "code": string, "message": string, "field"?: string } }
+No exceptions. No bare arrays. No bare objects. No non-JSON responses (except 204 No Content for OPTIONS).
+HTTP Status Codes
+SituationCodeSuccessful GET / successful POST (non-creation)200Successful POST (created resource)201Successful DELETE (soft)200OPTIONS preflight204Validation error422Auth failure (bad/missing API key)401Resource not found404Method not allowed405Server / DB error500
+Pagination
+
+All list endpoints accept ?page=1&per_page=50
+Default per_page: 50 for tasks/diary, 20 for AI plans, unlimited for goals/projects (they're always small)
+Response includes meta.total, meta.page, meta.per_page
+Frontend uses useInfiniteQuery for diary log feed, regular useQuery for everything else
+
+Mutation DTOs — Frontend to Backend
+The frontend sends only the DTO fields. The backend ignores any extra fields. Required vs optional:
+CreateTaskDTO (POST /api/tasks):
+
+Required: title (string, non-empty)
+Optional: project_id, goal_id, parent_task_id, description, status (default: backlog), priority (default: 2), estimated_mins, due_date, canvas_x, canvas_y
+
+KanbanReorderDTO (PATCH /api/tasks/reorder):
+
+Required: moves array of { task_id: number, new_status: TaskStatus, new_display_order: number }
+Process all moves in a single transaction
+
+CreateDiaryLogDTO (POST /api/diary):
+
+Required: body (string, non-empty)
+Optional: log_type (default: activity), project_id, task_id, goal_id, mood_score, energy_score, duration_mins, logged_at (default: now)
+
+Briefing Endpoint (GET /api/briefing)
+Single aggregate endpoint for the Home Hub. Returns DailyBriefing:
+{
+  date, weather, events (today's calendar), emails (top 5 unread),
+  tasks_today (due_date = today), tasks_overdue (due_date < today, not done),
+  recent_logs (last 5), ai_plan (today's morning plan if exists), snapshot
+}
+All data fetched in parallel using PDO; weather/calendar/email from cache tables.
+Total response time target: < 200ms on shared hosting.
+Error Code Taxonomy
+Predefined codes the frontend handles:
+
+NOT_FOUND — resource doesn't exist or is soft-deleted
+VALIDATION_ERROR — missing/invalid field (include field key)
+UNAUTHORIZED — missing or invalid X-Codex-Key
+DUPLICATE — unique constraint violation
+EXTERNAL_API_ERROR — Google/OpenWeather/Anthropic call failed
+QUOTA_EXCEEDED — Anthropic rate limit hit
+DB_ERROR — SQLite write failure
+
+Frontend API Module Pattern
+Each frontend/src/api/*.ts file exports typed functions:
+typescript// tasks.ts
+export async function getTasks(filters: TaskFilters): Promise<ApiResponse<Task[]>> {
+  const response = await client.get('/tasks', { params: filters });
+  return response.data;
+}
+
+export async function createTask(dto: CreateTaskDTO): Promise<ApiResponse<Task>> {
+  const response = await client.post('/tasks', dto);
+  return response.data;
+}
+Never use fetch directly — always client (Axios instance from api/client.ts).
+Never destructure .data inside the API module — let the hook/component handle the success check.
