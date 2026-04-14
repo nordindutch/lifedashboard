@@ -15,8 +15,9 @@ export async function testWeather(): Promise<ApiResponse<import('../types').Weat
   return parseApiResponse(apiClient.get('/api/settings/weather-test'));
 }
 
-export async function getGoogleAuth(): Promise<void> {
-  window.location.href = '/api/auth/google';
+export function getGoogleAuth(): void {
+  const redirectUri = `${window.location.origin}/api/auth/google/callback`;
+  window.location.href = `/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}`;
 }
 
 export async function revokeGoogle(): Promise<ApiResponse<{ revoked: boolean }>> {

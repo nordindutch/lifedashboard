@@ -160,13 +160,17 @@ final class SettingsController
         }
         $state = bin2hex(random_bytes(16));
         $db = Database::getInstance();
+        $redirectUri = $this->buildGoogleRedirectUri($request);
         $db->prepare(
             "INSERT INTO settings (key, value, value_type, description, updated_at)
              VALUES ('google_oauth_state', :value, 'string', 'Temporary OAuth state', unixepoch())
              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
         )->execute(['value' => $state]);
-
-        $redirectUri = $this->buildGoogleRedirectUri($request);
+        $db->prepare(
+            "INSERT INTO settings (key, value, value_type, description, updated_at)
+             VALUES ('google_oauth_redirect_uri', :value, 'string', 'Temporary OAuth redirect URI', unixepoch())
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
+        )->execute(['value' => $redirectUri]);
         $url = $service->buildAuthUrl($redirectUri, $state);
         header('Location: ' . $url, true, 302);
         exit;
@@ -191,8 +195,18 @@ final class SettingsController
         $stmt->execute();
         $expectedState = (string) ($stmt->fetchColumn() ?: '');
         $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_state'")->execute();
+
+        $stmt = $db->prepare("SELECT value FROM settings WHERE key = 'google_oauth_redirect_uri' LIMIT 1");
+        $stmt->execute();
+        $redirectUri = (string) ($stmt->fetchColumn() ?: '');
+        $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_redirect_uri'")->execute();
+
         if ($expectedState === '' || !hash_equals($expectedState, $state)) {
             header('Location: ' . $frontend . '?google=error&reason=invalid_state', true, 302);
+            exit;
+        }
+        if ($redirectUri === '') {
+            header('Location: ' . $frontend . '?google=error&reason=missing_redirect_uri', true, 302);
             exit;
         }
 
@@ -201,7 +215,7 @@ final class SettingsController
             header('Location: ' . $frontend . '?google=error&reason=not_configured', true, 302);
             exit;
         }
-        $token = $service->exchangeCodeForTokens($code, $this->buildGoogleRedirectUri($request));
+        $token = $service->exchangeCodeForTokens($code, $redirectUri);
         if ($token === null || !$service->storeTokens($token)) {
             header('Location: ' . $frontend . '?google=error&reason=token_exchange_failed', true, 302);
             exit;
@@ -318,6 +332,11 @@ final class SettingsController
 
     private function buildGoogleRedirectUri(Request $request): string
     {
+        $explicit = $request->getQueryString('redirect_uri');
+        if ($explicit !== null && $explicit !== '' && filter_var($explicit, FILTER_VALIDATE_URL)) {
+            return $explicit;
+        }
+
         $host = $request->getHeader('host') ?? ($_SERVER['HTTP_HOST'] ?? 'localhost');
         $scheme = 'http';
         $proto = $request->getHeader('x-forwarded-proto');
@@ -332,6 +351,23 @@ final class SettingsController
 
     private function frontendSettingsUrl(Request $request): string
     {
+        $envUrl = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? '');
+        if (is_string($envUrl) && $envUrl !== '') {
+            return rtrim($envUrl, '/') . '/settings';
+        }
+
+        $origin = $request->getHeader('origin') ?? $request->getHeader('referer') ?? '';
+        if ($origin !== '') {
+            $parsed = parse_url($origin);
+            if (is_array($parsed) && isset($parsed['scheme'], $parsed['host'])) {
+                $base = $parsed['scheme'] . '://' . $parsed['host'];
+                if (isset($parsed['port'])) {
+                    $base .= ':' . $parsed['port'];
+                }
+                return $base . '/settings';
+            }
+        }
+
         $host = $request->getHeader('host') ?? ($_SERVER['HTTP_HOST'] ?? 'localhost');
         $hostOnly = $host;
         if (str_contains($hostOnly, ':')) {
