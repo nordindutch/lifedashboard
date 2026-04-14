@@ -2,13 +2,17 @@ import { apiClient, parseApiResponse } from './client';
 import type { ApiResponse, AppSettings } from '../types';
 
 export async function getSettings(): Promise<ApiResponse<AppSettings>> {
-  return parseApiResponse<AppSettings>(apiClient.get('/api/settings'));
+  return parseApiResponse(apiClient.get('/api/settings'));
 }
 
 export async function updateSettings(
-  body: Partial<AppSettings>,
+  patch: Partial<AppSettings>,
 ): Promise<ApiResponse<AppSettings>> {
-  return parseApiResponse<AppSettings>(apiClient.put('/api/settings', body));
+  return parseApiResponse(apiClient.put('/api/settings', patch));
+}
+
+export async function testWeather(): Promise<ApiResponse<import('../types').WeatherData>> {
+  return parseApiResponse(apiClient.get('/api/settings/weather-test'));
 }
 
 export async function getGoogleAuth(): Promise<void> {
@@ -16,13 +20,13 @@ export async function getGoogleAuth(): Promise<void> {
 }
 
 export async function revokeGoogle(): Promise<ApiResponse<{ revoked: boolean }>> {
-  return parseApiResponse<{ revoked: boolean }>(apiClient.delete('/api/auth/google'));
+  return parseApiResponse(apiClient.delete('/api/auth/google'));
 }
 
-export async function getIntegrationStatus(): Promise<
-  ApiResponse<{ google: boolean; openweather: boolean }>
-> {
-  return parseApiResponse<{ google: boolean; openweather: boolean }>(
-    apiClient.get('/api/integrations/status'),
-  );
+export async function syncCalendar(): Promise<ApiResponse<{ synced: boolean; events: number }>> {
+  return parseApiResponse(apiClient.post('/api/calendar/sync', {}));
+}
+
+export async function getIntegrationStatus(): Promise<ApiResponse<{ google: boolean; openweather: boolean }>> {
+  return parseApiResponse(apiClient.get('/api/integrations/status'));
 }

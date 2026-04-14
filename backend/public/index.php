@@ -18,6 +18,7 @@ spl_autoload_register(static function (string $class): void {
 use Codex\Controllers\BriefingController;
 use Codex\Controllers\DiaryController;
 use Codex\Controllers\GoalController;
+use Codex\Controllers\SettingsController;
 use Codex\Core\Middleware;
 use Codex\Core\Request;
 use Codex\Core\Response;
@@ -64,8 +65,14 @@ if ($method === 'OPTIONS') {
 $rawBody = file_get_contents('php://input') ?: '';
 $request = Request::fromGlobals($_SERVER, $rawBody);
 
-if (!Middleware::apiKeyAuth($request)) {
-    exit;
+$publicPaths = [
+    '/api/auth/google',
+    '/api/auth/google/callback',
+];
+if (!in_array($request->getPath(), $publicPaths, true)) {
+    if (!Middleware::apiKeyAuth($request)) {
+        exit;
+    }
 }
 
 $router = new Router();
@@ -90,7 +97,16 @@ $diariesController = static function () use (&$diaryController): DiaryController
 };
 
 $briefingController = new BriefingController();
+$settingsController = new SettingsController();
 $router->get('/api/briefing', [$briefingController, 'index']);
+$router->get('/api/auth/google', [$settingsController, 'googleAuth']);
+$router->get('/api/auth/google/callback', [$settingsController, 'googleCallback']);
+$router->delete('/api/auth/google', [$settingsController, 'revokeGoogle']);
+$router->post('/api/calendar/sync', [$settingsController, 'syncCalendar']);
+$router->get('/api/integrations/status', [$settingsController, 'integrationStatus']);
+$router->get('/api/settings/weather-test', [$settingsController, 'weatherTest']);
+$router->get('/api/settings', [$settingsController, 'index']);
+$router->put('/api/settings', [$settingsController, 'update']);
 
 $router->get('/api/diary', static function (Request $request) use ($diariesController): void {
     $diariesController()->index($request);

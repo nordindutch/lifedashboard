@@ -6,6 +6,8 @@ namespace Codex\Controllers;
 
 use Codex\Core\Request;
 use Codex\Core\Response;
+use Codex\Services\CalendarService;
+use Codex\Services\WeatherService;
 
 /**
  * Home Hub aggregate — stub until weather/calendar/email/tasks are wired to repositories.
@@ -24,10 +26,27 @@ final class BriefingController
             return;
         }
 
+        $weather = null;
+        try {
+            $service = WeatherService::makeFromSettings();
+            if ($service !== null) {
+                $weather = $service->getCurrent();
+            }
+        } catch (\Throwable) {
+            // non-fatal — briefing still returns without weather
+        }
+
+        $events = [];
+        try {
+            $events = CalendarService::loadCachedForDay($date);
+        } catch (\Throwable) {
+            // non-fatal — briefing still returns without events
+        }
+
         $payload = [
             'date' => $date,
-            'weather' => null,
-            'events' => [],
+            'weather' => $weather,
+            'events' => $events,
             'emails' => [],
             'tasks_today' => [],
             'tasks_overdue' => [],
