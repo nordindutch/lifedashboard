@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { RefreshCw } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { CalendarEvent } from '../../types';
 import { Card } from '../ui/Card';
@@ -17,7 +18,13 @@ interface TooltipState {
   y: number;
 }
 
-export function CalendarStrip({ events }: { events: CalendarEvent[] }) {
+interface CalendarStripProps {
+  events: CalendarEvent[];
+  onSync?: () => void;
+  isSyncing?: boolean;
+}
+
+export function CalendarStrip({ events, onSync, isSyncing = false }: CalendarStripProps) {
   const [now, setNow] = useState<Date>(() => new Date());
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
@@ -109,9 +116,37 @@ export function CalendarStrip({ events }: { events: CalendarEvent[] }) {
     setTooltip({ event: calendarEvent, x, y });
   };
 
+  const hourLabelStyle = (hour: number): CSSProperties => {
+    const pct = ((hour * 60 - timelineStartMin) / timelineDurationMin) * 100;
+    if (pct <= 0.0001) {
+      return { top: `${pct.toFixed(4)}%`, transform: 'translateY(0)' };
+    }
+    if (pct >= 99.9999) {
+      return { top: `${pct.toFixed(4)}%`, transform: 'translateY(-100%)' };
+    }
+    return { top: `${pct.toFixed(4)}%`, transform: 'translateY(-50%)' };
+  };
+
+  const hourLineStyle = (hour: number): CSSProperties => {
+    const pct = ((hour * 60 - timelineStartMin) / timelineDurationMin) * 100;
+    return { top: `${pct.toFixed(4)}%` };
+  };
+
   return (
     <Card>
-      <h3 className="mb-2 text-sm font-medium text-slate-300">Today</h3>
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium text-slate-300">Today</h3>
+        <button
+          type="button"
+          onClick={onSync}
+          disabled={!onSync || isSyncing}
+          className="inline-flex min-h-[36px] items-center gap-1 rounded-md border border-codex-border px-2 py-1 text-xs text-codex-muted hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+          aria-label="Sync calendar"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+          {isSyncing ? 'Syncing…' : 'Sync'}
+        </button>
+      </div>
       {dayEvents.length === 0 ? (
         <p className="text-sm text-slate-500">No events synced.</p>
       ) : (
@@ -134,70 +169,74 @@ export function CalendarStrip({ events }: { events: CalendarEvent[] }) {
 
           <div className="grid grid-cols-[2.5rem_1fr] gap-2">
             <div className="relative h-[32rem]">
-              {timelineHours.map((hour) => (
-                <span
-                  key={hour}
-                  className="absolute -translate-y-1/2 text-[10px] text-codex-muted"
-                  style={{ top: `${(((hour * 60 - timelineStartMin) / timelineDurationMin) * 100).toFixed(4)}%` }}
-                >
-                  {String(hour).padStart(2, '0')}
-                </span>
-              ))}
+              <div className="absolute inset-2">
+                {timelineHours.map((hour) => (
+                  <span
+                    key={hour}
+                    className="absolute right-0 text-[10px] leading-none text-codex-muted"
+                    style={hourLabelStyle(hour)}
+                  >
+                    {String(hour).padStart(2, '0')}
+                  </span>
+                ))}
+              </div>
             </div>
 
-            <div className="relative h-[32rem] overflow-visible rounded-lg border border-codex-border bg-codex-bg/40">
-              {timelineHours.map((hour) => (
+            <div className="relative h-[32rem] overflow-hidden rounded-lg border border-codex-border bg-codex-bg/40">
+              <div className="absolute inset-2">
+                {timelineHours.map((hour) => (
+                  <div
+                    key={hour}
+                    className="absolute left-0 right-0 border-t border-codex-border/40"
+                    style={hourLineStyle(hour)}
+                  />
+                ))}
+
                 <div
-                  key={hour}
-                  className="absolute left-0 right-0 border-t border-codex-border/40"
-                  style={{ top: `${(((hour * 60 - timelineStartMin) / timelineDurationMin) * 100).toFixed(4)}%` }}
-                />
-              ))}
+                  className="absolute left-0 right-0 z-20 border-t border-rose-500/80"
+                  style={{ top: `${nowTopPct}%` }}
+                  aria-label="Current time"
+                >
+                  <span className="absolute right-1 top-1 rounded bg-rose-500/20 px-1 py-0.5 text-[10px] font-medium text-rose-300">
+                    Now {format(now, 'HH:mm')}
+                  </span>
+                </div>
 
-              <div
-                className="absolute left-0 right-0 z-20 border-t border-rose-500/80"
-                style={{ top: `${nowTopPct}%` }}
-                aria-label="Current time"
-              >
-                <span className="absolute -top-3 right-1 rounded bg-rose-500/20 px-1 py-0.5 text-[10px] font-medium text-rose-300">
-                  Now {format(now, 'HH:mm')}
-                </span>
+                {positionedEvents.events.map(({ event, startMin, endMin, lane }) => {
+                  const clippedStartMin = Math.max(timelineStartMin, startMin);
+                  const clippedEndMin = Math.min(1440, endMin);
+                  if (clippedEndMin <= clippedStartMin) {
+                    return null;
+                  }
+
+                  const topPct = ((clippedStartMin - timelineStartMin) / timelineDurationMin) * 100;
+                  const heightPct = ((clippedEndMin - clippedStartMin) / timelineDurationMin) * 100;
+                  const widthPct = 100 / positionedEvents.laneCount;
+                  const leftPct = lane * widthPct;
+                  const eventTime = `${format(new Date(event.start_at * 1000), 'HH:mm')} - ${format(new Date(event.end_at * 1000), 'HH:mm')}`;
+
+                  return (
+                    <article
+                      key={event.id}
+                      className="absolute z-10 rounded-md border border-indigo-400/40 bg-indigo-500/20 p-1.5 text-[11px] text-indigo-100 hover:z-30"
+                      style={{
+                        top: `${topPct}%`,
+                        height: `max(${heightPct}%, 2.75rem)`,
+                        left: `${leftPct}%`,
+                        width: `${widthPct}%`,
+                      }}
+                      onMouseEnter={(e) => moveTooltip(event, e.clientX, e.clientY)}
+                      onMouseMove={(e) => moveTooltip(event, e.clientX, e.clientY)}
+                      onMouseLeave={() => setTooltip(null)}
+                    >
+                      <div className="overflow-hidden">
+                        <p className="truncate font-medium">{event.title}</p>
+                        <p className="truncate text-[10px] text-indigo-200/85">{eventTime}</p>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
-
-              {positionedEvents.events.map(({ event, startMin, endMin, lane }) => {
-                const clippedStartMin = Math.max(timelineStartMin, startMin);
-                const clippedEndMin = Math.min(1440, endMin);
-                if (clippedEndMin <= clippedStartMin) {
-                  return null;
-                }
-
-                const topPct = ((clippedStartMin - timelineStartMin) / timelineDurationMin) * 100;
-                const heightPct = ((clippedEndMin - clippedStartMin) / timelineDurationMin) * 100;
-                const widthPct = 100 / positionedEvents.laneCount;
-                const leftPct = lane * widthPct;
-                const eventTime = `${format(new Date(event.start_at * 1000), 'HH:mm')} - ${format(new Date(event.end_at * 1000), 'HH:mm')}`;
-
-                return (
-                  <article
-                    key={event.id}
-                    className="absolute z-10 rounded-md border border-indigo-400/40 bg-indigo-500/20 p-1.5 text-[11px] text-indigo-100 hover:z-30"
-                    style={{
-                      top: `${topPct}%`,
-                      height: `max(${heightPct}%, 2.75rem)`,
-                      left: `${leftPct}%`,
-                      width: `${widthPct}%`,
-                    }}
-                    onMouseEnter={(e) => moveTooltip(event, e.clientX, e.clientY)}
-                    onMouseMove={(e) => moveTooltip(event, e.clientX, e.clientY)}
-                    onMouseLeave={() => setTooltip(null)}
-                  >
-                    <div className="overflow-hidden">
-                      <p className="truncate font-medium">{event.title}</p>
-                      <p className="truncate text-[10px] text-indigo-200/85">{eventTime}</p>
-                    </div>
-                  </article>
-                );
-              })}
             </div>
           </div>
         </div>

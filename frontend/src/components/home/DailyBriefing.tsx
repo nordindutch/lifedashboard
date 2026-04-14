@@ -39,6 +39,11 @@ function BriefingSkeleton() {
 
 export function DailyBriefing() {
   const q = useBriefing();
+  const isSyncing = q.isFetching && !q.isLoading;
+
+  const handleSync = (): void => {
+    void q.refetch();
+  };
 
   if (q.isLoading) {
     return <BriefingSkeleton />;
@@ -100,13 +105,13 @@ export function DailyBriefing() {
           <h2 id="home-calendar" className="sr-only">
             Calendar
           </h2>
-          <CalendarStrip events={b.events} />
+          <CalendarStrip events={b.events} onSync={handleSync} isSyncing={isSyncing} />
         </section>
         <section className="lg:col-span-4" aria-labelledby="home-inbox">
           <h2 id="home-inbox" className="sr-only">
             Inbox
           </h2>
-          <EmailPreview emails={b.emails} />
+          <EmailPreview emails={b.emails} onSync={handleSync} isSyncing={isSyncing} />
         </section>
         <section className="lg:col-span-12" aria-labelledby="home-ai">
           <h2 id="home-ai" className="sr-only">

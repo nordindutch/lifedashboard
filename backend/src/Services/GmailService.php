@@ -11,6 +11,8 @@ final class GmailService
 {
     public const AUTO_SYNC_INTERVAL_SEC = 300;
 
+    private const BRIEFING_EMAIL_SLOTS = 5;
+
     public function __construct(private readonly string $accessToken)
     {
     }
@@ -20,10 +22,28 @@ final class GmailService
      */
     public function fetchUnread(int $maxResults = 20): ?array
     {
+        return $this->fetchListByQuery('is:unread category:primary', $maxResults);
+    }
+
+    /**
+     * Read Primary tab messages (newest first from list API).
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    public function fetchReadPrimary(int $maxResults = 20): ?array
+    {
+        return $this->fetchListByQuery('category:primary -is:unread', $maxResults);
+    }
+
+    /**
+     * @return list<array<string, mixed>>|null
+     */
+    private function fetchListByQuery(string $searchQuery, int $maxResults): ?array
+    {
         $maxResults = max(1, min(20, $maxResults));
         $listUrl = 'https://www.googleapis.com/gmail/v1/users/me/messages?' . http_build_query([
             'labelIds' => 'INBOX',
-            'q' => 'category:primary',
+            'q' => $searchQuery,
             'maxResults' => $maxResults,
         ]);
 
@@ -54,6 +74,9 @@ final class GmailService
             if ($detail === null) {
                 return null;
             }
+            if (!$this->isPrimaryInboxMessage($detail)) {
+                continue;
+            }
             $normalized = $this->normalise($detail);
             if ($normalized !== null) {
                 $out[] = $normalized;
@@ -61,6 +84,29 @@ final class GmailService
         }
 
         return $out;
+    }
+
+    /**
+     * Gmail “Primary” is INBOX without Social / Promotions / Updates / Forums categorization.
+     *
+     * @param array<string, mixed> $detail Gmail API message resource
+     */
+    private function isPrimaryInboxMessage(array $detail): bool
+    {
+        $labelIds = isset($detail['labelIds']) && is_array($detail['labelIds']) ? $detail['labelIds'] : [];
+        $nonPrimary = [
+            'CATEGORY_SOCIAL',
+            'CATEGORY_PROMOTIONS',
+            'CATEGORY_UPDATES',
+            'CATEGORY_FORUMS',
+        ];
+        foreach ($nonPrimary as $cat) {
+            if (in_array($cat, $labelIds, true)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -141,17 +187,82 @@ final class GmailService
     {
         $fetchMax = max(1, min(20, $fetchMax));
         $gmailService = new self($accessToken);
-        $emails = $gmailService->fetchUnread($fetchMax);
-        if ($emails === null) {
+        $unread = $gmailService->fetchUnread($fetchMax);
+
+        if ($unread === null) {
             return null;
         }
-        $count = self::upsertCachedEmails($emails);
-        if ($emails !== [] && $count === 0) {
+
+        $readFill = [];
+        $nUnread = count($unread);
+        if ($nUnread < self::BRIEFING_EMAIL_SLOTS) {
+            $need = self::BRIEFING_EMAIL_SLOTS - $nUnread;
+            $toFetch = min(20, max($need, $need + 5));
+            $readCandidates = $gmailService->fetchReadPrimary($toFetch);
+            if ($readCandidates === null) {
+                $readCandidates = [];
+            }
+            $seen = [];
+            foreach ($unread as $u) {
+                $eid = (string) ($u['external_id'] ?? '');
+                if ($eid !== '') {
+                    $seen[$eid] = true;
+                }
+            }
+            foreach ($readCandidates as $r) {
+                if (count($readFill) >= $need) {
+                    break;
+                }
+                $eid = (string) ($r['external_id'] ?? '');
+                if ($eid === '' || isset($seen[$eid])) {
+                    continue;
+                }
+                $readFill[] = $r;
+            }
+        }
+
+        $toStore = array_merge($unread, $readFill);
+
+        $db = Database::getInstance();
+        $db->beginTransaction();
+        try {
+            $db->prepare('DELETE FROM cached_emails')->execute();
+
+            if ($toStore !== []) {
+                $stmt = $db->prepare(
+                    'INSERT OR REPLACE INTO cached_emails
+                     (external_id, thread_id, subject, sender_name, sender_email, snippet,
+                      is_unread, has_attachment, received_at, fetched_at)
+                     VALUES
+                     (:external_id, :thread_id, :subject, :sender_name, :sender_email, :snippet,
+                      :is_unread, :has_attachment, :received_at, :fetched_at)',
+                );
+                foreach ($toStore as $email) {
+                    $stmt->execute([
+                        'external_id' => (string) ($email['external_id'] ?? ''),
+                        'thread_id' => $email['thread_id'] ?? null,
+                        'subject' => $email['subject'] ?? null,
+                        'sender_name' => $email['sender_name'] ?? null,
+                        'sender_email' => $email['sender_email'] ?? null,
+                        'snippet' => $email['snippet'] ?? null,
+                        'is_unread' => !empty($email['is_unread']) ? 1 : 0,
+                        'has_attachment' => !empty($email['has_attachment']) ? 1 : 0,
+                        'received_at' => (int) ($email['received_at'] ?? time()),
+                        'fetched_at' => (int) ($email['fetched_at'] ?? time()),
+                    ]);
+                }
+            }
+
+            $db->commit();
+        } catch (\Throwable) {
+            $db->rollBack();
+
             return null;
         }
+
         self::setLastSyncUnix(time());
 
-        return $count;
+        return count($toStore);
     }
 
     /**
@@ -205,42 +316,6 @@ final class GmailService
             'value_type' => 'integer',
             'description' => 'Unix time of last successful Gmail inbox sync',
         ]);
-    }
-
-    /**
-     * @param list<array<string, mixed>> $emails
-     */
-    public static function upsertCachedEmails(array $emails): int
-    {
-        $db = Database::getInstance();
-        $db->beginTransaction();
-        try {
-            $stmt = $db->prepare(
-                'INSERT OR REPLACE INTO cached_emails
-                 (external_id, thread_id, subject, sender_name, sender_email, snippet, is_unread, has_attachment, received_at, fetched_at)
-                 VALUES
-                 (:external_id, :thread_id, :subject, :sender_name, :sender_email, :snippet, :is_unread, :has_attachment, :received_at, :fetched_at)',
-            );
-            foreach ($emails as $email) {
-                $stmt->execute([
-                    'external_id' => (string) ($email['external_id'] ?? ''),
-                    'thread_id' => $email['thread_id'] ?? null,
-                    'subject' => $email['subject'] ?? null,
-                    'sender_name' => $email['sender_name'] ?? null,
-                    'sender_email' => $email['sender_email'] ?? null,
-                    'snippet' => $email['snippet'] ?? null,
-                    'is_unread' => !empty($email['is_unread']) ? 1 : 0,
-                    'has_attachment' => !empty($email['has_attachment']) ? 1 : 0,
-                    'received_at' => (int) ($email['received_at'] ?? time()),
-                    'fetched_at' => (int) ($email['fetched_at'] ?? time()),
-                ]);
-            }
-            $db->commit();
-            return count($emails);
-        } catch (\Throwable) {
-            $db->rollBack();
-            return 0;
-        }
     }
 
     /**
