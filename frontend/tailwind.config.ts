@@ -10,6 +10,7 @@ export default {
         'codex-surface': '#12121a',
         'codex-border': '#27272f',
         'codex-accent': '#818cf8',
+        'codex-muted': '#71717a',
       },
     },
   },
