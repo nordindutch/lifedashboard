@@ -56,13 +56,25 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
   const dayStartUnix = Math.floor(dayStart.getTime() / 1000);
   const dayEndUnix = dayStartUnix + 86400;
 
-  const dayEvents = useMemo(
-    () =>
-      [...events]
-        .filter((event) => event.end_at > dayStartUnix && event.start_at < dayEndUnix)
-        .sort((a, b) => a.start_at - b.start_at),
-    [events, dayStartUnix, dayEndUnix],
-  );
+  /** Timed events that ended earlier today are hidden unless the whole slot lies in the last rolling hour. */
+  const isTimedEventVisibleNow = (event: CalendarEvent, nowUnix: number): boolean => {
+    if (event.is_all_day) {
+      return true;
+    }
+    if (event.end_at >= nowUnix) {
+      return true;
+    }
+    const hourAgoUnix = nowUnix - 3600;
+    return event.start_at >= hourAgoUnix && event.end_at <= nowUnix;
+  };
+
+  const dayEvents = useMemo(() => {
+    const nowUnix = Math.floor(now.getTime() / 1000);
+    return [...events]
+      .filter((event) => event.end_at > dayStartUnix && event.start_at < dayEndUnix)
+      .filter((event) => isTimedEventVisibleNow(event, nowUnix))
+      .sort((a, b) => a.start_at - b.start_at);
+  }, [events, dayStartUnix, dayEndUnix, now]);
 
   const allDayEvents = useMemo(() => dayEvents.filter((event) => event.is_all_day), [dayEvents]);
 
@@ -219,10 +231,10 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
                   return (
                     <article
                       key={event.id}
-                      className="absolute z-10 rounded-md border border-indigo-400/40 bg-indigo-500/20 p-1.5 text-[11px] text-indigo-100 hover:z-30"
+                      className="box-border absolute z-10 overflow-hidden rounded-md border border-indigo-400/40 bg-indigo-500/20 p-1.5 text-[11px] leading-tight text-indigo-100 hover:z-30"
                       style={{
                         top: `${topPct}%`,
-                        height: `max(${heightPct}%, 2.75rem)`,
+                        height: `${heightPct}%`,
                         left: `${leftPct}%`,
                         width: `${widthPct}%`,
                       }}

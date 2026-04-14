@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { Clock3 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { syncCalendar, syncGmail } from '../../api/settings';
 import { useBriefing } from '../../hooks/useBriefing';
 import { useSettings } from '../../hooks/useSettings';
@@ -60,6 +60,14 @@ export function DailyBriefing() {
     return () => window.clearInterval(id);
   }, []);
 
+  const activeTimezone = settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const timeLabel = new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    timeZone: activeTimezone,
+  }).format(now);
+
   const handleCalendarSync = async (): Promise<void> => {
     setIsSyncingCalendar(true);
     try {
@@ -113,16 +121,6 @@ export function DailyBriefing() {
       return b.date;
     }
   })();
-  const activeTimezone = settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-  const timeLabel = useMemo(() => {
-    const fmt = new Intl.DateTimeFormat(undefined, {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      timeZone: activeTimezone,
-    });
-    return fmt.format(now);
-  }, [activeTimezone, now]);
 
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-6 md:px-6">

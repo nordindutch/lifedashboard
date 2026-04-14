@@ -43,6 +43,7 @@ export function Sidebar() {
               key={t.id}
               type="button"
               onClick={() => navigate(tabToPath(t.id))}
+              title={t.label}
               className={`flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm ${
                 on ? 'bg-white/10 text-codex-accent' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
               }`}

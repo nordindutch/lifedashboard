@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import type { LogType } from '../../types';
 
-const TYPES: { type: LogType; emoji: string }[] = [
-  { type: 'activity', emoji: '⚡' },
-  { type: 'reflection', emoji: '💭' },
-  { type: 'win', emoji: '🏆' },
-  { type: 'blocker', emoji: '🧱' },
-  { type: 'idea', emoji: '💡' },
-  { type: 'mood', emoji: '🙂' },
+const TYPES: { type: LogType; emoji: string; label: string }[] = [
+  { type: 'activity', emoji: '⚡', label: 'Activity' },
+  { type: 'reflection', emoji: '💭', label: 'Reflection' },
+  { type: 'win', emoji: '🏆', label: 'Win' },
+  { type: 'blocker', emoji: '🧱', label: 'Blocker' },
+  { type: 'idea', emoji: '💡', label: 'Idea' },
+  { type: 'mood', emoji: '🙂', label: 'Mood' },
 ];
 
 type Props = {
@@ -39,7 +39,8 @@ export function QuickLogBar({ onSubmit }: Props) {
               className={`rounded-full px-2 py-1 text-sm ${
                 logType === x.type ? 'bg-white/15' : 'bg-white/5 hover:bg-white/10'
               }`}
-              aria-label={x.type}
+              title={`Log type: ${x.label}`}
+              aria-label={`Log type: ${x.label}`}
             >
               {x.emoji}
             </button>

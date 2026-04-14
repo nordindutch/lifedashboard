@@ -26,6 +26,7 @@ export function BottomNav() {
               <button
                 type="button"
                 onClick={() => navigate(tabToPath(t.id))}
+                title={t.label}
                 className={`flex w-full flex-col items-center gap-0.5 rounded-lg py-2 text-[11px] ${
                   on ? 'text-codex-accent' : 'text-slate-500'
                 }`}
