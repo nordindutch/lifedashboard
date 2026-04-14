@@ -19,12 +19,14 @@ use Codex\Controllers\BriefingController;
 use Codex\Controllers\DiaryController;
 use Codex\Controllers\GoalController;
 use Codex\Controllers\SettingsController;
+use Codex\Controllers\TaskController;
 use Codex\Core\Middleware;
 use Codex\Core\Request;
 use Codex\Core\Response;
 use Codex\Core\Router;
 use Codex\Repositories\DiaryRepository;
 use Codex\Repositories\GoalRepository;
+use Codex\Repositories\TaskRepository;
 
 $backendRoot = dirname(__DIR__);
 
@@ -96,6 +98,15 @@ $diariesController = static function () use (&$diaryController): DiaryController
     return $diaryController;
 };
 
+$taskController = null;
+$tasksController = static function () use (&$taskController): TaskController {
+    if ($taskController === null) {
+        $taskController = new TaskController(TaskRepository::make());
+    }
+
+    return $taskController;
+};
+
 $briefingController = new BriefingController();
 $settingsController = new SettingsController();
 $router->get('/api/briefing', [$briefingController, 'index']);
@@ -123,6 +134,28 @@ $router->put('/api/diary/:id', static function (Request $request) use ($diariesC
 });
 $router->delete('/api/diary/:id', static function (Request $request) use ($diariesController): void {
     $diariesController()->destroy($request);
+});
+
+$router->get('/api/tasks', static function (Request $request) use ($tasksController): void {
+    $tasksController()->index($request);
+});
+$router->post('/api/tasks', static function (Request $request) use ($tasksController): void {
+    $tasksController()->store($request);
+});
+$router->patch('/api/tasks/reorder', static function (Request $request) use ($tasksController): void {
+    $tasksController()->reorder($request);
+});
+$router->get('/api/tasks/:id', static function (Request $request) use ($tasksController): void {
+    $tasksController()->show($request);
+});
+$router->put('/api/tasks/:id', static function (Request $request) use ($tasksController): void {
+    $tasksController()->update($request);
+});
+$router->delete('/api/tasks/:id', static function (Request $request) use ($tasksController): void {
+    $tasksController()->destroy($request);
+});
+$router->patch('/api/tasks/:id/canvas', static function (Request $request) use ($tasksController): void {
+    $tasksController()->patchCanvas($request);
 });
 
 $router->get('/api/goals', static function (Request $request) use ($goalsController): void {

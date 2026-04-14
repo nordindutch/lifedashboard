@@ -1,14 +1,17 @@
 import { format } from 'date-fns';
+import { useState } from 'react';
+import { syncCalendar, syncGmail } from '../../api/settings';
 import { useBriefing } from '../../hooks/useBriefing';
 import { EmptyState } from '../ui/EmptyState';
 import { AiPlanCard } from './AiPlanCard';
+import { BriefingTasksCard } from './BriefingTasksCard';
 import { CalendarStrip } from './CalendarStrip';
 import { EmailPreview } from './EmailPreview';
 import { WeatherCard } from './WeatherCard';
 
 function BriefingSkeleton() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
+    <div className="mx-auto max-w-screen-2xl px-4 py-6 md:px-6">
       <div className="mb-8 border-b border-codex-border pb-6">
         <div className="flex items-center gap-3">
           <div className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-codex-border" />
@@ -18,20 +21,26 @@ function BriefingSkeleton() {
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:gap-5">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="animate-pulse rounded-xl border border-codex-border bg-codex-surface p-4 lg:col-span-4"
-          >
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:gap-5 lg:items-stretch">
+        <div className="flex min-h-0 flex-col gap-4 lg:h-full">
+          <div className="animate-pulse rounded-xl border border-codex-border bg-codex-surface p-4">
             <div className="mb-3 h-4 w-24 rounded bg-codex-border" />
             <div className="h-16 rounded bg-codex-border/60" />
           </div>
-        ))}
-        <div className="animate-pulse rounded-xl border border-codex-border bg-codex-surface p-4 lg:col-span-12">
-          <div className="mb-3 h-4 w-28 rounded bg-codex-border" />
-          <div className="h-24 rounded bg-codex-border/60" />
+          <div className="animate-pulse min-h-[8rem] flex-1 rounded-xl border border-codex-border bg-codex-surface p-4 lg:min-h-0">
+            <div className="mb-3 h-4 w-28 rounded bg-codex-border" />
+            <div className="h-24 rounded bg-codex-border/60" />
+          </div>
         </div>
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="animate-pulse flex min-h-0 flex-col rounded-xl border border-codex-border bg-codex-surface p-4 lg:h-full"
+          >
+            <div className="mb-3 h-4 w-24 rounded bg-codex-border" />
+            <div className="min-h-[12rem] flex-1 rounded bg-codex-border/60" />
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -39,10 +48,31 @@ function BriefingSkeleton() {
 
 export function DailyBriefing() {
   const q = useBriefing();
-  const isSyncing = q.isFetching && !q.isLoading;
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
+  const [isSyncingEmail, setIsSyncingEmail] = useState(false);
 
-  const handleSync = (): void => {
-    void q.refetch();
+  const handleCalendarSync = async (): Promise<void> => {
+    setIsSyncingCalendar(true);
+    try {
+      const res = await syncCalendar();
+      if (res.success) {
+        await q.refetch();
+      }
+    } finally {
+      setIsSyncingCalendar(false);
+    }
+  };
+
+  const handleEmailSync = async (): Promise<void> => {
+    setIsSyncingEmail(true);
+    try {
+      const res = await syncGmail();
+      if (res.success) {
+        await q.refetch();
+      }
+    } finally {
+      setIsSyncingEmail(false);
+    }
   };
 
   if (q.isLoading) {
@@ -50,7 +80,7 @@ export function DailyBriefing() {
   }
   if (q.isError) {
     return (
-      <div className="mx-auto max-w-6xl p-4 md:p-6">
+      <div className="mx-auto max-w-screen-2xl p-4 md:p-6">
         <EmptyState
           title="Briefing unavailable"
           description={q.error instanceof Error ? q.error.message : 'Check API and credentials.'}
@@ -61,7 +91,7 @@ export function DailyBriefing() {
   const b = q.data;
   if (!b) {
     return (
-      <div className="mx-auto max-w-6xl p-4 md:p-6">
+      <div className="mx-auto max-w-screen-2xl p-4 md:p-6">
         <EmptyState title="No briefing data" />
       </div>
     );
@@ -76,7 +106,7 @@ export function DailyBriefing() {
   })();
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-6 md:px-6">
+    <div className="mx-auto max-w-screen-2xl px-4 py-6 md:px-6">
       <header className="mb-8 border-b border-codex-border pb-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-start gap-3">
@@ -94,30 +124,56 @@ export function DailyBriefing() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-12 lg:gap-5">
-        <section className="lg:col-span-4" aria-labelledby="home-weather">
-          <h2 id="home-weather" className="sr-only">
-            Weather
-          </h2>
-          <WeatherCard weather={b.weather} />
-        </section>
-        <section className="lg:col-span-4" aria-labelledby="home-calendar">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:gap-5 lg:items-stretch">
+        <div className="flex min-h-0 flex-col gap-4 lg:h-full">
+          <section aria-labelledby="home-weather">
+            <h2 id="home-weather" className="sr-only">
+              Weather
+            </h2>
+            <WeatherCard weather={b.weather} />
+          </section>
+          <section aria-labelledby="home-ai" className="flex min-h-0 flex-1 flex-col">
+            <h2 id="home-ai" className="sr-only">
+              AI plan
+            </h2>
+            <AiPlanCard plan={b.ai_plan} className="min-h-0 flex-1 flex flex-col" />
+          </section>
+        </div>
+
+        <section aria-labelledby="home-calendar" className="flex min-h-0 flex-col lg:h-full">
           <h2 id="home-calendar" className="sr-only">
             Calendar
           </h2>
-          <CalendarStrip events={b.events} onSync={handleSync} isSyncing={isSyncing} />
+          <CalendarStrip
+            events={b.events}
+            onSync={() => void handleCalendarSync()}
+            isSyncing={isSyncingCalendar}
+            className="min-h-0 flex-1 flex flex-col"
+          />
         </section>
-        <section className="lg:col-span-4" aria-labelledby="home-inbox">
+
+        <section aria-labelledby="home-inbox" className="flex min-h-0 flex-col lg:h-full">
           <h2 id="home-inbox" className="sr-only">
             Inbox
           </h2>
-          <EmailPreview emails={b.emails} onSync={handleSync} isSyncing={isSyncing} />
+          <EmailPreview
+            emails={b.emails}
+            onSync={() => void handleEmailSync()}
+            isSyncing={isSyncingEmail}
+            className="min-h-0 flex-1 flex flex-col"
+          />
         </section>
-        <section className="lg:col-span-12" aria-labelledby="home-ai">
-          <h2 id="home-ai" className="sr-only">
-            AI plan
+
+        <section aria-labelledby="home-tasks" className="flex min-h-0 flex-col lg:h-full">
+          <h2 id="home-tasks" className="sr-only">
+            Tasks
           </h2>
-          <AiPlanCard plan={b.ai_plan} />
+          <BriefingTasksCard
+            tasksToday={b.tasks_today}
+            tasksOverdue={b.tasks_overdue}
+            tasksActive={b.tasks_active}
+            className="min-h-0 flex-1 flex flex-col"
+          />
         </section>
       </div>
     </div>

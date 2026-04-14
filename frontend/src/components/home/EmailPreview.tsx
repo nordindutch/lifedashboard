@@ -16,9 +16,10 @@ interface EmailPreviewProps {
   emails: EmailSummary[];
   onSync?: () => void;
   isSyncing?: boolean;
+  className?: string;
 }
 
-export function EmailPreview({ emails, onSync, isSyncing = false }: EmailPreviewProps) {
+export function EmailPreview({ emails, onSync, isSyncing = false, className }: EmailPreviewProps) {
   const list = emails.slice(0, 5);
   const [taskStates, setTaskStates] = useState<Record<string, 'idle' | 'creating' | 'created' | 'error'>>({});
 
@@ -45,7 +46,7 @@ export function EmailPreview({ emails, onSync, isSyncing = false }: EmailPreview
   };
 
   return (
-    <Card>
+    <Card className={className}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium text-slate-300">Inbox</h3>
         <button

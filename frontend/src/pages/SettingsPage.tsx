@@ -21,7 +21,9 @@ export function SettingsPage() {
   const [googleLoading, setGoogleLoading] = useState<boolean>(true);
   const [googleMessage, setGoogleMessage] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
-  const [googlePending, setGooglePending] = useState<boolean>(false);
+  const [calendarPending, setCalendarPending] = useState(false);
+  const [gmailPending, setGmailPending] = useState(false);
+  const [disconnectPending, setDisconnectPending] = useState(false);
 
   useEffect(() => {
     if (!settings) {
@@ -123,7 +125,7 @@ export function SettingsPage() {
   };
 
   const handleGoogleDisconnect = async (): Promise<void> => {
-    setGooglePending(true);
+    setDisconnectPending(true);
     setGoogleError(null);
     setGoogleMessage(null);
     try {
@@ -137,12 +139,12 @@ export function SettingsPage() {
     } catch (e: unknown) {
       setGoogleError(e instanceof Error ? e.message : 'Failed to disconnect Google');
     } finally {
-      setGooglePending(false);
+      setDisconnectPending(false);
     }
   };
 
   const handleCalendarSync = async (): Promise<void> => {
-    setGooglePending(true);
+    setCalendarPending(true);
     setGoogleError(null);
     setGoogleMessage(null);
     try {
@@ -156,12 +158,12 @@ export function SettingsPage() {
     } catch (e: unknown) {
       setGoogleError(e instanceof Error ? e.message : 'Calendar sync failed');
     } finally {
-      setGooglePending(false);
+      setCalendarPending(false);
     }
   };
 
   const handleGmailSync = async (): Promise<void> => {
-    setGooglePending(true);
+    setGmailPending(true);
     setGoogleError(null);
     setGoogleMessage(null);
     try {
@@ -175,7 +177,7 @@ export function SettingsPage() {
     } catch (e: unknown) {
       setGoogleError(e instanceof Error ? e.message : 'Gmail sync failed');
     } finally {
-      setGooglePending(false);
+      setGmailPending(false);
     }
   };
 
@@ -261,16 +263,26 @@ export function SettingsPage() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="primary" onClick={handleGoogleConnect} disabled={googlePending}>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleGoogleConnect}
+              disabled={calendarPending || gmailPending || disconnectPending}
+            >
               Connect Google
             </Button>
-            <Button type="button" variant="ghost" onClick={handleCalendarSync} disabled={googlePending}>
-              {googlePending ? 'Working…' : 'Sync Calendar'}
+            <Button type="button" variant="ghost" onClick={handleCalendarSync} disabled={calendarPending}>
+              {calendarPending ? 'Syncing…' : 'Sync Calendar'}
             </Button>
-            <Button type="button" variant="ghost" onClick={handleGmailSync} disabled={googlePending}>
-              {googlePending ? 'Working…' : 'Sync Gmail'}
+            <Button type="button" variant="ghost" onClick={handleGmailSync} disabled={gmailPending}>
+              {gmailPending ? 'Syncing…' : 'Sync Gmail'}
             </Button>
-            <Button type="button" variant="danger" onClick={handleGoogleDisconnect} disabled={googlePending}>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={handleGoogleDisconnect}
+              disabled={calendarPending || gmailPending || disconnectPending}
+            >
               Disconnect
             </Button>
           </div>

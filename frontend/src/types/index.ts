@@ -231,6 +231,8 @@ export interface DailyBriefing {
   emails: EmailSummary[];
   tasks_today: Task[];
   tasks_overdue: Task[];
+  /** Open tasks on the board not already listed under overdue / due today */
+  tasks_active: Task[];
   recent_logs: DiaryLog[];
   ai_plan: AIPlan | null;
   snapshot: DailySnapshot | null;

@@ -22,9 +22,10 @@ interface CalendarStripProps {
   events: CalendarEvent[];
   onSync?: () => void;
   isSyncing?: boolean;
+  className?: string;
 }
 
-export function CalendarStrip({ events, onSync, isSyncing = false }: CalendarStripProps) {
+export function CalendarStrip({ events, onSync, isSyncing = false, className }: CalendarStripProps) {
   const [now, setNow] = useState<Date>(() => new Date());
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
 
@@ -133,7 +134,7 @@ export function CalendarStrip({ events, onSync, isSyncing = false }: CalendarStr
   };
 
   return (
-    <Card>
+    <Card className={className}>
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="text-sm font-medium text-slate-300">Today</h3>
         <button

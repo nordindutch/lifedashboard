@@ -319,6 +319,8 @@ final class GmailService
     }
 
     /**
+     * Prefer unread Primary messages; if none, show the latest cached Primary rows (read).
+     *
      * @return list<array<string, mixed>>
      */
     public static function loadCachedUnread(int $limit = 5): array
@@ -327,12 +329,35 @@ final class GmailService
         $db = Database::getInstance();
         $stmt = $db->prepare(
             'SELECT * FROM cached_emails
-             ORDER BY is_unread DESC, received_at DESC
+             WHERE is_unread = 1
+             ORDER BY received_at DESC
              LIMIT ?',
         );
         $stmt->execute([$limit]);
         /** @var list<array<string, mixed>> $rows */
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($rows !== []) {
+            return self::mapCachedEmailRows($rows);
+        }
+
+        $stmt2 = $db->prepare(
+            'SELECT * FROM cached_emails
+             ORDER BY received_at DESC
+             LIMIT ?',
+        );
+        $stmt2->execute([$limit]);
+        /** @var list<array<string, mixed>> $fallback */
+        $fallback = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+
+        return self::mapCachedEmailRows($fallback);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rows
+     * @return list<array<string, mixed>>
+     */
+    private static function mapCachedEmailRows(array $rows): array
+    {
         $out = [];
         foreach ($rows as $row) {
             $out[] = [

@@ -5,11 +5,12 @@ import { Card } from '../ui/Card';
 type Props = {
   plan: AIPlan | null;
   onGenerate?: () => void;
+  className?: string;
 };
 
-export function AiPlanCard({ plan, onGenerate }: Props) {
+export function AiPlanCard({ plan, onGenerate, className }: Props) {
   return (
-    <Card>
+    <Card className={className}>
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="text-sm font-medium text-slate-300">AI plan</h3>

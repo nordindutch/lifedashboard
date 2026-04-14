@@ -6,6 +6,7 @@ namespace Codex\Controllers;
 
 use Codex\Core\Request;
 use Codex\Core\Response;
+use Codex\Repositories\TaskRepository;
 use Codex\Services\CalendarService;
 use Codex\Services\GmailService;
 use Codex\Services\WeatherService;
@@ -52,13 +53,43 @@ final class BriefingController
             // non-fatal
         }
 
+        $tasksToday = [];
+        $tasksOverdue = [];
+        $tasksActive = [];
+        try {
+            $tasks = TaskRepository::make();
+            $tasksToday = $tasks->findDueOnDate($date, 40);
+            $tasksOverdue = $tasks->findOverdueBeforeDate($date, 40);
+            $seenIds = [];
+            foreach ($tasksToday as $row) {
+                $seenIds[(int) $row['id']] = true;
+            }
+            foreach ($tasksOverdue as $row) {
+                $seenIds[(int) $row['id']] = true;
+            }
+            $candidates = $tasks->findOpenTasksForBriefing(48);
+            foreach ($candidates as $row) {
+                $id = (int) $row['id'];
+                if (isset($seenIds[$id])) {
+                    continue;
+                }
+                $tasksActive[] = $row;
+                if (count($tasksActive) >= 12) {
+                    break;
+                }
+            }
+        } catch (\Throwable) {
+            // non-fatal
+        }
+
         $payload = [
             'date' => $date,
             'weather' => $weather,
             'events' => $events,
             'emails' => $emails,
-            'tasks_today' => [],
-            'tasks_overdue' => [],
+            'tasks_today' => $tasksToday,
+            'tasks_overdue' => $tasksOverdue,
+            'tasks_active' => $tasksActive,
             'recent_logs' => [],
             'ai_plan' => null,
             'snapshot' => null,
