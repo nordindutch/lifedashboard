@@ -121,13 +121,16 @@ final class CalendarService
     /**
      * @return list<array<string, mixed>>
      */
-    public static function loadCachedForDay(string $date): array
+    public static function loadCachedForDay(string $date, ?string $timezone = null): array
     {
-        $start = strtotime($date . ' 00:00:00');
-        $end = strtotime($date . ' 23:59:59');
-        if ($start === false || $end === false) {
+        $tz = self::resolveTimezone($timezone);
+        $startDt = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $date . ' 00:00:00', $tz);
+        $endDt = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $date . ' 23:59:59', $tz);
+        if (!$startDt instanceof \DateTimeImmutable || !$endDt instanceof \DateTimeImmutable) {
             return [];
         }
+        $start = $startDt->getTimestamp();
+        $end = $endDt->getTimestamp();
         $db = Database::getInstance();
         $stmt = $db->prepare(
             'SELECT * FROM cached_calendar_events
@@ -159,6 +162,26 @@ final class CalendarService
         }
 
         return $out;
+    }
+
+    private static function resolveTimezone(?string $timezone): \DateTimeZone
+    {
+        $candidate = trim((string) $timezone);
+        if ($candidate === '') {
+            try {
+                $db = Database::getInstance();
+                $stmt = $db->prepare("SELECT value FROM settings WHERE key = 'timezone' LIMIT 1");
+                $stmt->execute();
+                $candidate = trim((string) ($stmt->fetchColumn() ?: ''));
+            } catch (\Throwable) {
+                $candidate = '';
+            }
+        }
+        try {
+            return new \DateTimeZone($candidate !== '' ? $candidate : 'UTC');
+        } catch (\Throwable) {
+            return new \DateTimeZone('UTC');
+        }
     }
 
     /**

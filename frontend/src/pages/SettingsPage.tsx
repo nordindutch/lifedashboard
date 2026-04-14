@@ -11,6 +11,8 @@ export function SettingsPage() {
   const [apiKey, setApiKey] = useState('');
   const [lat, setLat] = useState('');
   const [lon, setLon] = useState('');
+  const [anthropicKey, setAnthropicKey] = useState('');
+  const [timezone, setTimezone] = useState('UTC');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveOk, setSaveOk] = useState<string | null>(null);
 
@@ -32,6 +34,8 @@ export function SettingsPage() {
     setApiKey(settings.openweather_api_key ?? '');
     setLat(settings.openweather_lat ?? '');
     setLon(settings.openweather_lon ?? '');
+    setAnthropicKey(settings.anthropic_api_key ?? '');
+    setTimezone(settings.timezone ?? 'UTC');
   }, [settings]);
 
   useEffect(() => {
@@ -86,6 +90,32 @@ export function SettingsPage() {
         openweather_lon: lon.trim(),
       });
       setSaveOk('Weather settings saved.');
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to save settings');
+    }
+  };
+
+  const handleSaveAnthropic = async (): Promise<void> => {
+    setSaveError(null);
+    setSaveOk(null);
+    try {
+      await updateSettings({
+        anthropic_api_key: anthropicKey.trim(),
+      });
+      setSaveOk('Anthropic API key saved.');
+    } catch (e: unknown) {
+      setSaveError(e instanceof Error ? e.message : 'Failed to save settings');
+    }
+  };
+
+  const handleSaveTimezone = async (): Promise<void> => {
+    setSaveError(null);
+    setSaveOk(null);
+    try {
+      await updateSettings({
+        timezone: timezone.trim() || 'UTC',
+      });
+      setSaveOk('Timezone saved.');
     } catch (e: unknown) {
       setSaveError(e instanceof Error ? e.message : 'Failed to save settings');
     }
@@ -242,6 +272,74 @@ export function SettingsPage() {
             </p>
           ) : null}
           {testError ? <p className="text-sm text-rose-400">{testError}</p> : null}
+          {saveOk ? <p className="text-sm text-emerald-400">{saveOk}</p> : null}
+          {saveError ? <p className="text-sm text-rose-400">{saveError}</p> : null}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-sm font-medium text-slate-200">Timezone</h2>
+            <p className="mt-1 text-xs text-codex-muted">
+              Used by AI planning and calendar day boundaries.
+            </p>
+          </div>
+          <label className="block space-y-1">
+            <span className="text-xs text-codex-muted">IANA timezone</span>
+            <select
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              className="w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-200 outline-none ring-codex-accent focus:ring-2"
+            >
+              {[
+                'UTC',
+                'Europe/Amsterdam',
+                'Europe/Brussels',
+                'Europe/Paris',
+                'Europe/London',
+                'America/New_York',
+                'America/Los_Angeles',
+                'Asia/Dubai',
+                'Asia/Singapore',
+                'Asia/Tokyo',
+                'Australia/Sydney',
+              ].map((tz) => (
+                <option key={tz} value={tz}>
+                  {tz}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button type="button" variant="primary" onClick={handleSaveTimezone} disabled={isPending}>
+            {isPending ? 'Saving…' : 'Save'}
+          </Button>
+          {saveOk ? <p className="text-sm text-emerald-400">{saveOk}</p> : null}
+          {saveError ? <p className="text-sm text-rose-400">{saveError}</p> : null}
+        </div>
+      </Card>
+
+      <Card>
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-sm font-medium text-slate-200">AI Planning (Claude)</h2>
+            <p className="mt-1 text-xs text-codex-muted">
+              Anthropic API key used to generate your daily block schedule. Get one at console.anthropic.com.
+            </p>
+          </div>
+          <label className="block space-y-1">
+            <span className="text-xs text-codex-muted">API Key</span>
+            <input
+              type="password"
+              value={anthropicKey}
+              onChange={(e) => setAnthropicKey(e.target.value)}
+              className="w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-200 outline-none ring-codex-accent focus:ring-2"
+              placeholder="sk-ant-..."
+            />
+          </label>
+          <Button type="button" variant="primary" onClick={handleSaveAnthropic} disabled={isPending}>
+            {isPending ? 'Saving…' : 'Save'}
+          </Button>
           {saveOk ? <p className="text-sm text-emerald-400">{saveOk}</p> : null}
           {saveError ? <p className="text-sm text-rose-400">{saveError}</p> : null}
         </div>

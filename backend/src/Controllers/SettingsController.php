@@ -156,7 +156,7 @@ final class SettingsController
     {
         $service = GoogleAuthService::makeFromSettings();
         if ($service === null) {
-            Response::error('not_configured', 'Google client ID/secret are missing in settings', 422);
+            Response::error('not_configured', 'Google client ID/secret are missing (set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET in .env or in settings)', 422);
             return;
         }
         $state = bin2hex(random_bytes(16));
@@ -259,7 +259,7 @@ final class SettingsController
         unset($request);
         $service = GoogleAuthService::makeFromSettings();
         if ($service === null) {
-            Response::error('not_configured', 'Google client ID/secret are missing in settings', 422);
+            Response::error('not_configured', 'Google client ID/secret are missing (set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET in .env or in settings)', 422);
             return;
         }
         $accessToken = $service->getValidAccessToken();
@@ -282,7 +282,7 @@ final class SettingsController
         unset($request);
         $service = GoogleAuthService::makeFromSettings();
         if ($service === null) {
-            Response::error('not_configured', 'Google client ID/secret are missing in settings', 422);
+            Response::error('not_configured', 'Google client ID/secret are missing (set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET in .env or in settings)', 422);
             return;
         }
         $accessToken = $service->getValidAccessToken();

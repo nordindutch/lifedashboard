@@ -6,6 +6,7 @@ namespace Codex\Controllers;
 
 use Codex\Core\Request;
 use Codex\Core\Response;
+use Codex\Repositories\AiPlanRepository;
 use Codex\Repositories\TaskRepository;
 use Codex\Services\CalendarService;
 use Codex\Services\GmailService;
@@ -39,8 +40,20 @@ final class BriefingController
         }
 
         $events = [];
+        $timezone = 'UTC';
         try {
-            $events = CalendarService::loadCachedForDay($date);
+            $db = \Codex\Core\Database::getInstance();
+            $stmt = $db->prepare("SELECT value FROM settings WHERE key = 'timezone' LIMIT 1");
+            $stmt->execute();
+            $timezone = trim((string) ($stmt->fetchColumn() ?: 'UTC'));
+            if ($timezone === '') {
+                $timezone = 'UTC';
+            }
+        } catch (\Throwable) {
+            $timezone = 'UTC';
+        }
+        try {
+            $events = CalendarService::loadCachedForDay($date, $timezone);
         } catch (\Throwable) {
             // non-fatal — briefing still returns without events
         }
@@ -49,6 +62,14 @@ final class BriefingController
         try {
             GmailService::maybeAutoSync(GmailService::AUTO_SYNC_INTERVAL_SEC, 20);
             $emails = GmailService::loadCachedUnread(5);
+        } catch (\Throwable) {
+            // non-fatal
+        }
+
+        $aiPlan = null;
+        try {
+            $aiRepo = AiPlanRepository::make();
+            $aiPlan = $aiRepo->findForDate($date, 'adhoc');
         } catch (\Throwable) {
             // non-fatal
         }
@@ -91,7 +112,7 @@ final class BriefingController
             'tasks_overdue' => $tasksOverdue,
             'tasks_active' => $tasksActive,
             'recent_logs' => [],
-            'ai_plan' => null,
+            'ai_plan' => $aiPlan,
             'snapshot' => null,
         ];
         Response::success($payload);

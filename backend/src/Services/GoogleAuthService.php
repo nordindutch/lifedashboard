@@ -20,6 +20,12 @@ final class GoogleAuthService
 
     public static function makeFromSettings(): ?self
     {
+        $id = self::stringFromEnvironment('GOOGLE_CLIENT_ID');
+        $secret = self::stringFromEnvironment('GOOGLE_CLIENT_SECRET');
+        if ($id !== '' && $secret !== '') {
+            return new self($id, $secret);
+        }
+
         $db = Database::getInstance();
         $stmt = $db->prepare(
             "SELECT key, value FROM settings WHERE key IN ('google_client_id', 'google_client_secret')",
@@ -38,6 +44,22 @@ final class GoogleAuthService
         }
 
         return new self($id, $secret);
+    }
+
+    private static function stringFromEnvironment(string $name): string
+    {
+        $g = getenv($name);
+        if (is_string($g) && trim($g) !== '') {
+            return trim($g);
+        }
+        if (isset($_SERVER[$name]) && is_string($_SERVER[$name]) && trim($_SERVER[$name]) !== '') {
+            return trim($_SERVER[$name]);
+        }
+        if (isset($_ENV[$name]) && is_string($_ENV[$name]) && trim($_ENV[$name]) !== '') {
+            return trim($_ENV[$name]);
+        }
+
+        return '';
     }
 
     public function buildAuthUrl(string $redirectUri, string $state): string

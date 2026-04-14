@@ -16,6 +16,7 @@ spl_autoload_register(static function (string $class): void {
 });
 
 use Codex\Controllers\BriefingController;
+use Codex\Controllers\AiController;
 use Codex\Controllers\DiaryController;
 use Codex\Controllers\GoalController;
 use Codex\Controllers\SettingsController;
@@ -25,6 +26,7 @@ use Codex\Core\Request;
 use Codex\Core\Response;
 use Codex\Core\Router;
 use Codex\Repositories\DiaryRepository;
+use Codex\Repositories\AiPlanRepository;
 use Codex\Repositories\GoalRepository;
 use Codex\Repositories\TaskRepository;
 
@@ -109,7 +111,18 @@ $tasksController = static function () use (&$taskController): TaskController {
 
 $briefingController = new BriefingController();
 $settingsController = new SettingsController();
+$aiController = null;
+$aiCtrl = static function () use (&$aiController): AiController {
+    if ($aiController === null) {
+        $aiController = new AiController(AiPlanRepository::make());
+    }
+
+    return $aiController;
+};
 $router->get('/api/briefing', [$briefingController, 'index']);
+$router->get('/api/ai/plan', static fn (Request $r) => $aiCtrl()->getPlan($r));
+$router->post('/api/ai/plan/generate', static fn (Request $r) => $aiCtrl()->generate($r));
+$router->get('/api/ai/history', static fn (Request $r) => $aiCtrl()->history($r));
 $router->get('/api/auth/google', [$settingsController, 'googleAuth']);
 $router->get('/api/auth/google/callback', [$settingsController, 'googleCallback']);
 $router->delete('/api/auth/google', [$settingsController, 'revokeGoogle']);

@@ -1,7 +1,9 @@
 import { format } from 'date-fns';
-import { useState } from 'react';
+import { Clock3 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { syncCalendar, syncGmail } from '../../api/settings';
 import { useBriefing } from '../../hooks/useBriefing';
+import { useSettings } from '../../hooks/useSettings';
 import { EmptyState } from '../ui/EmptyState';
 import { AiPlanCard } from './AiPlanCard';
 import { BriefingTasksCard } from './BriefingTasksCard';
@@ -48,8 +50,15 @@ function BriefingSkeleton() {
 
 export function DailyBriefing() {
   const q = useBriefing();
+  const { settings } = useSettings();
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [isSyncingEmail, setIsSyncingEmail] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const handleCalendarSync = async (): Promise<void> => {
     setIsSyncingCalendar(true);
@@ -104,6 +113,16 @@ export function DailyBriefing() {
       return b.date;
     }
   })();
+  const activeTimezone = settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const timeLabel = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: activeTimezone,
+    });
+    return fmt.format(now);
+  }, [activeTimezone, now]);
 
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-6 md:px-6">
@@ -118,7 +137,13 @@ export function DailyBriefing() {
             <div>
               <p className="text-xs font-medium uppercase tracking-widest text-codex-muted">Home</p>
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-100 md:text-3xl">Overview</h1>
-              <p className="mt-1 text-sm text-codex-muted">{dateLabel}</p>
+              <div className="mt-1 flex items-center gap-3 text-sm text-codex-muted">
+                <span>{dateLabel}</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock3 size={13} />
+                  {timeLabel} ({activeTimezone})
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -136,7 +161,7 @@ export function DailyBriefing() {
             <h2 id="home-ai" className="sr-only">
               AI plan
             </h2>
-            <AiPlanCard plan={b.ai_plan} className="min-h-0 flex-1 flex flex-col" />
+            <AiPlanCard plan={b.ai_plan} className="min-h-0 flex flex-1 flex-col" />
           </section>
         </div>
 
