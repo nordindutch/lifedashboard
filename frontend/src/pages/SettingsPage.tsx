@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getGoogleAuth, getIntegrationStatus, revokeGoogle, syncCalendar, testWeather } from '../api/settings';
+import { getGoogleAuth, getIntegrationStatus, revokeGoogle, syncCalendar, syncGmail, testWeather } from '../api/settings';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -160,6 +160,25 @@ export function SettingsPage() {
     }
   };
 
+  const handleGmailSync = async (): Promise<void> => {
+    setGooglePending(true);
+    setGoogleError(null);
+    setGoogleMessage(null);
+    try {
+      const res = await syncGmail();
+      if (!res.success) {
+        setGoogleError(res.error.message);
+        return;
+      }
+      setGoogleConnected(true);
+      setGoogleMessage(`Gmail synced: ${res.data.emails} unread cached.`);
+    } catch (e: unknown) {
+      setGoogleError(e instanceof Error ? e.message : 'Gmail sync failed');
+    } finally {
+      setGooglePending(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-4 md:p-6">
       <h1 className="text-xl font-semibold text-slate-100">Settings</h1>
@@ -248,10 +267,16 @@ export function SettingsPage() {
             <Button type="button" variant="ghost" onClick={handleCalendarSync} disabled={googlePending}>
               {googlePending ? 'Working…' : 'Sync Calendar'}
             </Button>
+            <Button type="button" variant="ghost" onClick={handleGmailSync} disabled={googlePending}>
+              {googlePending ? 'Working…' : 'Sync Gmail'}
+            </Button>
             <Button type="button" variant="danger" onClick={handleGoogleDisconnect} disabled={googlePending}>
               Disconnect
             </Button>
           </div>
+          <p className="text-xs text-amber-400/80">
+            Note: If you connected before adding Gmail, disconnect and reconnect to grant inbox access.
+          </p>
 
           {googleMessage ? <p className="text-sm text-emerald-400">{googleMessage}</p> : null}
           {googleError ? <p className="text-sm text-rose-400">{googleError}</p> : null}

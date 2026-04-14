@@ -28,6 +28,10 @@ export async function syncCalendar(): Promise<ApiResponse<{ synced: boolean; eve
   return parseApiResponse(apiClient.post('/api/calendar/sync', {}));
 }
 
+export async function syncGmail(): Promise<ApiResponse<{ synced: boolean; emails: number }>> {
+  return parseApiResponse(apiClient.post('/api/gmail/sync', {}));
+}
+
 export async function getIntegrationStatus(): Promise<ApiResponse<{ google: boolean; openweather: boolean }>> {
   return parseApiResponse(apiClient.get('/api/integrations/status'));
 }

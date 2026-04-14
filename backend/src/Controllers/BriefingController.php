@@ -7,6 +7,7 @@ namespace Codex\Controllers;
 use Codex\Core\Request;
 use Codex\Core\Response;
 use Codex\Services\CalendarService;
+use Codex\Services\GmailService;
 use Codex\Services\WeatherService;
 
 /**
@@ -43,11 +44,19 @@ final class BriefingController
             // non-fatal — briefing still returns without events
         }
 
+        $emails = [];
+        try {
+            GmailService::maybeAutoSync(GmailService::AUTO_SYNC_INTERVAL_SEC, 20);
+            $emails = GmailService::loadCachedUnread(5);
+        } catch (\Throwable) {
+            // non-fatal
+        }
+
         $payload = [
             'date' => $date,
             'weather' => $weather,
             'events' => $events,
-            'emails' => [],
+            'emails' => $emails,
             'tasks_today' => [],
             'tasks_overdue' => [],
             'recent_logs' => [],

@@ -18,6 +18,7 @@ services:
       - ./backend:/var/www/html
     environment:
       CODEX_API_KEY: ${CODEX_API_KEY:-dev-codex-key}
+      FRONTEND_URL: http://localhost:5273
 
   frontend:
     image: node:20-alpine

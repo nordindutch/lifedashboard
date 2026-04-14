@@ -8,6 +8,7 @@ use Codex\Core\Database;
 use Codex\Core\Request;
 use Codex\Core\Response;
 use Codex\Services\CalendarService;
+use Codex\Services\GmailService;
 use Codex\Services\GoogleAuthService;
 use Codex\Services\WeatherService;
 use PDO;
@@ -274,6 +275,27 @@ final class SettingsController
         }
         $count = CalendarService::upsertCachedEvents($events);
         Response::success(['synced' => true, 'events' => $count]);
+    }
+
+    public function syncGmail(Request $request): void
+    {
+        unset($request);
+        $service = GoogleAuthService::makeFromSettings();
+        if ($service === null) {
+            Response::error('not_configured', 'Google client ID/secret are missing in settings', 422);
+            return;
+        }
+        $accessToken = $service->getValidAccessToken();
+        if ($accessToken === null) {
+            Response::error('unauthorized', 'Google is not connected. Connect account first.', 401);
+            return;
+        }
+        $count = GmailService::fetchAndStore(20, $accessToken);
+        if ($count === null) {
+            Response::error('EXTERNAL_API_ERROR', 'Failed to fetch Gmail messages', 502);
+            return;
+        }
+        Response::success(['synced' => true, 'emails' => $count]);
     }
 
     /**

@@ -5,6 +5,7 @@ export function useBriefing(date?: string) {
   return useQuery({
     queryKey: ['briefing', date ?? 'today'],
     staleTime: 5 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
     queryFn: async () => {
       const res = await briefingApi.getBriefing(date);
       if (!res.success) {

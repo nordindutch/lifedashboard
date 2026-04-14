@@ -239,4 +239,5 @@ INSERT OR IGNORE INTO settings (key, value, value_type, description) VALUES
     ('ai_evening_plan_enabled', '1',             'boolean', 'Auto evening reflections'),
     ('work_start_hour',         '9',             'integer', 'Work start (24h)'),
     ('work_end_hour',           '18',            'integer', 'Work end (24h)'),
-    ('kanban_columns',          '["backlog","todo","in_progress","in_review","done"]', 'json', 'Visible Kanban columns');
+    ('kanban_columns',          '["backlog","todo","in_progress","in_review","done"]', 'json', 'Visible Kanban columns'),
+    ('gmail_last_sync_at',      '0',             'integer', 'Unix time of last successful Gmail inbox sync');
