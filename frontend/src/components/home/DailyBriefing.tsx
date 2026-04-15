@@ -4,11 +4,14 @@ import { useEffect, useState } from 'react';
 import { syncCalendar, syncGmail } from '../../api/settings';
 import { useBriefing } from '../../hooks/useBriefing';
 import { useSettings } from '../../hooks/useSettings';
+import { useUiStore } from '../../stores/uiStore';
 import { EmptyState } from '../ui/EmptyState';
 import { AiPlanCard } from './AiPlanCard';
 import { BriefingTasksCard } from './BriefingTasksCard';
 import { CalendarStrip } from './CalendarStrip';
+import { DiaryCard } from './DiaryCard';
 import { EmailPreview } from './EmailPreview';
+import { StatsStrip } from './StatsStrip';
 import { WeatherCard } from './WeatherCard';
 
 function BriefingSkeleton() {
@@ -23,7 +26,7 @@ function BriefingSkeleton() {
           </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:gap-5 lg:items-stretch">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:items-stretch lg:gap-5">
         <div className="flex min-h-0 flex-col gap-4 lg:h-full">
           <div className="animate-pulse rounded-xl border border-codex-border bg-codex-surface p-4">
             <div className="mb-3 h-4 w-24 rounded bg-codex-border" />
@@ -34,7 +37,7 @@ function BriefingSkeleton() {
             <div className="h-24 rounded bg-codex-border/60" />
           </div>
         </div>
-        {[1, 2, 3].map((i) => (
+        {[1, 2].map((i) => (
           <div
             key={i}
             className="animate-pulse flex min-h-0 flex-col rounded-xl border border-codex-border bg-codex-surface p-4 lg:h-full"
@@ -43,6 +46,20 @@ function BriefingSkeleton() {
             <div className="min-h-[12rem] flex-1 rounded bg-codex-border/60" />
           </div>
         ))}
+        <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+          <div className="animate-pulse rounded-xl border border-codex-border bg-codex-surface p-3">
+            <div className="h-12 rounded bg-codex-border/60" />
+          </div>
+          <div className="animate-pulse rounded-xl border border-codex-border bg-codex-surface p-3">
+            <div className="h-20 rounded bg-codex-border/60" />
+          </div>
+          <div className="animate-pulse min-h-[10rem] flex-1 rounded-xl border border-codex-border bg-codex-surface p-3 lg:min-h-0">
+            <div className="h-full rounded bg-codex-border/60" />
+          </div>
+          <div className="animate-pulse rounded-xl border border-codex-border bg-codex-surface p-3">
+            <div className="h-40 rounded bg-codex-border/60" />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -51,6 +68,7 @@ function BriefingSkeleton() {
 export function DailyBriefing() {
   const q = useBriefing();
   const { settings } = useSettings();
+  const openMoodModal = useUiStore((s) => s.openMoodModal);
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [isSyncingEmail, setIsSyncingEmail] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -147,7 +165,7 @@ export function DailyBriefing() {
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:gap-5 lg:items-stretch">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:items-stretch lg:gap-5">
         <div className="flex min-h-0 flex-col gap-4 lg:h-full">
           <section aria-labelledby="home-weather">
             <h2 id="home-weather" className="sr-only">
@@ -187,17 +205,33 @@ export function DailyBriefing() {
           />
         </section>
 
-        <section aria-labelledby="home-tasks" className="flex min-h-0 flex-col lg:h-full">
-          <h2 id="home-tasks" className="sr-only">
-            Tasks
-          </h2>
-          <BriefingTasksCard
-            tasksToday={b.tasks_today}
-            tasksOverdue={b.tasks_overdue}
-            tasksActive={b.tasks_active}
-            className="min-h-0 flex-1 flex flex-col"
-          />
-        </section>
+        <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+          <section aria-labelledby="home-stats">
+            <h2 id="home-stats" className="sr-only">
+              Today&apos;s stats
+            </h2>
+            <StatsStrip snapshot={b.snapshot} recentLogs={b.recent_logs} onMoodClick={openMoodModal} />
+          </section>
+
+          <section aria-labelledby="home-diary" className="flex min-h-0 flex-1 flex-col">
+            <h2 id="home-diary" className="sr-only">
+              Diary
+            </h2>
+            <DiaryCard logs={b.recent_logs} className="min-h-0 flex-1 flex flex-col" />
+          </section>
+
+          <section aria-labelledby="home-tasks" className="shrink-0">
+            <h2 id="home-tasks" className="sr-only">
+              Tasks
+            </h2>
+            <BriefingTasksCard
+              tasksToday={b.tasks_today}
+              tasksOverdue={b.tasks_overdue}
+              tasksActive={b.tasks_active}
+              className="max-h-64 overflow-y-auto"
+            />
+          </section>
+        </div>
       </div>
     </div>
   );

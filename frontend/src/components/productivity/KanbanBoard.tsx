@@ -9,11 +9,13 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useProjects } from '../../hooks/useProjects';
 import { useCreateTask, useReorderTasks, useTasks } from '../../hooks/useTasks';
 import type { Task, TaskStatus } from '../../types';
 import { EmptyState } from '../ui/EmptyState';
 import { KanbanColumn } from './KanbanColumn';
+import { ProjectsPanel } from './ProjectsPanel';
 import { TaskCard } from './TaskCard';
 import { TaskDrawer } from './TaskDrawer';
 
@@ -27,7 +29,9 @@ const COLUMN_LABELS: Record<TaskStatus, string> = {
   cancelled: 'Cancelled',
 };
 export function KanbanBoard() {
-  const q = useTasks();
+  const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
+  const q = useTasks(activeProjectId != null ? { project_id: activeProjectId } : undefined);
+  const { data: projects = [] } = useProjects({ status: 'active' });
   const createTask = useCreateTask();
   const reorder = useReorderTasks();
   const tasks = q.data ?? [];
@@ -36,6 +40,12 @@ export function KanbanBoard() {
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newStatus, setNewStatus] = useState<TaskStatus>('todo');
+  const [newProjectId, setNewProjectId] = useState<number | null>(null);
+  const [newDueDate, setNewDueDate] = useState('');
+
+  useEffect(() => {
+    setNewProjectId(activeProjectId);
+  }, [activeProjectId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -97,16 +107,26 @@ export function KanbanBoard() {
     if (!title) {
       return;
     }
-    const res = await createTask.mutateAsync({ title, status: newStatus });
+    const dueUnix =
+      newDueDate !== '' ? Math.floor(new Date(`${newDueDate}T23:59:59`).getTime() / 1000) : undefined;
+    const res = await createTask.mutateAsync({
+      title,
+      status: newStatus,
+      project_id: newProjectId ?? undefined,
+      due_date: dueUnix,
+    });
     if (!res.success) {
       return;
     }
     setNewTitle('');
+    setNewDueDate('');
     setCreating(false);
   };
 
   return (
     <>
+      <ProjectsPanel activeProjectId={activeProjectId} onProjectSelect={setActiveProjectId} />
+
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold text-slate-100">Tasks</h1>
         <button
@@ -131,6 +151,7 @@ export function KanbanBoard() {
               }
               if (e.key === 'Escape') {
                 setCreating(false);
+                setNewDueDate('');
               }
             }}
             placeholder="Task title..."
@@ -147,6 +168,25 @@ export function KanbanBoard() {
               </option>
             ))}
           </select>
+          <input
+            type="date"
+            value={newDueDate}
+            onChange={(e) => setNewDueDate(e.target.value)}
+            className="rounded-md border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
+            aria-label="Due date"
+          />
+          <select
+            value={newProjectId ?? ''}
+            onChange={(e) => setNewProjectId(e.target.value ? Number(e.target.value) : null)}
+            className="rounded-md border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
+          >
+            <option value="">No project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.title}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
             onClick={() => void handleCreate()}
@@ -155,7 +195,14 @@ export function KanbanBoard() {
           >
             {createTask.isPending ? 'Adding...' : 'Add'}
           </button>
-          <button type="button" onClick={() => setCreating(false)} className="text-sm text-codex-muted hover:text-slate-300">
+          <button
+            type="button"
+            onClick={() => {
+              setCreating(false);
+              setNewDueDate('');
+            }}
+            className="text-sm text-codex-muted hover:text-slate-300"
+          >
             Cancel
           </button>
         </div>

@@ -1,4 +1,6 @@
+import { format, fromUnixTime } from 'date-fns';
 import { useEffect, useState } from 'react';
+import { useProjects } from '../../hooks/useProjects';
 import { useDeleteTask, useUpdateTask } from '../../hooks/useTasks';
 import { useUiStore } from '../../stores/uiStore';
 import type { Priority, Task, TaskStatus } from '../../types';
@@ -21,9 +23,12 @@ export function TaskDrawer({ task, onClose }: Props) {
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>('todo');
   const [priority, setPriority] = useState<Priority>(2);
+  const [projectId, setProjectId] = useState<number | null>(null);
+  const [dueDate, setDueDate] = useState('');
 
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const { data: projects = [] } = useProjects({ status: 'active' });
   const pushToast = useUiStore((s) => s.pushToast);
 
   useEffect(() => {
@@ -34,6 +39,8 @@ export function TaskDrawer({ task, onClose }: Props) {
     setDescription(task.description ?? '');
     setStatus(task.status);
     setPriority(task.priority);
+    setProjectId(task.project_id ?? null);
+    setDueDate(task.due_date ? format(fromUnixTime(task.due_date), 'yyyy-MM-dd') : '');
   }, [task]);
 
   const open = task !== null;
@@ -56,6 +63,8 @@ export function TaskDrawer({ task, onClose }: Props) {
         description: description.trim() === '' ? null : description.trim(),
         status,
         priority,
+        project_id: projectId,
+        due_date: dueDate === '' ? null : Math.floor(new Date(`${dueDate}T23:59:59`).getTime() / 1000),
       },
     });
     if (!res.success) {
@@ -92,6 +101,35 @@ export function TaskDrawer({ task, onClose }: Props) {
               onChange={(e) => setTitle(e.target.value)}
               className="w-full rounded-md border border-codex-border bg-codex-bg px-3 py-2 text-slate-100 outline-none focus:border-codex-accent"
             />
+          </div>
+          <div>
+            <label htmlFor="task-drawer-project" className="mb-1 block text-slate-500">
+              Project
+            </label>
+            <select
+              id="task-drawer-project"
+              value={projectId ?? ''}
+              onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : null)}
+              className="w-full rounded-md border border-codex-border bg-codex-bg px-2 py-2 text-slate-200"
+            >
+              <option value="">- No project -</option>
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.title}
+                </option>
+              ))}
+            </select>
+            {projectId != null ? (
+              (() => {
+                const project = projects.find((p) => p.id === projectId);
+                return project ? (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: project.color }} />
+                    <span className="text-[11px] text-codex-muted">{project.color}</span>
+                  </div>
+                ) : null;
+              })()
+            ) : null}
           </div>
           <div>
             <label htmlFor="task-drawer-description" className="mb-1 block text-slate-500">
@@ -139,6 +177,18 @@ export function TaskDrawer({ task, onClose }: Props) {
                 <option value={4}>4 — Lowest</option>
               </select>
             </div>
+          </div>
+          <div>
+            <label htmlFor="task-drawer-due-date" className="mb-1 block text-slate-500">
+              Due date
+            </label>
+            <input
+              id="task-drawer-due-date"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full rounded-md border border-codex-border bg-codex-bg px-3 py-2 text-slate-200 outline-none focus:border-codex-accent"
+            />
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
             <button

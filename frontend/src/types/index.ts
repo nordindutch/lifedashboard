@@ -66,6 +66,8 @@ export interface CanvasPosition {
 export interface Task extends Partial<CanvasPosition> {
   id: number;
   project_id: number | null;
+  project_color: string | null;
+  project_title: string | null;
   goal_id: number | null;
   parent_task_id: number | null;
   title: string;
@@ -163,6 +165,11 @@ export interface AIPlan {
   created_at: UnixTimestamp;
 }
 
+export interface EveningPlanContent {
+  reflection: string;
+  close_prompt: string;
+}
+
 export interface DailySnapshot {
   id: number;
   snapshot_date: DateString;
@@ -178,6 +185,7 @@ export interface DailySnapshot {
   unread_emails: number | null;
   calendar_events: number | null;
   ai_plan_id: number | null;
+  diary_streak?: number;
   created_at: UnixTimestamp;
   updated_at: UnixTimestamp;
 }
@@ -235,6 +243,7 @@ export interface DailyBriefing {
   tasks_active: Task[];
   recent_logs: DiaryLog[];
   ai_plan: AIPlan | null;
+  evening_plan: AIPlan | null;
   snapshot: DailySnapshot | null;
 }
 

@@ -29,38 +29,43 @@ final class TaskRepository
         $perPage = max(1, min(200, $perPage));
         unset($filters['page'], $filters['per_page']);
 
-        $where = ['deleted_at IS NULL'];
+        $where = ['t.deleted_at IS NULL'];
         $params = [];
 
         if (array_key_exists('project_id', $filters) && $filters['project_id'] !== null) {
-            $where[] = 'project_id = :project_id';
+            $where[] = 't.project_id = :project_id';
             $params['project_id'] = (int) $filters['project_id'];
         }
         if (array_key_exists('goal_id', $filters) && $filters['goal_id'] !== null) {
-            $where[] = 'goal_id = :goal_id';
+            $where[] = 't.goal_id = :goal_id';
             $params['goal_id'] = (int) $filters['goal_id'];
         }
         if (array_key_exists('status', $filters) && $filters['status'] !== null && $filters['status'] !== '') {
-            $where[] = 'status = :status';
+            $where[] = 't.status = :status';
             $params['status'] = (string) $filters['status'];
         }
         if (array_key_exists('due_before', $filters) && $filters['due_before'] !== null) {
-            $where[] = 'due_date IS NOT NULL AND due_date < :due_before';
+            $where[] = 't.due_date IS NOT NULL AND t.due_date < :due_before';
             $params['due_before'] = (int) $filters['due_before'];
         }
         if (array_key_exists('due_after', $filters) && $filters['due_after'] !== null) {
-            $where[] = 'due_date IS NOT NULL AND due_date > :due_after';
+            $where[] = 't.due_date IS NOT NULL AND t.due_date > :due_after';
             $params['due_after'] = (int) $filters['due_after'];
         }
 
         $whereSql = implode(' AND ', $where);
         $offset = ($page - 1) * $perPage;
 
-        $countStmt = $this->db->prepare("SELECT COUNT(*) FROM tasks WHERE {$whereSql}");
+        $countStmt = $this->db->prepare("SELECT COUNT(*) FROM tasks t WHERE {$whereSql}");
         $countStmt->execute($params);
         $total = (int) $countStmt->fetchColumn();
 
-        $sql = "SELECT * FROM tasks WHERE {$whereSql} ORDER BY status ASC, display_order ASC LIMIT :limit OFFSET :offset";
+        $sql = "SELECT t.*, p.color AS project_color, p.title AS project_title
+                FROM tasks t
+                LEFT JOIN projects p ON t.project_id = p.id AND p.deleted_at IS NULL
+                WHERE {$whereSql}
+                ORDER BY t.status ASC, t.display_order ASC
+                LIMIT :limit OFFSET :offset";
         $stmt = $this->db->prepare($sql);
         foreach ($params as $key => $value) {
             $stmt->bindValue(':' . $key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
@@ -86,7 +91,12 @@ final class TaskRepository
 
     public function findById(int $id): ?array
     {
-        $stmt = $this->db->prepare('SELECT * FROM tasks WHERE id = :id AND deleted_at IS NULL');
+        $stmt = $this->db->prepare(
+            'SELECT t.*, p.color AS project_color, p.title AS project_title
+             FROM tasks t
+             LEFT JOIN projects p ON t.project_id = p.id AND p.deleted_at IS NULL
+             WHERE t.id = :id AND t.deleted_at IS NULL',
+        );
         $stmt->execute(['id' => $id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row === false) {
@@ -107,7 +117,11 @@ final class TaskRepository
         }
 
         $subtasksStmt = $this->db->prepare(
-            'SELECT * FROM tasks WHERE parent_task_id = :id AND deleted_at IS NULL ORDER BY display_order ASC',
+            'SELECT t.*, p.color AS project_color, p.title AS project_title
+             FROM tasks t
+             LEFT JOIN projects p ON t.project_id = p.id AND p.deleted_at IS NULL
+             WHERE t.parent_task_id = :id AND t.deleted_at IS NULL
+             ORDER BY t.display_order ASC',
         );
         $subtasksStmt->execute(['id' => $id]);
         /** @var list<array<string, mixed>> $subtaskRows */
@@ -327,13 +341,15 @@ final class TaskRepository
         }
         $limit = max(1, min(100, $limit));
         $stmt = $this->db->prepare(
-            'SELECT * FROM tasks
-             WHERE deleted_at IS NULL
-             AND completed_at IS NULL
-             AND status NOT IN (\'done\', \'cancelled\')
-             AND due_date IS NOT NULL
-             AND date(due_date, \'unixepoch\') = ?
-             ORDER BY priority DESC, due_date ASC, display_order ASC, id ASC
+            'SELECT t.*, p.color AS project_color, p.title AS project_title
+             FROM tasks t
+             LEFT JOIN projects p ON t.project_id = p.id AND p.deleted_at IS NULL
+             WHERE t.deleted_at IS NULL
+             AND t.completed_at IS NULL
+             AND t.status NOT IN (\'done\', \'cancelled\')
+             AND t.due_date IS NOT NULL
+             AND date(t.due_date, \'unixepoch\') = ?
+             ORDER BY t.priority DESC, t.due_date ASC, t.display_order ASC, t.id ASC
              LIMIT ?',
         );
         $stmt->execute([$ymd, $limit]);
@@ -348,7 +364,8 @@ final class TaskRepository
     }
 
     /**
-     * Tasks with due_date strictly before the start of $ymd, incomplete.
+     * Tasks overdue by calendar day semantics: due date strictly before $ymd.
+     * A task due on $ymd is not overdue until that day has fully ended.
      *
      * @return list<array<string, mixed>>
      */
@@ -357,22 +374,20 @@ final class TaskRepository
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
             return [];
         }
-        $dayStart = strtotime($ymd . ' 00:00:00');
-        if ($dayStart === false) {
-            return [];
-        }
         $limit = max(1, min(100, $limit));
         $stmt = $this->db->prepare(
-            'SELECT * FROM tasks
-             WHERE deleted_at IS NULL
-             AND completed_at IS NULL
-             AND status NOT IN (\'done\', \'cancelled\')
-             AND due_date IS NOT NULL
-             AND due_date < ?
-             ORDER BY due_date ASC, priority DESC, display_order ASC, id ASC
+            'SELECT t.*, p.color AS project_color, p.title AS project_title
+             FROM tasks t
+             LEFT JOIN projects p ON t.project_id = p.id AND p.deleted_at IS NULL
+             WHERE t.deleted_at IS NULL
+             AND t.completed_at IS NULL
+             AND t.status NOT IN (\'done\', \'cancelled\')
+             AND t.due_date IS NOT NULL
+             AND date(t.due_date, \'unixepoch\') < ?
+             ORDER BY t.due_date ASC, t.priority DESC, t.display_order ASC, t.id ASC
              LIMIT ?',
         );
-        $stmt->execute([$dayStart, $limit]);
+        $stmt->execute([$ymd, $limit]);
         /** @var list<array<string, mixed>> $rows */
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $out = [];
@@ -392,20 +407,22 @@ final class TaskRepository
     {
         $limit = max(1, min(100, $limit));
         $stmt = $this->db->prepare(
-            'SELECT * FROM tasks
-             WHERE deleted_at IS NULL
-             AND completed_at IS NULL
-             AND status NOT IN (\'done\', \'cancelled\')
+            'SELECT t.*, p.color AS project_color, p.title AS project_title
+             FROM tasks t
+             LEFT JOIN projects p ON t.project_id = p.id AND p.deleted_at IS NULL
+             WHERE t.deleted_at IS NULL
+             AND t.completed_at IS NULL
+             AND t.status NOT IN (\'done\', \'cancelled\')
              ORDER BY
-               CASE status
+               CASE t.status
                  WHEN \'in_progress\' THEN 1
                  WHEN \'in_review\' THEN 2
                  WHEN \'todo\' THEN 3
                  WHEN \'backlog\' THEN 4
                  ELSE 5
                END,
-               display_order ASC,
-               id ASC
+               t.display_order ASC,
+               t.id ASC
              LIMIT ?',
         );
         $stmt->execute([$limit]);
@@ -436,6 +453,8 @@ final class TaskRepository
         return [
             'id' => (int) $row['id'],
             'project_id' => $row['project_id'] !== null ? (int) $row['project_id'] : null,
+            'project_color' => isset($row['project_color']) && $row['project_color'] !== null ? (string) $row['project_color'] : null,
+            'project_title' => isset($row['project_title']) && $row['project_title'] !== null ? (string) $row['project_title'] : null,
             'goal_id' => $row['goal_id'] !== null ? (int) $row['goal_id'] : null,
             'parent_task_id' => $row['parent_task_id'] !== null ? (int) $row['parent_task_id'] : null,
             'title' => (string) $row['title'],

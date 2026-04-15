@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CalendarPlus, CheckSquare, Plus, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { createCalendarEvent } from '../../api/calendar';
+import { useProjects } from '../../hooks/useProjects';
 import { useCreateTask } from '../../hooks/useTasks';
 import { useUiStore } from '../../stores/uiStore';
 import type { Priority, TaskStatus } from '../../types';
@@ -43,11 +44,13 @@ export function QuickCreate() {
   const openQuickCreate = useUiStore((s) => s.openQuickCreate);
   const closeQuickCreate = useUiStore((s) => s.closeQuickCreate);
   const createTask = useCreateTask();
+  const { data: projects = [] } = useProjects({ status: 'active' });
 
   const [mode, setMode] = useState<Mode>('task');
   const [title, setTitle] = useState('');
   const [priority, setPriority] = useState<Priority>(2);
   const [status, setStatus] = useState<TaskStatus>('todo');
+  const [projectId, setProjectId] = useState<number | null>(null);
   const [dueDate, setDueDate] = useState('');
   const [eventDate, setEventDate] = useState(toDateInputValue(new Date()));
   const [startTime, setStartTime] = useState(nextRoundHour);
@@ -83,6 +86,7 @@ export function QuickCreate() {
     setTitle('');
     setPriority(2);
     setStatus('todo');
+    setProjectId(null);
     setDueDate('');
     setEventDate(toDateInputValue(new Date()));
     const rounded = nextRoundHour();
@@ -112,12 +116,14 @@ export function QuickCreate() {
     setError(null);
 
     if (mode === 'task') {
+      // Deadlines are due at end-of-day, not start-of-day.
       const dueUnix =
-        dueDate !== '' ? Math.floor(new Date(`${dueDate}T00:00:00`).getTime() / 1000) : undefined;
+        dueDate !== '' ? Math.floor(new Date(`${dueDate}T23:59:59`).getTime() / 1000) : undefined;
       const res = await createTask.mutateAsync({
         title: t,
         priority,
         status,
+        project_id: projectId,
         due_date: dueUnix,
       });
       if (!res.success) {
@@ -281,6 +287,19 @@ export function QuickCreate() {
                     <option value="backlog">Backlog</option>
                     <option value="todo">To Do</option>
                     <option value="in_progress">In Progress</option>
+                  </select>
+
+                  <select
+                    value={projectId ?? ''}
+                    onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-200"
+                  >
+                    <option value="">No project</option>
+                    {projects.map((project) => (
+                      <option key={project.id} value={project.id}>
+                        {project.title}
+                      </option>
+                    ))}
                   </select>
 
                   <input

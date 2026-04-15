@@ -19,6 +19,7 @@ use Codex\Controllers\BriefingController;
 use Codex\Controllers\AiController;
 use Codex\Controllers\DiaryController;
 use Codex\Controllers\GoalController;
+use Codex\Controllers\ProjectController;
 use Codex\Controllers\SettingsController;
 use Codex\Controllers\TaskController;
 use Codex\Core\Middleware;
@@ -28,6 +29,7 @@ use Codex\Core\Router;
 use Codex\Repositories\DiaryRepository;
 use Codex\Repositories\AiPlanRepository;
 use Codex\Repositories\GoalRepository;
+use Codex\Repositories\ProjectRepository;
 use Codex\Repositories\TaskRepository;
 
 $backendRoot = dirname(__DIR__);
@@ -109,6 +111,15 @@ $tasksController = static function () use (&$taskController): TaskController {
     return $taskController;
 };
 
+$projectController = null;
+$projectsController = static function () use (&$projectController): ProjectController {
+    if ($projectController === null) {
+        $projectController = new ProjectController(ProjectRepository::make());
+    }
+
+    return $projectController;
+};
+
 $briefingController = new BriefingController();
 $settingsController = new SettingsController();
 $aiController = null;
@@ -120,6 +131,7 @@ $aiCtrl = static function () use (&$aiController): AiController {
     return $aiController;
 };
 $router->get('/api/briefing', [$briefingController, 'index']);
+$router->get('/api/evening-plan', [$briefingController, 'eveningPlan']);
 $router->get('/api/ai/plan', static fn (Request $r) => $aiCtrl()->getPlan($r));
 $router->post('/api/ai/plan/generate', static fn (Request $r) => $aiCtrl()->generate($r));
 $router->get('/api/ai/history', static fn (Request $r) => $aiCtrl()->history($r));
@@ -171,6 +183,22 @@ $router->delete('/api/tasks/:id', static function (Request $request) use ($tasks
 });
 $router->patch('/api/tasks/:id/canvas', static function (Request $request) use ($tasksController): void {
     $tasksController()->patchCanvas($request);
+});
+
+$router->get('/api/projects', static function (Request $request) use ($projectsController): void {
+    $projectsController()->index($request);
+});
+$router->post('/api/projects', static function (Request $request) use ($projectsController): void {
+    $projectsController()->store($request);
+});
+$router->get('/api/projects/:id', static function (Request $request) use ($projectsController): void {
+    $projectsController()->show($request);
+});
+$router->put('/api/projects/:id', static function (Request $request) use ($projectsController): void {
+    $projectsController()->update($request);
+});
+$router->delete('/api/projects/:id', static function (Request $request) use ($projectsController): void {
+    $projectsController()->destroy($request);
 });
 
 $router->get('/api/goals', static function (Request $request) use ($goalsController): void {

@@ -229,107 +229,103 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
         </button>
       </div>
 
-      {dayEvents.length === 0 ? (
-        <p className="text-sm text-slate-500">No events synced.</p>
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col gap-3">
-          {allDayEvents.length > 0 ? (
-            <div className="shrink-0 space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-codex-muted">All day</p>
-              <div className="space-y-1.5">
-                {allDayEvents.map((event) => (
-                  <div
-                    key={event.id}
-                    className="flex items-center justify-between gap-2 rounded-md border border-codex-border bg-codex-bg/70 px-2 py-1.5 text-xs text-slate-200"
-                  >
-                    <span className="truncate">{event.title}</span>
-                    <DeleteEventButton event={event} onDeleted={onDeleted} />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-
-          <div className="grid min-h-0 flex-1 grid-cols-[2.5rem_1fr] gap-2">
-            <div className="relative min-h-0">
-              <div className="absolute inset-2">
-                {timelineHours.map((hour) => (
-                  <span
-                    key={hour}
-                    className="absolute right-0 text-[10px] leading-none text-codex-muted"
-                    style={hourLabelStyle(hour)}
-                  >
-                    {String(hour).padStart(2, '0')}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="relative min-h-0 overflow-hidden rounded-lg border border-codex-border bg-codex-bg/40">
-              <div className="absolute inset-2">
-                {timelineHours.map((hour) => (
-                  <div
-                    key={hour}
-                    className="absolute left-0 right-0 border-t border-codex-border/40"
-                    style={hourLineStyle(hour)}
-                  />
-                ))}
-
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        {allDayEvents.length > 0 ? (
+          <div className="shrink-0 space-y-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-codex-muted">All day</p>
+            <div className="space-y-1.5">
+              {allDayEvents.map((event) => (
                 <div
-                  className="absolute left-0 right-0 z-20 border-t border-rose-500/80"
-                  style={{ top: `${nowTopPct}%` }}
-                  aria-label="Current time"
+                  key={event.id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-codex-border bg-codex-bg/70 px-2 py-1.5 text-xs text-slate-200"
                 >
-                  <span className="absolute right-1 top-1 rounded bg-rose-500/20 px-1 py-0.5 text-[10px] font-medium text-rose-300">
-                    Now {format(now, 'HH:mm')}
-                  </span>
+                  <span className="truncate">{event.title}</span>
+                  <DeleteEventButton event={event} onDeleted={onDeleted} />
                 </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
-                {positionedEvents.events.map(({ event, startMin, endMin, lane }) => {
-                  const clippedStartMin = Math.max(timelineStartMin, startMin);
-                  const clippedEndMin = Math.min(1440, endMin);
-                  if (clippedEndMin <= clippedStartMin) {
-                    return null;
-                  }
+        <div className="grid min-h-[12rem] flex-1 grid-cols-[2.5rem_1fr] gap-2">
+          <div className="relative min-h-0">
+            <div className="absolute inset-2">
+              {timelineHours.map((hour) => (
+                <span
+                  key={hour}
+                  className="absolute right-0 text-[10px] leading-none text-codex-muted"
+                  style={hourLabelStyle(hour)}
+                >
+                  {String(hour).padStart(2, '0')}
+                </span>
+              ))}
+            </div>
+          </div>
 
-                  const topPct = ((clippedStartMin - timelineStartMin) / timelineDurationMin) * 100;
-                  const heightPct = ((clippedEndMin - clippedStartMin) / timelineDurationMin) * 100;
-                  const widthPct = 100 / positionedEvents.laneCount;
-                  const leftPct = lane * widthPct;
-                  const eventTime = `${format(new Date(event.start_at * 1000), 'HH:mm')} - ${format(new Date(event.end_at * 1000), 'HH:mm')}`;
+          <div className="relative min-h-0 overflow-hidden rounded-lg border border-codex-border bg-codex-bg/40">
+            <div className="absolute inset-2">
+              {timelineHours.map((hour) => (
+                <div
+                  key={hour}
+                  className="absolute left-0 right-0 border-t border-codex-border/40"
+                  style={hourLineStyle(hour)}
+                />
+              ))}
 
-                  return (
-                    <article
-                      key={event.id}
-                      className="group absolute z-10 box-border overflow-hidden rounded-md border border-indigo-400/40 bg-indigo-500/20 p-1.5 text-[11px] leading-tight text-indigo-100 hover:z-30"
-                      style={{
-                        top: `${topPct}%`,
-                        height: `${heightPct}%`,
-                        left: `${leftPct}%`,
-                        width: `${widthPct}%`,
-                      }}
-                      onMouseEnter={(e) => moveTooltip(event, e.clientX, e.clientY)}
-                      onMouseMove={(e) => moveTooltip(event, e.clientX, e.clientY)}
-                      onMouseLeave={() => setTooltip(null)}
-                    >
-                      <div className="flex h-full flex-col overflow-hidden">
-                        <p className="truncate font-medium">{event.title}</p>
-                        <p className="truncate text-[10px] text-indigo-200/85">{eventTime}</p>
-                        <div
-                          className="mt-auto hidden group-hover:block"
-                          onMouseEnter={() => setTooltip(null)}
-                        >
-                          <DeleteEventButton event={event} onDeleted={onDeleted} compact />
-                        </div>
-                      </div>
-                    </article>
-                  );
-                })}
+              <div
+                className="absolute left-0 right-0 z-20 border-t border-rose-500/80"
+                style={{ top: `${nowTopPct}%` }}
+                aria-label="Current time"
+              >
+                <span className="absolute right-1 top-1 rounded bg-rose-500/20 px-1 py-0.5 text-[10px] font-medium text-rose-300">
+                  Now {format(now, 'HH:mm')}
+                </span>
               </div>
+
+              {positionedEvents.events.map(({ event, startMin, endMin, lane }) => {
+                const clippedStartMin = Math.max(timelineStartMin, startMin);
+                const clippedEndMin = Math.min(1440, endMin);
+                if (clippedEndMin <= clippedStartMin) {
+                  return null;
+                }
+
+                const topPct = ((clippedStartMin - timelineStartMin) / timelineDurationMin) * 100;
+                const heightPct = ((clippedEndMin - clippedStartMin) / timelineDurationMin) * 100;
+                const widthPct = 100 / positionedEvents.laneCount;
+                const leftPct = lane * widthPct;
+                const eventTime = `${format(new Date(event.start_at * 1000), 'HH:mm')} - ${format(new Date(event.end_at * 1000), 'HH:mm')}`;
+
+                return (
+                  <article
+                    key={event.id}
+                    className="group absolute z-10 box-border overflow-hidden rounded-md border border-indigo-400/40 bg-indigo-500/20 p-1.5 text-[11px] leading-tight text-indigo-100 hover:z-30"
+                    style={{
+                      top: `${topPct}%`,
+                      height: `${heightPct}%`,
+                      left: `${leftPct}%`,
+                      width: `${widthPct}%`,
+                    }}
+                    onMouseEnter={(e) => moveTooltip(event, e.clientX, e.clientY)}
+                    onMouseMove={(e) => moveTooltip(event, e.clientX, e.clientY)}
+                    onMouseLeave={() => setTooltip(null)}
+                  >
+                    <div className="flex h-full flex-col overflow-hidden">
+                      <p className="truncate font-medium">{event.title}</p>
+                      <p className="truncate text-[10px] text-indigo-200/85">{eventTime}</p>
+                      <div
+                        className="mt-auto hidden group-hover:block"
+                        onMouseEnter={() => setTooltip(null)}
+                      >
+                        <DeleteEventButton event={event} onDeleted={onDeleted} compact />
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </div>
-      )}
+      </div>
 
       {typeof document !== 'undefined' && tooltip
         ? createPortal(

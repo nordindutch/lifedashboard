@@ -2,9 +2,18 @@ import type { DiaryLog } from '../../types';
 import { EmptyState } from '../ui/EmptyState';
 import { LogEntry } from './LogEntry';
 
-export function LogFeed({ logs }: { logs: DiaryLog[] }) {
+interface LogFeedProps {
+  logs: DiaryLog[];
+  /** Shown when `logs` is empty (e.g. when filtering by day). */
+  emptyDescription?: string;
+}
+
+export function LogFeed({
+  logs,
+  emptyDescription = 'Capture thoughts with the quick log bar below.',
+}: LogFeedProps) {
   if (logs.length === 0) {
-    return <EmptyState title="No logs yet" description="Capture thoughts with the quick log bar below." />;
+    return <EmptyState title="No logs for this day" description={emptyDescription} />;
   }
   return (
     <div className="space-y-3">
