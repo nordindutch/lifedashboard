@@ -1,6 +1,9 @@
 import axios, { type AxiosError } from 'axios';
 import type { ApiError, ApiResponse } from '../types';
 
+// For Tauri production builds, set VITE_API_BASE_URL=http://localhost:8180
+// (or wherever the PHP backend is hosted) in your .env file.
+// In dev mode (cargo tauri dev), the Vite proxy handles /api → PHP.
 const baseURL =
   import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.length > 0
     ? import.meta.env.VITE_API_BASE_URL

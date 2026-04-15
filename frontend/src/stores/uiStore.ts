@@ -11,9 +11,12 @@ export interface ToastItem {
 interface UiState {
   activeTab: AppTab;
   sidebarExpanded: boolean;
+  quickCreateOpen: boolean;
   toasts: ToastItem[];
   setActiveTab: (tab: AppTab) => void;
   toggleSidebar: () => void;
+  openQuickCreate: () => void;
+  closeQuickCreate: () => void;
   pushToast: (t: Omit<ToastItem, 'id'> & { id?: string }) => void;
   dismissToast: (id: string) => void;
 }
@@ -21,9 +24,12 @@ interface UiState {
 export const useUiStore = create<UiState>((set) => ({
   activeTab: 'home',
   sidebarExpanded: false,
+  quickCreateOpen: false,
   toasts: [],
   setActiveTab: (activeTab) => set({ activeTab }),
   toggleSidebar: () => set((s) => ({ sidebarExpanded: !s.sidebarExpanded })),
+  openQuickCreate: () => set({ quickCreateOpen: true }),
+  closeQuickCreate: () => set({ quickCreateOpen: false }),
   pushToast: (t) =>
     set((s) => ({
       toasts: [

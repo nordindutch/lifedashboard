@@ -127,6 +127,8 @@ $router->get('/api/auth/google', [$settingsController, 'googleAuth']);
 $router->get('/api/auth/google/callback', [$settingsController, 'googleCallback']);
 $router->delete('/api/auth/google', [$settingsController, 'revokeGoogle']);
 $router->post('/api/calendar/sync', [$settingsController, 'syncCalendar']);
+$router->post('/api/calendar/events', [$settingsController, 'createCalendarEvent']);
+$router->delete('/api/calendar/events/:id', [$settingsController, 'deleteCalendarEvent']);
 $router->post('/api/gmail/sync', [$settingsController, 'syncGmail']);
 $router->get('/api/integrations/status', [$settingsController, 'integrationStatus']);
 $router->get('/api/settings/weather-test', [$settingsController, 'weatherTest']);

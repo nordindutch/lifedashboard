@@ -13,8 +13,12 @@ export function SettingsPage() {
   const [lon, setLon] = useState('');
   const [anthropicKey, setAnthropicKey] = useState('');
   const [timezone, setTimezone] = useState('UTC');
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveOk, setSaveOk] = useState<string | null>(null);
+  const [weatherSaveOk, setWeatherSaveOk] = useState<string | null>(null);
+  const [weatherSaveError, setWeatherSaveError] = useState<string | null>(null);
+  const [timezoneSaveOk, setTimezoneSaveOk] = useState<string | null>(null);
+  const [timezoneSaveError, setTimezoneSaveError] = useState<string | null>(null);
+  const [anthropicSaveOk, setAnthropicSaveOk] = useState<string | null>(null);
+  const [anthropicSaveError, setAnthropicSaveError] = useState<string | null>(null);
 
   const [isTesting, setIsTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
@@ -81,43 +85,43 @@ export function SettingsPage() {
   }
 
   const handleSave = async (): Promise<void> => {
-    setSaveError(null);
-    setSaveOk(null);
+    setWeatherSaveError(null);
+    setWeatherSaveOk(null);
     try {
       await updateSettings({
         openweather_api_key: apiKey.trim(),
         openweather_lat: lat.trim(),
         openweather_lon: lon.trim(),
       });
-      setSaveOk('Weather settings saved.');
+      setWeatherSaveOk('Weather settings saved.');
     } catch (e: unknown) {
-      setSaveError(e instanceof Error ? e.message : 'Failed to save settings');
+      setWeatherSaveError(e instanceof Error ? e.message : 'Failed to save settings');
     }
   };
 
   const handleSaveAnthropic = async (): Promise<void> => {
-    setSaveError(null);
-    setSaveOk(null);
+    setAnthropicSaveError(null);
+    setAnthropicSaveOk(null);
     try {
       await updateSettings({
         anthropic_api_key: anthropicKey.trim(),
       });
-      setSaveOk('Anthropic API key saved.');
+      setAnthropicSaveOk('Anthropic API key saved.');
     } catch (e: unknown) {
-      setSaveError(e instanceof Error ? e.message : 'Failed to save settings');
+      setAnthropicSaveError(e instanceof Error ? e.message : 'Failed to save settings');
     }
   };
 
   const handleSaveTimezone = async (): Promise<void> => {
-    setSaveError(null);
-    setSaveOk(null);
+    setTimezoneSaveError(null);
+    setTimezoneSaveOk(null);
     try {
       await updateSettings({
         timezone: timezone.trim() || 'UTC',
       });
-      setSaveOk('Timezone saved.');
+      setTimezoneSaveOk('Timezone saved.');
     } catch (e: unknown) {
-      setSaveError(e instanceof Error ? e.message : 'Failed to save settings');
+      setTimezoneSaveError(e instanceof Error ? e.message : 'Failed to save settings');
     }
   };
 
@@ -272,8 +276,8 @@ export function SettingsPage() {
             </p>
           ) : null}
           {testError ? <p className="text-sm text-rose-400">{testError}</p> : null}
-          {saveOk ? <p className="text-sm text-emerald-400">{saveOk}</p> : null}
-          {saveError ? <p className="text-sm text-rose-400">{saveError}</p> : null}
+          {weatherSaveOk ? <p className="text-sm text-emerald-400">{weatherSaveOk}</p> : null}
+          {weatherSaveError ? <p className="text-sm text-rose-400">{weatherSaveError}</p> : null}
         </div>
       </Card>
 
@@ -314,8 +318,8 @@ export function SettingsPage() {
           <Button type="button" variant="primary" onClick={handleSaveTimezone} disabled={isPending}>
             {isPending ? 'Saving…' : 'Save'}
           </Button>
-          {saveOk ? <p className="text-sm text-emerald-400">{saveOk}</p> : null}
-          {saveError ? <p className="text-sm text-rose-400">{saveError}</p> : null}
+          {timezoneSaveOk ? <p className="text-sm text-emerald-400">{timezoneSaveOk}</p> : null}
+          {timezoneSaveError ? <p className="text-sm text-rose-400">{timezoneSaveError}</p> : null}
         </div>
       </Card>
 
@@ -340,8 +344,8 @@ export function SettingsPage() {
           <Button type="button" variant="primary" onClick={handleSaveAnthropic} disabled={isPending}>
             {isPending ? 'Saving…' : 'Save'}
           </Button>
-          {saveOk ? <p className="text-sm text-emerald-400">{saveOk}</p> : null}
-          {saveError ? <p className="text-sm text-rose-400">{saveError}</p> : null}
+          {anthropicSaveOk ? <p className="text-sm text-emerald-400">{anthropicSaveOk}</p> : null}
+          {anthropicSaveError ? <p className="text-sm text-rose-400">{anthropicSaveError}</p> : null}
         </div>
       </Card>
 

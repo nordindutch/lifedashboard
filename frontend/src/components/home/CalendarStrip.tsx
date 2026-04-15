@@ -1,7 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState, type CSSProperties, type MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { deleteCalendarEvent } from '../../api/calendar';
 import type { CalendarEvent } from '../../types';
 import { Card } from '../ui/Card';
 
@@ -25,9 +27,76 @@ interface CalendarStripProps {
   className?: string;
 }
 
+interface DeleteEventButtonProps {
+  event: CalendarEvent;
+  onDeleted: (id: number) => void;
+  compact?: boolean;
+}
+
+function DeleteEventButton({ event, onDeleted, compact = false }: DeleteEventButtonProps) {
+  const [pending, setPending] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+
+  const handleClick = async (e: MouseEvent): Promise<void> => {
+    e.stopPropagation();
+
+    if (!confirmed) {
+      setConfirmed(true);
+      window.setTimeout(() => setConfirmed(false), 3000);
+      return;
+    }
+
+    setPending(true);
+    const res = await deleteCalendarEvent(event.id);
+    if (res.success) {
+      onDeleted(event.id);
+    }
+    setPending(false);
+    setConfirmed(false);
+  };
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => void handleClick(e)}
+        disabled={pending}
+        className={`mt-0.5 flex items-center gap-1 rounded px-1 py-0.5 text-[10px] transition-colors disabled:opacity-50 ${
+          confirmed
+            ? 'bg-rose-500/30 text-rose-300'
+            : 'text-indigo-300/60 hover:bg-rose-500/20 hover:text-rose-300'
+        }`}
+        title={confirmed ? 'Click again to delete' : 'Delete event'}
+      >
+        <Trash2 size={9} />
+        {confirmed ? 'Confirm' : 'Delete'}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => void handleClick(e)}
+      disabled={pending}
+      className={`shrink-0 rounded p-1 text-slate-600 transition-colors disabled:opacity-50 ${
+        confirmed ? 'bg-rose-500/20 text-rose-400' : 'hover:bg-rose-500/10 hover:text-rose-400'
+      }`}
+      title={confirmed ? 'Click again to confirm delete' : 'Delete event'}
+    >
+      <Trash2 size={12} />
+    </button>
+  );
+}
+
 export function CalendarStrip({ events, onSync, isSyncing = false, className }: CalendarStripProps) {
+  const qc = useQueryClient();
   const [now, setNow] = useState<Date>(() => new Date());
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+
+  const onDeleted = (_id: number): void => {
+    void qc.invalidateQueries({ queryKey: ['briefing'] });
+  };
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -56,7 +125,6 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
   const dayStartUnix = Math.floor(dayStart.getTime() / 1000);
   const dayEndUnix = dayStartUnix + 86400;
 
-  /** Timed events that ended earlier today are hidden unless the whole slot lies in the last rolling hour. */
   const isTimedEventVisibleNow = (event: CalendarEvent, nowUnix: number): boolean => {
     if (event.is_all_day) {
       return true;
@@ -146,8 +214,8 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
   };
 
   return (
-    <Card className={className}>
-      <div className="mb-2 flex items-center justify-between gap-2">
+    <Card className={`flex min-h-0 flex-col ${className ?? ''}`}>
+      <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h3 className="text-sm font-medium text-slate-300">Today</h3>
         <button
           type="button"
@@ -160,28 +228,30 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
           {isSyncing ? 'Syncing…' : 'Sync'}
         </button>
       </div>
+
       {dayEvents.length === 0 ? (
         <p className="text-sm text-slate-500">No events synced.</p>
       ) : (
-        <div className="space-y-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
           {allDayEvents.length > 0 ? (
-            <div className="space-y-1">
+            <div className="shrink-0 space-y-1">
               <p className="text-xs font-medium uppercase tracking-wide text-codex-muted">All day</p>
               <div className="space-y-1.5">
                 {allDayEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="rounded-md border border-codex-border bg-codex-bg/70 px-2 py-1.5 text-xs text-slate-200"
+                    className="flex items-center justify-between gap-2 rounded-md border border-codex-border bg-codex-bg/70 px-2 py-1.5 text-xs text-slate-200"
                   >
-                    {event.title}
+                    <span className="truncate">{event.title}</span>
+                    <DeleteEventButton event={event} onDeleted={onDeleted} />
                   </div>
                 ))}
               </div>
             </div>
           ) : null}
 
-          <div className="grid grid-cols-[2.5rem_1fr] gap-2">
-            <div className="relative h-[32rem]">
+          <div className="grid min-h-0 flex-1 grid-cols-[2.5rem_1fr] gap-2">
+            <div className="relative min-h-0">
               <div className="absolute inset-2">
                 {timelineHours.map((hour) => (
                   <span
@@ -195,7 +265,7 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
               </div>
             </div>
 
-            <div className="relative h-[32rem] overflow-hidden rounded-lg border border-codex-border bg-codex-bg/40">
+            <div className="relative min-h-0 overflow-hidden rounded-lg border border-codex-border bg-codex-bg/40">
               <div className="absolute inset-2">
                 {timelineHours.map((hour) => (
                   <div
@@ -231,7 +301,7 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
                   return (
                     <article
                       key={event.id}
-                      className="box-border absolute z-10 overflow-hidden rounded-md border border-indigo-400/40 bg-indigo-500/20 p-1.5 text-[11px] leading-tight text-indigo-100 hover:z-30"
+                      className="group absolute z-10 box-border overflow-hidden rounded-md border border-indigo-400/40 bg-indigo-500/20 p-1.5 text-[11px] leading-tight text-indigo-100 hover:z-30"
                       style={{
                         top: `${topPct}%`,
                         height: `${heightPct}%`,
@@ -242,9 +312,15 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
                       onMouseMove={(e) => moveTooltip(event, e.clientX, e.clientY)}
                       onMouseLeave={() => setTooltip(null)}
                     >
-                      <div className="overflow-hidden">
+                      <div className="flex h-full flex-col overflow-hidden">
                         <p className="truncate font-medium">{event.title}</p>
                         <p className="truncate text-[10px] text-indigo-200/85">{eventTime}</p>
+                        <div
+                          className="mt-auto hidden group-hover:block"
+                          onMouseEnter={() => setTooltip(null)}
+                        >
+                          <DeleteEventButton event={event} onDeleted={onDeleted} compact />
+                        </div>
                       </div>
                     </article>
                   );

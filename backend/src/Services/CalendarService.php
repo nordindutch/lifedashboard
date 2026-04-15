@@ -68,6 +68,101 @@ final class CalendarService
     }
 
     /**
+     * Creates an event in the user's primary Google Calendar.
+     * Returns the normalised event array on success, null on failure.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function createEvent(
+        string $title,
+        int $startAt,
+        int $endAt,
+        bool $isAllDay = false,
+        ?string $description = null,
+        ?string $location = null,
+    ): ?array {
+        $url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+
+        if ($isAllDay) {
+            $body = [
+                'summary' => $title,
+                'start' => ['date' => gmdate('Y-m-d', $startAt)],
+                'end' => ['date' => gmdate('Y-m-d', $endAt)],
+            ];
+        } else {
+            $body = [
+                'summary' => $title,
+                'start' => ['dateTime' => gmdate('c', $startAt), 'timeZone' => 'UTC'],
+                'end' => ['dateTime' => gmdate('c', $endAt), 'timeZone' => 'UTC'],
+            ];
+        }
+        if ($description !== null && $description !== '') {
+            $body['description'] = $description;
+        }
+        if ($location !== null && $location !== '') {
+            $body['location'] = $location;
+        }
+
+        $payload = json_encode($body, JSON_UNESCAPED_UNICODE);
+
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'timeout' => 8,
+                'ignore_errors' => true,
+                'header' => implode("\r\n", [
+                    "Authorization: Bearer {$this->accessToken}",
+                    'Content-Type: application/json',
+                    'Content-Length: ' . strlen($payload ?: ''),
+                ]),
+                'content' => $payload,
+            ],
+        ]);
+
+        $raw = @file_get_contents($url, false, $ctx);
+        if (!is_string($raw) || trim($raw) === '') {
+            return null;
+        }
+
+        $json = json_decode($raw, true);
+        if (!is_array($json) || isset($json['error'])) {
+            return null;
+        }
+
+        return $this->normalizeEvent($json);
+    }
+
+    /**
+     * Deletes an event from Google Calendar by its Google event ID.
+     * Returns true on success (204 No Content), false on any failure.
+     */
+    public function deleteEvent(string $googleEventId): bool
+    {
+        $url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events/'
+            . rawurlencode($googleEventId);
+
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'DELETE',
+                'timeout' => 8,
+                'ignore_errors' => true,
+                'header' => "Authorization: Bearer {$this->accessToken}\r\n",
+            ],
+        ]);
+
+        @file_get_contents($url, false, $ctx);
+
+        $headers = $http_response_header ?? [];
+        foreach ($headers as $h) {
+            if (str_starts_with($h, 'HTTP/') && str_contains($h, '204')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @param list<array<string, mixed>> $events
      */
     public static function upsertCachedEvents(array $events): int

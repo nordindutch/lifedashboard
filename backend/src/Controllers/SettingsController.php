@@ -298,6 +298,154 @@ final class SettingsController
         Response::success(['synced' => true, 'emails' => $count]);
     }
 
+    public function createCalendarEvent(Request $request): void
+    {
+        $body = $request->getBody();
+        $title = trim((string) ($body['title'] ?? ''));
+        if ($title === '') {
+            Response::error('validation_error', 'title is required', 422, 'title');
+            return;
+        }
+
+        $startAt = isset($body['start_at']) ? (int) $body['start_at'] : null;
+        $endAt = isset($body['end_at']) ? (int) $body['end_at'] : null;
+        $isAllDay = !empty($body['is_all_day']);
+
+        if ($startAt === null || $endAt === null) {
+            Response::error('validation_error', 'start_at and end_at are required', 422);
+            return;
+        }
+        if ($endAt <= $startAt) {
+            Response::error('validation_error', 'end_at must be after start_at', 422, 'end_at');
+            return;
+        }
+
+        $description = isset($body['description']) ? (string) $body['description'] : null;
+        $location = isset($body['location']) ? (string) $body['location'] : null;
+
+        $googleEvent = null;
+        $externalId = 'local_' . bin2hex(random_bytes(8));
+        $calendarName = 'Local';
+
+        $authService = GoogleAuthService::makeFromSettings();
+        if ($authService !== null) {
+            $accessToken = $authService->getValidAccessToken();
+            if ($accessToken !== null) {
+                $calendarService = new CalendarService($accessToken);
+                $googleEvent = $calendarService->createEvent(
+                    $title,
+                    $startAt,
+                    $endAt,
+                    $isAllDay,
+                    $description,
+                    $location,
+                );
+                if ($googleEvent !== null) {
+                    $externalId = (string) $googleEvent['external_id'];
+                    $calendarName = 'Google Calendar';
+                }
+            }
+        }
+
+        $db = Database::getInstance();
+        $stmt = $db->prepare(
+            'INSERT INTO cached_calendar_events
+             (external_id, title, description, location, start_at, end_at, is_all_day,
+              calendar_name, color, fetched_at)
+             VALUES
+             (:external_id, :title, :description, :location, :start_at, :end_at, :is_all_day,
+              :calendar_name, :color, unixepoch())
+             ON CONFLICT(external_id) DO UPDATE SET
+                title         = excluded.title,
+                description   = excluded.description,
+                location      = excluded.location,
+                start_at      = excluded.start_at,
+                end_at        = excluded.end_at,
+                is_all_day    = excluded.is_all_day,
+                calendar_name = excluded.calendar_name,
+                fetched_at    = unixepoch()',
+        );
+        $stmt->execute([
+            'external_id' => $externalId,
+            'title' => $title,
+            'description' => $description,
+            'location' => $location,
+            'start_at' => $startAt,
+            'end_at' => $endAt,
+            'is_all_day' => $isAllDay ? 1 : 0,
+            'calendar_name' => $calendarName,
+            'color' => null,
+        ]);
+
+        $row = $db->prepare('SELECT * FROM cached_calendar_events WHERE external_id = ? LIMIT 1');
+        $row->execute([$externalId]);
+        /** @var array<string, mixed>|false $event */
+        $event = $row->fetch(\PDO::FETCH_ASSOC);
+        if (!is_array($event)) {
+            Response::error('internal_error', 'Failed to load created event', 500);
+            return;
+        }
+
+        $pushedToGoogle = $googleEvent !== null;
+
+        Response::success([
+            'id' => (int) $event['id'],
+            'external_id' => (string) $event['external_id'],
+            'title' => (string) $event['title'],
+            'description' => $event['description'] ? (string) $event['description'] : null,
+            'location' => $event['location'] ? (string) $event['location'] : null,
+            'start_at' => (int) $event['start_at'],
+            'end_at' => (int) $event['end_at'],
+            'is_all_day' => ((int) $event['is_all_day']) === 1,
+            'calendar_name' => (string) $event['calendar_name'],
+            'color' => null,
+            'meet_link' => null,
+            'fetched_at' => (int) $event['fetched_at'],
+            'pushed_to_google' => $pushedToGoogle,
+        ], 201);
+    }
+
+    public function deleteCalendarEvent(Request $request): void
+    {
+        $id = isset($request->routeParams['id']) ? (int) $request->routeParams['id'] : 0;
+        if ($id < 1) {
+            Response::error('validation_error', 'Invalid event id', 422, 'id');
+            return;
+        }
+
+        $db = Database::getInstance();
+
+        $stmt = $db->prepare('SELECT * FROM cached_calendar_events WHERE id = ?');
+        $stmt->execute([$id]);
+        /** @var array<string, mixed>|false $event */
+        $event = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!is_array($event)) {
+            Response::error('not_found', 'Calendar event not found', 404);
+            return;
+        }
+
+        $externalId = (string) $event['external_id'];
+
+        $googleDeleted = false;
+        if (!str_starts_with($externalId, 'local_')) {
+            $authService = GoogleAuthService::makeFromSettings();
+            if ($authService !== null) {
+                $accessToken = $authService->getValidAccessToken();
+                if ($accessToken !== null) {
+                    $googleDeleted = (new CalendarService($accessToken))->deleteEvent($externalId);
+                }
+            }
+        }
+
+        $db->prepare('DELETE FROM cached_calendar_events WHERE id = ?')->execute([$id]);
+
+        Response::success([
+            'deleted' => true,
+            'google_deleted' => $googleDeleted,
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */

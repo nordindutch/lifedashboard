@@ -72,7 +72,7 @@ final class GoogleAuthService
                 'openid',
                 'email',
                 'profile',
-                'https://www.googleapis.com/auth/calendar.readonly',
+                'https://www.googleapis.com/auth/calendar',
                 // Also add this scope in Google Cloud Console OAuth consent/scope config.
                 'https://www.googleapis.com/auth/gmail.readonly',
             ]),
