@@ -13,6 +13,31 @@ export type TaskStatus =
 export type LogType = 'activity' | 'reflection' | 'win' | 'blocker' | 'idea' | 'mood';
 export type PlanType = 'morning' | 'evening' | 'weekly' | 'adhoc';
 export type NoteFormat = 'markdown' | 'plain' | 'html';
+export type BudgetCategory =
+  | 'Vaste Last'
+  | 'Abonnement'
+  | 'Tijdelijke Last'
+  | 'Persoonlijk'
+  | 'Politiek/Vakbond'
+  | 'Overig';
+
+export const BUDGET_CATEGORIES: BudgetCategory[] = [
+  'Vaste Last',
+  'Abonnement',
+  'Tijdelijke Last',
+  'Persoonlijk',
+  'Politiek/Vakbond',
+  'Overig',
+];
+
+export const CATEGORY_COLORS: Record<BudgetCategory, string> = {
+  'Vaste Last': '#3b82f6',
+  Abonnement: '#f59e0b',
+  'Tijdelijke Last': '#ef4444',
+  Persoonlijk: '#10b981',
+  'Politiek/Vakbond': '#8b5cf6',
+  Overig: '#71717a',
+};
 
 export interface Goal {
   id: number;
@@ -188,6 +213,53 @@ export interface DailySnapshot {
   diary_streak?: number;
   created_at: UnixTimestamp;
   updated_at: UnixTimestamp;
+}
+
+export interface BudgetMonth {
+  id: number;
+  month: string;
+  current_balance: number;
+  minimum_balance: number;
+  notes: string | null;
+  created_at: UnixTimestamp;
+  updated_at: UnixTimestamp;
+}
+
+export interface BudgetIncomeRow {
+  id: number;
+  month_id: number;
+  name: string;
+  amount: number;
+  received: boolean;
+  sort_order: number;
+}
+
+export interface BudgetExpenseRow {
+  id: number;
+  month_id: number;
+  name: string;
+  amount: number;
+  category: BudgetCategory;
+  paid: boolean;
+  sort_order: number;
+}
+
+export interface BudgetSummary {
+  total_income: number;
+  total_expenses: number;
+  received: number;
+  paid: number;
+  pending_income: number;
+  pending_expenses: number;
+  projected_balance: number;
+  by_category: { category: BudgetCategory; amount: number }[];
+}
+
+export interface BudgetMonthPayload {
+  month: BudgetMonth;
+  income: BudgetIncomeRow[];
+  expenses: BudgetExpenseRow[];
+  summary: BudgetSummary;
 }
 
 export interface WeatherData {

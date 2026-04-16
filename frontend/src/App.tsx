@@ -5,6 +5,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { pathToTab } from './lib/routes';
 import { CanvasPage } from './pages/CanvasPage';
+import { BudgetPage } from './pages/BudgetPage';
 import { DiaryPage } from './pages/DiaryPage';
 import { HomePage } from './pages/HomePage';
 import { ProductivityPage } from './pages/ProductivityPage';
@@ -32,6 +33,7 @@ function RouterShell() {
         <Route path="/tasks" element={<ProductivityPage />} />
         <Route path="/canvas" element={<CanvasPage />} />
         <Route path="/diary" element={<DiaryPage />} />
+        <Route path="/budget" element={<BudgetPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

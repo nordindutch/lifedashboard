@@ -25,6 +25,7 @@ export function TaskDrawer({ task, onClose }: Props) {
   const [priority, setPriority] = useState<Priority>(2);
   const [projectId, setProjectId] = useState<number | null>(null);
   const [dueDate, setDueDate] = useState('');
+  const [estimatedMins, setEstimatedMins] = useState<number | ''>('');
 
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
@@ -41,6 +42,7 @@ export function TaskDrawer({ task, onClose }: Props) {
     setPriority(task.priority);
     setProjectId(task.project_id ?? null);
     setDueDate(task.due_date ? format(fromUnixTime(task.due_date), 'yyyy-MM-dd') : '');
+    setEstimatedMins(task.estimated_mins ?? '');
   }, [task]);
 
   const open = task !== null;
@@ -65,6 +67,7 @@ export function TaskDrawer({ task, onClose }: Props) {
         priority,
         project_id: projectId,
         due_date: dueDate === '' ? null : Math.floor(new Date(`${dueDate}T23:59:59`).getTime() / 1000),
+        estimated_mins: estimatedMins === '' ? null : Number(estimatedMins),
       },
     });
     if (!res.success) {
@@ -178,17 +181,35 @@ export function TaskDrawer({ task, onClose }: Props) {
               </select>
             </div>
           </div>
-          <div>
-            <label htmlFor="task-drawer-due-date" className="mb-1 block text-slate-500">
-              Due date
-            </label>
-            <input
-              id="task-drawer-due-date"
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="w-full rounded-md border border-codex-border bg-codex-bg px-3 py-2 text-slate-200 outline-none focus:border-codex-accent"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="task-drawer-due-date" className="mb-1 block text-slate-500">
+                Due date
+              </label>
+              <input
+                id="task-drawer-due-date"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full rounded-md border border-codex-border bg-codex-bg px-3 py-2 text-slate-200 outline-none focus:border-codex-accent"
+              />
+            </div>
+            <div>
+              <label htmlFor="task-drawer-estimate" className="mb-1 block text-slate-500">
+                Estimate (min)
+              </label>
+              <input
+                id="task-drawer-estimate"
+                type="number"
+                min={1}
+                max={480}
+                step={15}
+                value={estimatedMins}
+                onChange={(e) => setEstimatedMins(e.target.value === '' ? '' : Number(e.target.value))}
+                placeholder="e.g. 30"
+                className="w-full rounded-md border border-codex-border bg-codex-bg px-3 py-2 text-slate-200 outline-none focus:border-codex-accent"
+              />
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 pt-2">
             <button

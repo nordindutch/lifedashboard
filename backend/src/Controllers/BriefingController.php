@@ -149,8 +149,8 @@ final class BriefingController
      */
     public function eveningPlan(Request $request): void
     {
-        $date = $this->normalizeBriefingDate($request);
-        if ($date === null) {
+        $requestedDate = $this->normalizeBriefingDate($request);
+        if ($requestedDate === null) {
             Response::error('validation_error', 'Invalid date; use YYYY-MM-DD', 422, 'date');
 
             return;
@@ -161,6 +161,7 @@ final class BriefingController
         $timezone = $hub['timezone'];
         $workStart = $hub['work_start'];
         $workEnd = $hub['work_end'];
+        $date = $requestedDate;
 
         $events = [];
         try {
@@ -171,7 +172,7 @@ final class BriefingController
         $eveningPlan = null;
         try {
             $aiRepo = AiPlanRepository::make();
-            $eveningPlan = $this->resolveEveningPlan($date, $db, $timezone, $workStart, $workEnd, $events, $aiRepo);
+            $eveningPlan = $this->resolveEveningPlan($date, $db, $timezone, $workStart, $workEnd, $events, $aiRepo, false);
         } catch (\Throwable) {
         }
 
@@ -240,26 +241,31 @@ final class BriefingController
         int $workEnd,
         array $events,
         AiPlanRepository $aiRepo,
+        bool $force = false,
     ): ?array {
         $existing = $aiRepo->findForDate($date, 'evening');
-        if ($existing !== null) {
+        if ($existing !== null && !$force) {
             return $existing;
         }
-
-        $tzObj = $this->safeTimezone($timezone);
-        $localNow = new \DateTime('now', $tzObj);
-        $localHour = (int) $localNow->format('H');
-        $localMin = (int) $localNow->format('i');
-        $isAfter2230 = ($localHour > 22) || ($localHour === 22 && $localMin >= 30);
 
         $settingStmt = $db->prepare(
             "SELECT value FROM settings WHERE key = 'ai_evening_plan_enabled' LIMIT 1",
         );
         $settingStmt->execute();
         $eveningEnabled = trim((string) ($settingStmt->fetchColumn() ?: '1')) === '1';
+        if (!$eveningEnabled) {
+            return $existing;
+        }
 
-        if (!$isAfter2230 || !$eveningEnabled) {
-            return null;
+        if (!$force) {
+            $tzObj = $this->safeTimezone($timezone);
+            $localNow = new \DateTime('now', $tzObj);
+            $localHour = (int) $localNow->format('H');
+            $localMin = (int) $localNow->format('i');
+            $isAfter2230 = ($localHour > 22) || ($localHour === 22 && $localMin >= 30);
+            if (!$isAfter2230) {
+                return $existing;
+            }
         }
 
         $anthropic = AnthropicService::makeFromSettings();
@@ -292,60 +298,123 @@ final class BriefingController
         AiPlanRepository $aiRepo,
     ): ?array {
         $db = Database::getInstance();
-
-        $dayStart = (int) strtotime($date . ' 00:00:00');
-        $dayEnd = (int) strtotime($date . ' 23:59:59');
+        $tzObj = $this->safeTimezone($timezone);
+        $dayStartDt = new \DateTimeImmutable($date . ' 00:00:00', $tzObj);
+        $dayEndDt = new \DateTimeImmutable($date . ' 23:59:59', $tzObj);
+        $dayStart = $dayStartDt->getTimestamp();
+        $dayEnd = $dayEndDt->getTimestamp();
 
         $doneStmt = $db->prepare(
             'SELECT title, estimated_mins, actual_mins FROM tasks
              WHERE completed_at >= ? AND completed_at <= ? AND deleted_at IS NULL
-             LIMIT 20',
+             ORDER BY completed_at ASC LIMIT 20',
         );
         $doneStmt->execute([$dayStart, $dayEnd]);
         /** @var list<array<string, mixed>> $doneTasks */
         $doneTasks = $doneStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        $addedStmt = $db->prepare(
+            "SELECT title, status FROM tasks
+             WHERE created_at >= ? AND created_at <= ?
+               AND status NOT IN ('done','cancelled') AND deleted_at IS NULL
+             LIMIT 10",
+        );
+        $addedStmt->execute([$dayStart, $dayEnd]);
+        /** @var list<array<string, mixed>> $addedTasks */
+        $addedTasks = $addedStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $openStmt = $db->prepare(
+            "SELECT title, status, priority FROM tasks
+             WHERE status IN ('todo','in_progress','in_review')
+               AND deleted_at IS NULL
+             ORDER BY priority DESC LIMIT 10",
+        );
+        $openStmt->execute();
+        /** @var list<array<string, mixed>> $openTasks */
+        $openTasks = $openStmt->fetchAll(PDO::FETCH_ASSOC);
+
         $logStmt = $db->prepare(
-            'SELECT log_type, body, mood_score FROM diary_logs
+            'SELECT log_type, body, mood_score, logged_at FROM diary_logs
              WHERE logged_at >= ? AND logged_at <= ? AND deleted_at IS NULL
-             ORDER BY logged_at ASC LIMIT 15',
+             ORDER BY logged_at ASC LIMIT 20',
         );
         $logStmt->execute([$dayStart, $dayEnd]);
         /** @var list<array<string, mixed>> $logs */
         $logs = $logStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        $moodScores = array_filter(
+            array_column($logs, 'mood_score'),
+            static fn($s): bool => $s !== null,
+        );
+        $avgMood = count($moodScores) > 0
+            ? round((float) array_sum($moodScores) / count($moodScores), 1)
+            : null;
+
         $systemPrompt = implode("\n", [
-            'You are a personal productivity coach delivering an end-of-day reflection.',
+            'You are a personal productivity coach delivering a warm, honest end-of-day reflection.',
             'Today is ' . $date . '. Timezone: ' . $timezone . '.',
-            'The user workday was configured as ' . $workStart . ':00-' . $workEnd . ':00.',
-            'Be warm, specific, and brief. Max 3 sentences for reflection.',
+            'Be specific - reference actual tasks and logs by name. Max 3 sentences for reflection.',
             'Respond ONLY with valid JSON - no markdown, no preamble.',
         ]);
 
-        $taskLines = array_map(
-            static fn(array $t): string => '- ' . (string) ($t['title'] ?? 'Untitled')
+        $doneLines = array_map(
+            static fn(array $t): string => '- [done] ' . (string) ($t['title'] ?? '')
                 . (!empty($t['actual_mins']) ? ' (' . (int) $t['actual_mins'] . 'min)' : ''),
             $doneTasks,
         );
+        $addedLines = array_map(
+            static fn(array $t): string => '- [added today, ' . (string) ($t['status'] ?? 'todo') . '] '
+                . (string) ($t['title'] ?? ''),
+            $addedTasks,
+        );
+        $openLines = array_map(
+            static fn(array $t): string => '- [still open, P' . (int) ($t['priority'] ?? 2) . '] '
+                . (string) ($t['title'] ?? ''),
+            $openTasks,
+        );
         $logLines = array_map(
-            static fn(array $l): string => '- [' . (string) ($l['log_type'] ?? 'activity') . '] ' . (string) ($l['body'] ?? ''),
+            static fn(array $l): string => '- [' . (string) ($l['log_type'] ?? 'activity') . '] '
+                . (string) ($l['body'] ?? '')
+                . ($l['mood_score'] !== null ? ' (mood: ' . $l['mood_score'] . '/10)' : ''),
             $logs,
         );
+        $calendarLines = array_map(
+            fn(array $e): string => '- '
+                . (new \DateTimeImmutable('@' . (int) ($e['start_at'] ?? 0)))
+                    ->setTimezone($tzObj)
+                    ->format('H:i')
+                . '-'
+                . (new \DateTimeImmutable('@' . (int) ($e['end_at'] ?? 0)))
+                    ->setTimezone($tzObj)
+                    ->format('H:i')
+                . ': ' . (string) ($e['title'] ?? ''),
+            $events,
+        );
 
-        $userPrompt = implode("\n", [
-            'Tasks completed today:',
-            $taskLines !== [] ? implode("\n", $taskLines) : '- None',
+        $userPrompt = implode("\n", array_filter([
+            'COMPLETED today:',
+            $doneLines !== [] ? implode("\n", $doneLines) : '- Nothing completed',
             '',
-            'Diary logs:',
+            'ADDED today (not yet done):',
+            $addedLines !== [] ? implode("\n", $addedLines) : '- None',
+            '',
+            'STILL OPEN (carried over):',
+            $openLines !== [] ? implode("\n", $openLines) : '- None',
+            '',
+            'CALENDAR today:',
+            $calendarLines !== [] ? implode("\n", $calendarLines) : '- No events',
+            '',
+            'DIARY & MOOD logs:',
             $logLines !== [] ? implode("\n", $logLines) : '- None',
+            $avgMood !== null ? 'Average mood today: ' . $avgMood . '/10' : '',
             '',
-            'Respond with:',
+            'Write a day summary. Respond with:',
             '{',
-            '  "reflection": "2-3 warm sentences summarising the day and one positive observation",',
-            '  "close_prompt": "One encouraging sentence urging the user to wrap up for the night",',
-            '  "score": 1-100',
+            '  "reflection": "2-3 warm sentences. Be specific - name actual tasks. Acknowledge what was left open without guilt.",',
+            '  "close_prompt": "One short encouraging sentence to wind down for the night.",',
+            '  "score": <integer 1-100 reflecting how productive and balanced the day looks>',
             '}',
-        ]);
+        ]));
 
         $result = $anthropic->generate($systemPrompt, $userPrompt, 400);
         if ($result === null) {
@@ -385,5 +454,14 @@ final class BriefingController
         } catch (\Throwable) {
             return new \DateTimeZone('UTC');
         }
+    }
+
+    private function isBefore2230(string $timezone): bool
+    {
+        $now = new \DateTime('now', $this->safeTimezone($timezone));
+        $hour = (int) $now->format('H');
+        $minute = (int) $now->format('i');
+
+        return $hour < 22 || ($hour === 22 && $minute < 30);
     }
 }

@@ -11,6 +11,7 @@ import { BriefingTasksCard } from './BriefingTasksCard';
 import { CalendarStrip } from './CalendarStrip';
 import { DiaryCard } from './DiaryCard';
 import { EmailPreview } from './EmailPreview';
+import { EveningSummaryCard } from './EveningSummaryCard';
 import { StatsStrip } from './StatsStrip';
 import { WeatherCard } from './WeatherCard';
 
@@ -211,6 +212,13 @@ export function DailyBriefing() {
               Today&apos;s stats
             </h2>
             <StatsStrip snapshot={b.snapshot} recentLogs={b.recent_logs} onMoodClick={openMoodModal} />
+          </section>
+
+          <section aria-labelledby="home-evening">
+            <h2 id="home-evening" className="sr-only">
+              Day summary
+            </h2>
+            <EveningSummaryCard plan={b.evening_plan} date={b.date} />
           </section>
 
           <section aria-labelledby="home-diary" className="flex min-h-0 flex-1 flex-col">

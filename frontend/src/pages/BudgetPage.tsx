@@ -1,0 +1,455 @@
+import { format } from 'date-fns';
+import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import {
+  useBudget,
+  useCopyFromPrevious,
+  useDeleteExpense,
+  useDeleteIncome,
+  useUpdateBudgetMonth,
+  useUpsertExpense,
+  useUpsertIncome,
+} from '../hooks/useBudget';
+import { BUDGET_CATEGORIES, CATEGORY_COLORS, type BudgetCategory } from '../types';
+
+function currentMonthKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatEuro(n: number): string {
+  return new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' }).format(n);
+}
+
+function shiftMonth(month: string, delta: number): string {
+  const [yRaw, mRaw] = month.split('-');
+  const y = Number(yRaw);
+  const m = Number(mRaw);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthLabel(month: string): string {
+  const dt = new Date(`${month}-01T12:00:00`);
+  return format(dt, 'MMMM yyyy');
+}
+
+export function BudgetPage() {
+  const [month, setMonth] = useState(currentMonthKey);
+  const q = useBudget(month);
+  const upsertIncome = useUpsertIncome(month);
+  const upsertExpense = useUpsertExpense(month);
+  const deleteIncome = useDeleteIncome(month);
+  const deleteExpense = useDeleteExpense(month);
+  const copyPrev = useCopyFromPrevious(month);
+  const updateMonth = useUpdateBudgetMonth(month);
+
+  const [newIncomeName, setNewIncomeName] = useState('');
+  const [newIncomeAmount, setNewIncomeAmount] = useState('');
+  const [newExpenseName, setNewExpenseName] = useState('');
+  const [newExpenseAmount, setNewExpenseAmount] = useState('');
+  const [newExpenseCategory, setNewExpenseCategory] = useState<BudgetCategory>('Vaste Last');
+
+  const isArchive = month < currentMonthKey();
+  const data = q.data;
+  const summary = data?.summary;
+
+  const chartData = useMemo(() => {
+    if (!summary) {
+      return [];
+    }
+    return summary.by_category
+      .filter((c) => c.amount > 0)
+      .map((c) => ({
+        name: c.category,
+        value: Math.round(c.amount * 100) / 100,
+        color: CATEGORY_COLORS[c.category],
+      }));
+  }, [summary]);
+
+  const saveIncome = async (row: {
+    id?: number;
+    name: string;
+    amount: number;
+    received: boolean;
+    sort_order?: number;
+  }): Promise<void> => {
+    const name = row.name.trim();
+    if (name === '' || isArchive) {
+      return;
+    }
+    await upsertIncome.mutateAsync({ ...row, name, amount: Number.isFinite(row.amount) ? row.amount : 0 });
+  };
+
+  const saveExpense = async (row: {
+    id?: number;
+    name: string;
+    amount: number;
+    category: BudgetCategory;
+    paid: boolean;
+    sort_order?: number;
+  }): Promise<void> => {
+    const name = row.name.trim();
+    if (name === '' || isArchive) {
+      return;
+    }
+    await upsertExpense.mutateAsync({ ...row, name, amount: Number.isFinite(row.amount) ? row.amount : 0 });
+  };
+
+  return (
+    <div className="mx-auto max-w-screen-2xl p-4 md:p-6">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h1 className="text-xl font-semibold text-slate-100">Budget</h1>
+          <button
+            type="button"
+            onClick={() => setMonth((m) => shiftMonth(m, -1))}
+            className="rounded border border-codex-border p-1.5 text-slate-400 hover:text-slate-100"
+            aria-label="Previous month"
+          >
+            <ChevronLeft size={14} />
+          </button>
+          <span className="min-w-[8rem] text-center text-sm text-slate-200">{monthLabel(month)}</span>
+          <button
+            type="button"
+            onClick={() => setMonth((m) => shiftMonth(m, 1))}
+            className="rounded border border-codex-border p-1.5 text-slate-400 hover:text-slate-100"
+            aria-label="Next month"
+          >
+            <ChevronRight size={14} />
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => void copyPrev.mutateAsync()}
+          disabled={isArchive || copyPrev.isPending}
+          className="inline-flex items-center gap-1.5 rounded-md border border-codex-border px-3 py-1.5 text-sm text-slate-300 hover:border-codex-accent/60 hover:text-slate-100 disabled:opacity-50"
+        >
+          <Copy size={14} />
+          Copy from previous
+        </button>
+      </div>
+
+      {q.isLoading ? (
+        <p className="text-sm text-slate-400">Loading budget…</p>
+      ) : q.isError || !data || !summary ? (
+        <p className="text-sm text-rose-400">{q.error instanceof Error ? q.error.message : 'Budget unavailable'}</p>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <section className="rounded-xl border border-codex-border bg-codex-surface p-4">
+            <h2 className="mb-3 text-sm font-medium text-slate-300">Inkomen</h2>
+            <div className="space-y-2">
+              {data.income.map((row) => (
+                <div key={row.id} className="group grid grid-cols-[auto_1fr_120px_auto] items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={row.received}
+                    disabled={isArchive}
+                    onChange={() =>
+                      void saveIncome({
+                        id: row.id,
+                        name: row.name,
+                        amount: row.amount,
+                        received: !row.received,
+                        sort_order: row.sort_order,
+                      })
+                    }
+                  />
+                  <input
+                    type="text"
+                    defaultValue={row.name}
+                    disabled={isArchive}
+                    onBlur={(e) =>
+                      void saveIncome({
+                        id: row.id,
+                        name: e.target.value,
+                        amount: row.amount,
+                        received: row.received,
+                        sort_order: row.sort_order,
+                      })
+                    }
+                    className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
+                  />
+                  <input
+                    type="number"
+                    step="0.01"
+                    defaultValue={row.amount.toFixed(2)}
+                    disabled={isArchive}
+                    onBlur={(e) =>
+                      void saveIncome({
+                        id: row.id,
+                        name: row.name,
+                        amount: Number(e.target.value),
+                        received: row.received,
+                        sort_order: row.sort_order,
+                      })
+                    }
+                    className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
+                  />
+                  <button
+                    type="button"
+                    disabled={isArchive}
+                    onClick={() => void deleteIncome.mutateAsync(row.id)}
+                    className="rounded p-1 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:text-rose-300 disabled:opacity-20"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              <div className="grid grid-cols-[1fr_120px_auto] gap-2 pt-2">
+                <input
+                  type="text"
+                  value={newIncomeName}
+                  disabled={isArchive}
+                  onChange={(e) => setNewIncomeName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      void saveIncome({
+                        name: newIncomeName,
+                        amount: Number(newIncomeAmount || 0),
+                        received: false,
+                        sort_order: data.income.length + 1,
+                      }).then(() => {
+                        setNewIncomeName('');
+                        setNewIncomeAmount('');
+                      });
+                    }
+                  }}
+                  placeholder="Add income..."
+                  className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newIncomeAmount}
+                  disabled={isArchive}
+                  onChange={(e) => setNewIncomeAmount(e.target.value)}
+                  className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
+                />
+                <button
+                  type="button"
+                  disabled={isArchive}
+                  onClick={() =>
+                    void saveIncome({
+                      name: newIncomeName,
+                      amount: Number(newIncomeAmount || 0),
+                      received: false,
+                      sort_order: data.income.length + 1,
+                    }).then(() => {
+                      setNewIncomeName('');
+                      setNewIncomeAmount('');
+                    })
+                  }
+                  className="rounded border border-codex-border px-2 text-slate-300 disabled:opacity-40"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-codex-border bg-codex-surface p-4">
+            <h2 className="mb-3 text-sm font-medium text-slate-300">Uitgaven</h2>
+            <div className="space-y-2">
+              {data.expenses.map((row) => (
+                <div key={row.id} className="group grid grid-cols-[auto_1fr_150px_120px_auto] items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={row.paid}
+                    disabled={isArchive}
+                    onChange={() =>
+                      void saveExpense({
+                        id: row.id,
+                        name: row.name,
+                        amount: row.amount,
+                        category: row.category,
+                        paid: !row.paid,
+                        sort_order: row.sort_order,
+                      })
+                    }
+                  />
+                  <input
+                    type="text"
+                    defaultValue={row.name}
+                    disabled={isArchive}
+                    onBlur={(e) =>
+                      void saveExpense({
+                        id: row.id,
+                        name: e.target.value,
+                        amount: row.amount,
+                        category: row.category,
+                        paid: row.paid,
+                        sort_order: row.sort_order,
+                      })
+                    }
+                    className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
+                  />
+                  <select
+                    defaultValue={row.category}
+                    disabled={isArchive}
+                    onChange={(e) =>
+                      void saveExpense({
+                        id: row.id,
+                        name: row.name,
+                        amount: row.amount,
+                        category: e.target.value as BudgetCategory,
+                        paid: row.paid,
+                        sort_order: row.sort_order,
+                      })
+                    }
+                    className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-xs text-slate-200"
+                  >
+                    {BUDGET_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="number"
+                    step="0.01"
+                    defaultValue={row.amount.toFixed(2)}
+                    disabled={isArchive}
+                    onBlur={(e) =>
+                      void saveExpense({
+                        id: row.id,
+                        name: row.name,
+                        amount: Number(e.target.value),
+                        category: row.category,
+                        paid: row.paid,
+                        sort_order: row.sort_order,
+                      })
+                    }
+                    className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
+                  />
+                  <button
+                    type="button"
+                    disabled={isArchive}
+                    onClick={() => void deleteExpense.mutateAsync(row.id)}
+                    className="rounded p-1 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:text-rose-300 disabled:opacity-20"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              <div className="grid grid-cols-[1fr_150px_120px_auto] gap-2 pt-2">
+                <input
+                  type="text"
+                  value={newExpenseName}
+                  disabled={isArchive}
+                  onChange={(e) => setNewExpenseName(e.target.value)}
+                  placeholder="Add expense..."
+                  className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
+                />
+                <select
+                  value={newExpenseCategory}
+                  disabled={isArchive}
+                  onChange={(e) => setNewExpenseCategory(e.target.value as BudgetCategory)}
+                  className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-xs text-slate-200"
+                >
+                  {BUDGET_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newExpenseAmount}
+                  disabled={isArchive}
+                  onChange={(e) => setNewExpenseAmount(e.target.value)}
+                  className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
+                />
+                <button
+                  type="button"
+                  disabled={isArchive}
+                  onClick={() =>
+                    void saveExpense({
+                      name: newExpenseName,
+                      amount: Number(newExpenseAmount || 0),
+                      category: newExpenseCategory,
+                      paid: false,
+                      sort_order: data.expenses.length + 1,
+                    }).then(() => {
+                      setNewExpenseName('');
+                      setNewExpenseAmount('');
+                    })
+                  }
+                  className="rounded border border-codex-border px-2 text-slate-300 disabled:opacity-40"
+                >
+                  <Plus size={14} />
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-codex-border bg-codex-surface p-4">
+            <h2 className="mb-3 text-sm font-medium text-slate-300">Samenvatting</h2>
+            <div className="mb-3 grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+              <span className="text-codex-muted">Huidig saldo</span>
+              <input
+                type="number"
+                step="0.01"
+                defaultValue={data.month.current_balance.toFixed(2)}
+                disabled={isArchive}
+                onBlur={(e) => void updateMonth.mutateAsync({ current_balance: Number(e.target.value) })}
+                className={`rounded border border-codex-border bg-codex-bg px-2 py-1 text-right ${
+                  data.month.current_balance < 0 ? 'text-rose-400' : 'text-emerald-400'
+                }`}
+              />
+              <span className="text-codex-muted">Te ontvangen</span>
+              <span className="text-emerald-400">{formatEuro(summary.pending_income)}</span>
+              <span className="text-codex-muted">Te betalen</span>
+              <span className="text-rose-400">{formatEuro(summary.pending_expenses)}</span>
+              <span className="font-medium text-slate-200">Projectie</span>
+              <span className={summary.projected_balance < data.month.minimum_balance ? 'font-semibold text-rose-400' : 'text-slate-200'}>
+                {formatEuro(summary.projected_balance)}
+              </span>
+              <span className="text-codex-muted">Minimum saldo</span>
+              <input
+                type="number"
+                step="0.01"
+                defaultValue={data.month.minimum_balance.toFixed(2)}
+                disabled={isArchive}
+                onBlur={(e) => void updateMonth.mutateAsync({ minimum_balance: Number(e.target.value) })}
+                className="rounded border border-codex-border bg-codex-bg px-2 py-1 text-right text-slate-300"
+              />
+            </div>
+            {summary.projected_balance < data.month.minimum_balance ? (
+              <div className="rounded-lg border border-rose-500/40 bg-rose-900/20 px-3 py-2 text-xs text-rose-300">
+                ⚠ Projectie ligt onder het minimum saldo
+              </div>
+            ) : null}
+          </section>
+
+          <section className="rounded-xl border border-codex-border bg-codex-surface p-4">
+            <h2 className="mb-3 text-sm font-medium text-slate-300">Uitgaven per categorie</h2>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={90}
+                    label={({ percent }) => `${Math.round((percent ?? 0) * 100)}%`}
+                  >
+                    {chartData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v: unknown) => formatEuro(Number(v ?? 0))} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,4 +1,4 @@
-import { Calendar, Home, LayoutGrid, NotebookPen, PanelLeftClose, PanelLeftOpen, Settings } from 'lucide-react';
+import { Calendar, Home, LayoutGrid, NotebookPen, PanelLeftClose, PanelLeftOpen, PiggyBank, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { tabToPath } from '../../lib/routes';
 import { useUiStore, type AppTab } from '../../stores/uiStore';
@@ -8,6 +8,7 @@ const tabs: { id: AppTab; label: string; icon: typeof Home }[] = [
   { id: 'tasks', label: 'Tasks', icon: LayoutGrid },
   { id: 'canvas', label: 'Canvas', icon: NotebookPen },
   { id: 'diary', label: 'Diary', icon: Calendar },
+  { id: 'budget', label: 'Budget', icon: PiggyBank },
   { id: 'settings', label: 'Settings', icon: Settings },
 ];
 

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type AppTab = 'home' | 'tasks' | 'canvas' | 'diary' | 'settings';
+export type AppTab = 'home' | 'tasks' | 'canvas' | 'diary' | 'budget' | 'settings';
 
 export interface ToastItem {
   id: string;

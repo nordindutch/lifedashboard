@@ -42,7 +42,7 @@ export function DiaryPage() {
         </div>
 
         <aside className="lg:sticky lg:top-4 lg:self-start" aria-label="Day summaries">
-          <DiaryDaySummaryColumn date={selectedDate} onDateChange={setSelectedDate} />
+          <DiaryDaySummaryColumn date={selectedDate} hasLogs={(q.data?.length ?? 0) > 0} onDateChange={setSelectedDate} />
         </aside>
       </div>
     </div>

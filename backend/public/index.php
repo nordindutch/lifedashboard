@@ -16,6 +16,7 @@ spl_autoload_register(static function (string $class): void {
 });
 
 use Codex\Controllers\BriefingController;
+use Codex\Controllers\BudgetController;
 use Codex\Controllers\AiController;
 use Codex\Controllers\DiaryController;
 use Codex\Controllers\GoalController;
@@ -121,6 +122,7 @@ $projectsController = static function () use (&$projectController): ProjectContr
 };
 
 $briefingController = new BriefingController();
+$budgetController = new BudgetController();
 $settingsController = new SettingsController();
 $aiController = null;
 $aiCtrl = static function () use (&$aiController): AiController {
@@ -146,6 +148,14 @@ $router->get('/api/integrations/status', [$settingsController, 'integrationStatu
 $router->get('/api/settings/weather-test', [$settingsController, 'weatherTest']);
 $router->get('/api/settings', [$settingsController, 'index']);
 $router->put('/api/settings', [$settingsController, 'update']);
+
+$router->get('/api/budget/:month', [$budgetController, 'getMonth']);
+$router->put('/api/budget/:month', [$budgetController, 'updateMonth']);
+$router->post('/api/budget/:month/income', [$budgetController, 'upsertIncome']);
+$router->post('/api/budget/:month/expenses', [$budgetController, 'upsertExpense']);
+$router->delete('/api/budget/:month/income/:id', [$budgetController, 'deleteIncome']);
+$router->delete('/api/budget/:month/expenses/:id', [$budgetController, 'deleteExpense']);
+$router->post('/api/budget/:month/copy-previous', [$budgetController, 'copyFromPrevious']);
 
 $router->get('/api/diary', static function (Request $request) use ($diariesController): void {
     $diariesController()->index($request);

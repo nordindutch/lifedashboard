@@ -5,6 +5,7 @@ declare(strict_types=1);
 
 $baseDir = dirname(__DIR__);
 $schemaPath = __DIR__ . '/schema.sql';
+$budgetMigrationPath = __DIR__ . '/migrations/001_budget.sql';
 $dbPath = $baseDir . '/database/codex.sqlite';
 
 if (!is_readable($schemaPath)) {
@@ -37,5 +38,19 @@ if ($sql === false) {
 }
 
 $pdo->exec($sql);
+
+$tableCheck = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'budget_months'")->fetchColumn();
+if ($tableCheck === false) {
+    if (!is_readable($budgetMigrationPath)) {
+        fwrite(STDERR, "Budget migration file not found: {$budgetMigrationPath}\n");
+        exit(1);
+    }
+    $budgetSql = file_get_contents($budgetMigrationPath);
+    if ($budgetSql === false) {
+        fwrite(STDERR, "Could not read budget migration file.\n");
+        exit(1);
+    }
+    $pdo->exec($budgetSql);
+}
 
 echo "Migration OK: {$dbPath}\n";

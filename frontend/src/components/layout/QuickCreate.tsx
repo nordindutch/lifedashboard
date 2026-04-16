@@ -53,6 +53,7 @@ export function QuickCreate() {
   const [projectId, setProjectId] = useState<number | null>(null);
   const [dueDate, setDueDate] = useState('');
   const [eventDate, setEventDate] = useState(toDateInputValue(new Date()));
+  const [eventEndDate, setEventEndDate] = useState(toDateInputValue(new Date()));
   const [startTime, setStartTime] = useState(nextRoundHour);
   const [endTime, setEndTime] = useState(() => addHour(nextRoundHour()));
   const [isAllDay, setIsAllDay] = useState(false);
@@ -88,7 +89,9 @@ export function QuickCreate() {
     setStatus('todo');
     setProjectId(null);
     setDueDate('');
-    setEventDate(toDateInputValue(new Date()));
+    const today = toDateInputValue(new Date());
+    setEventDate(today);
+    setEventEndDate(today);
     const rounded = nextRoundHour();
     setStartTime(rounded);
     setEndTime(addHour(rounded));
@@ -133,12 +136,22 @@ export function QuickCreate() {
       }
       setSuccessMsg('✓ Task created');
     } else {
+      if (eventEndDate < eventDate) {
+        setError('End date must be on or after the start date.');
+        setPending(false);
+        return;
+      }
       const startUnix = isAllDay
         ? Math.floor(new Date(`${eventDate}T00:00:00`).getTime() / 1000)
         : Math.floor(new Date(`${eventDate}T${startTime}:00`).getTime() / 1000);
       const endUnix = isAllDay
-        ? Math.floor(new Date(`${eventDate}T23:59:59`).getTime() / 1000)
-        : Math.floor(new Date(`${eventDate}T${endTime}:00`).getTime() / 1000);
+        ? Math.floor(new Date(`${eventEndDate}T23:59:59`).getTime() / 1000)
+        : Math.floor(new Date(`${eventEndDate}T${endTime}:00`).getTime() / 1000);
+      if (endUnix <= startUnix) {
+        setError('End must be after the start (check dates and times).');
+        setPending(false);
+        return;
+      }
 
       const res = await createCalendarEvent({
         title: t,
@@ -311,12 +324,37 @@ export function QuickCreate() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <input
-                    type="date"
-                    value={eventDate}
-                    onChange={(e) => setEventDate(e.target.value)}
-                    className="w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-200"
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label htmlFor="quick-create-event-start" className="mb-1 block text-xs text-slate-500">
+                        Start date
+                      </label>
+                      <input
+                        id="quick-create-event-start"
+                        type="date"
+                        value={eventDate}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setEventDate(v);
+                          setEventEndDate((prev) => (prev < v ? v : prev));
+                        }}
+                        className="w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-200"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="quick-create-event-end" className="mb-1 block text-xs text-slate-500">
+                        End date
+                      </label>
+                      <input
+                        id="quick-create-event-end"
+                        type="date"
+                        value={eventEndDate}
+                        min={eventDate}
+                        onChange={(e) => setEventEndDate(e.target.value)}
+                        className="w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-200"
+                      />
+                    </div>
+                  </div>
 
                   <label className="flex items-center gap-2 text-sm text-slate-400">
                     <input

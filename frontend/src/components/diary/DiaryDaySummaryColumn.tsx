@@ -5,10 +5,11 @@ import { EveningSummaryCard, eveningPlanHasRenderableContent } from '../home/Eve
 
 interface Props {
   date: string;
+  hasLogs: boolean;
   onDateChange: (next: string) => void;
 }
 
-export function DiaryDaySummaryColumn({ date, onDateChange }: Props) {
+export function DiaryDaySummaryColumn({ date, hasLogs, onDateChange }: Props) {
   const q = useEveningPlan(date);
   const todayStr = format(new Date(), 'yyyy-MM-dd');
   const atToday = date >= todayStr;
@@ -63,8 +64,8 @@ export function DiaryDaySummaryColumn({ date, onDateChange }: Props) {
       {q.isError ? <p className="text-xs text-rose-400">Could not load day summary.</p> : null}
 
       {!q.isLoading && !q.isError ? (
-        showCard ? (
-          <EveningSummaryCard plan={plan} />
+        showCard || hasLogs ? (
+          <EveningSummaryCard plan={plan} date={date} />
         ) : (
           <div className="rounded-xl border border-codex-border bg-codex-surface/80 px-3 py-3">
             <p className="text-xs font-medium text-slate-400">Day summary</p>
