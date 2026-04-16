@@ -1,4 +1,4 @@
-codex.yourdomain.com {
+codex.nordinkole.nl {
     handle /api/* {
         reverse_proxy php:80
     }

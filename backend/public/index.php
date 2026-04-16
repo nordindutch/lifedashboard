@@ -62,9 +62,13 @@ if (is_readable($backendRoot . '/.env')) {
     }
 }
 
-$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
 $allowedOrigins = ['http://localhost:5173', 'http://localhost:5273', 'http://localhost:8180'];
-$allowOrigin = in_array($origin, $allowedOrigins, true) ? $origin : 'http://localhost:5273';
+$prodUrl = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? '');
+if ($prodUrl !== '') {
+    $allowedOrigins[] = rtrim($prodUrl, '/');
+}
+$allowOrigin = in_array($origin, $allowedOrigins, true) ? $origin : ($allowedOrigins[0] ?? '*');
 header('Access-Control-Allow-Origin: ' . $allowOrigin);
 header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
