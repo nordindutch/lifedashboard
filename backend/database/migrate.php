@@ -6,6 +6,7 @@ declare(strict_types=1);
 $baseDir = dirname(__DIR__);
 $schemaPath = __DIR__ . '/schema.sql';
 $budgetMigrationPath = __DIR__ . '/migrations/001_budget.sql';
+$authMigrationPath = __DIR__ . '/migrations/002_auth.sql';
 $dbPath = $baseDir . '/database/codex.sqlite';
 
 if (!is_readable($schemaPath)) {
@@ -51,6 +52,20 @@ if ($tableCheck === false) {
         exit(1);
     }
     $pdo->exec($budgetSql);
+}
+
+$usersTableCheck = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'")->fetchColumn();
+if ($usersTableCheck === false) {
+    if (!is_readable($authMigrationPath)) {
+        fwrite(STDERR, "Auth migration file not found: {$authMigrationPath}\n");
+        exit(1);
+    }
+    $authSql = file_get_contents($authMigrationPath);
+    if ($authSql === false) {
+        fwrite(STDERR, "Could not read auth migration file.\n");
+        exit(1);
+    }
+    $pdo->exec($authSql);
 }
 
 echo "Migration OK: {$dbPath}\n";

@@ -17,6 +17,7 @@ spl_autoload_register(static function (string $class): void {
 
 use Codex\Controllers\BriefingController;
 use Codex\Controllers\BudgetController;
+use Codex\Controllers\AuthController;
 use Codex\Controllers\AiController;
 use Codex\Controllers\DiaryController;
 use Codex\Controllers\GoalController;
@@ -59,7 +60,11 @@ if (is_readable($backendRoot . '/.env')) {
     }
 }
 
-header('Access-Control-Allow-Origin: *');
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
+$allowedOrigins = ['http://localhost:5173', 'http://localhost:5273', 'http://localhost:8180'];
+$allowOrigin = in_array($origin, $allowedOrigins, true) ? $origin : 'http://localhost:5273';
+header('Access-Control-Allow-Origin: ' . $allowOrigin);
+header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, X-Codex-Key, Authorization');
 
@@ -73,11 +78,14 @@ $rawBody = file_get_contents('php://input') ?: '';
 $request = Request::fromGlobals($_SERVER, $rawBody);
 
 $publicPaths = [
-    '/api/auth/google',
-    '/api/auth/google/callback',
+    '/api/auth/login',
+    '/api/auth/callback',
+    '/api/auth/me',
+    '/api/auth/logout',
 ];
 if (!in_array($request->getPath(), $publicPaths, true)) {
-    if (!Middleware::apiKeyAuth($request)) {
+    $userId = Middleware::sessionAuth($request);
+    if ($userId === null) {
         exit;
     }
 }
@@ -123,6 +131,7 @@ $projectsController = static function () use (&$projectController): ProjectContr
 
 $briefingController = new BriefingController();
 $budgetController = new BudgetController();
+$authController = new AuthController();
 $settingsController = new SettingsController();
 $aiController = null;
 $aiCtrl = static function () use (&$aiController): AiController {
@@ -132,6 +141,11 @@ $aiCtrl = static function () use (&$aiController): AiController {
 
     return $aiController;
 };
+$router->get('/api/auth/login', [$authController, 'login']);
+$router->get('/api/auth/callback', [$authController, 'callback']);
+$router->get('/api/auth/me', [$authController, 'me']);
+$router->post('/api/auth/logout', [$authController, 'logout']);
+
 $router->get('/api/briefing', [$briefingController, 'index']);
 $router->get('/api/evening-plan', [$briefingController, 'eveningPlan']);
 $router->get('/api/ai/plan', static fn (Request $r) => $aiCtrl()->getPlan($r));

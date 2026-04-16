@@ -13,6 +13,7 @@ export const apiClient = axios.create({
   baseURL,
   /** Envelope-style API: read `success` + error body on 4xx without throwing */
   validateStatus: () => true,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -20,7 +21,8 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.request.use((config) => {
   const key = import.meta.env.VITE_CODEX_API_KEY;
-  if (key && key.length > 0) {
+  const hasSessionCookie = typeof document !== 'undefined' && document.cookie.includes('codex_session=');
+  if (key && key.length > 0 && !hasSessionCookie) {
     config.headers['X-Codex-Key'] = key;
   }
   return config;

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Codex\Core;
 
+use Codex\Core\Database;
+
 final class Middleware
 {
     public static function apiKeyAuth(Request $request): bool
@@ -69,5 +71,36 @@ final class Middleware
         }
         $staticStore[$ip][] = $now;
         return true;
+    }
+
+    public static function sessionAuth(Request $request): ?int
+    {
+        $token = $_COOKIE['codex_session'] ?? '';
+        if ($token === '') {
+            Response::error('unauthorized', 'Not logged in', 401);
+            return null;
+        }
+
+        $db = Database::getInstance();
+        $db->prepare('DELETE FROM sessions WHERE expires_at < ?')->execute([time()]);
+
+        $stmt = $db->prepare(
+            'SELECT s.user_id FROM sessions s
+             WHERE s.token = ? AND s.expires_at > ?
+             LIMIT 1',
+        );
+        $stmt->execute([$token, time()]);
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if (!is_array($row)) {
+            Response::error('unauthorized', 'Session expired or invalid', 401);
+            return null;
+        }
+
+        $newExpiry = time() + 30 * 86400;
+        $db->prepare('UPDATE sessions SET expires_at = ? WHERE token = ?')
+            ->execute([$newExpiry, $token]);
+
+        return (int) $row['user_id'];
     }
 }
