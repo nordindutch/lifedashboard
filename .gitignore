@@ -1,8 +1,11 @@
 # --- Secrets & local env (never commit) ---
 .env
 .env.*
+# Production secrets — never commit
+.env.production
 !.env.example
 !**/.env.example
+!**/.env.production.example
 !docker.env.example
 
 # --- SQLite (database files & WAL) ---
@@ -16,6 +19,7 @@ node_modules/
 vendor/
 
 # --- Frontend build & tooling ---
+# Frontend build output — built on the server during deploy
 frontend/dist/
 frontend/.vite/
 dist/

@@ -1,0 +1,20 @@
+codex.yourdomain.com {
+    handle /api/* {
+        reverse_proxy php:80
+    }
+
+    handle {
+        root * /srv/frontend
+        try_files {path} /index.html
+        file_server
+    }
+
+    header {
+        X-Frame-Options DENY
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        -Server
+    }
+
+    encode gzip
+}

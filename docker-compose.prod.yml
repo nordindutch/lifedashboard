@@ -1,0 +1,39 @@
+# Production stack — Caddy + PHP + SQLite
+# Usage: docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend/dist:/srv/frontend:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - php
+
+  php:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    restart: unless-stopped
+    expose:
+      - "80"
+    volumes:
+      - sqlite_data:/var/www/html/database
+    environment:
+      CODEX_API_KEY:        ${CODEX_API_KEY}
+      FRONTEND_URL:         ${FRONTEND_URL}
+      ANTHROPIC_API_KEY:    ${ANTHROPIC_API_KEY:-}
+      GOOGLE_CLIENT_ID:     ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+
+volumes:
+  caddy_data:
+  caddy_config:
+  sqlite_data:
