@@ -7,11 +7,11 @@ import { TitleBar } from './TitleBar';
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col bg-codex-bg">
+    <div className="flex h-screen flex-col overflow-hidden bg-codex-bg">
       <TitleBar />
-      <div className="flex min-h-0 flex-1 flex-row">
+      <div className="flex min-h-0 flex-1 flex-row overflow-hidden">
         <Sidebar />
-        <main className="min-w-0 flex-1 pb-20 md:pb-6">{children}</main>
+        <main className="min-w-0 flex-1 overflow-y-auto pb-20 md:pb-6">{children}</main>
       </div>
       <BottomNav />
       <QuickCreate />

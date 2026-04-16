@@ -6,6 +6,8 @@
 !.env.example
 !**/.env.example
 !**/.env.production.example
+!frontend/.env.tauri
+!frontend/.env.android
 !docker.env.example
 
 # --- SQLite (database files & WAL) ---

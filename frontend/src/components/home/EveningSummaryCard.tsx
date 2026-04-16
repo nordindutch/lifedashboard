@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Moon, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import * as eveningPlanApi from '../../api/eveningPlan';
+import { sendEveningNotificationCapacitor } from '../../lib/moodNotifications';
 import type { AIPlan, EveningPlanContent } from '../../types';
 import { Card } from '../ui/Card';
 
@@ -50,6 +51,10 @@ export function EveningSummaryCard({ plan, date }: Props) {
       } else {
         void qc.invalidateQueries({ queryKey: ['evening-plan', planDate] });
         void qc.invalidateQueries({ queryKey: ['briefing'] });
+        // Fire Android notification if a new plan was generated (not a cached one)
+        if (res.data.evening_plan) {
+          void sendEveningNotificationCapacitor();
+        }
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Generation failed');

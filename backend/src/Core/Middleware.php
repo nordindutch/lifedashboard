@@ -77,6 +77,10 @@ final class Middleware
     {
         $token = $_COOKIE['codex_session'] ?? '';
         if ($token === '') {
+            $headerToken = $request->getHeader('x-codex-session');
+            $token = $headerToken !== null && $headerToken !== '' ? $headerToken : '';
+        }
+        if ($token === '') {
             Response::error('unauthorized', 'Not logged in', 401);
             return null;
         }

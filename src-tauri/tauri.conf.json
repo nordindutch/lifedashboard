@@ -7,7 +7,7 @@
     "frontendDist": "../frontend/dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "cd ../frontend && npm run dev",
-    "beforeBuildCommand": "cd ../frontend && npm run build"
+    "beforeBuildCommand": "cd ../frontend && npm run build:tauri"
   },
   "app": {
     "windows": [
@@ -30,6 +30,8 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "identifier": "com.codex.life",
+    "publisher": "Nordin Kole",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

@@ -172,6 +172,12 @@ final class SettingsController
              VALUES ('google_oauth_redirect_uri', :value, 'string', 'Temporary OAuth redirect URI', unixepoch())
              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
         )->execute(['value' => $redirectUri]);
+        $isApp = $request->getQueryString('app') === '1' ? '1' : '0';
+        $db->prepare(
+            "INSERT INTO settings (key, value, value_type, description, updated_at)
+             VALUES ('google_oauth_is_app', :v, 'string', 'Login from app', unixepoch())
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
+        )->execute(['v' => $isApp]);
         $url = $service->buildAuthUrl($redirectUri, $state);
         header('Location: ' . $url, true, 302);
         exit;
@@ -202,6 +208,11 @@ final class SettingsController
         $redirectUri = (string) ($stmt->fetchColumn() ?: '');
         $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_redirect_uri'")->execute();
 
+        $stmt = $db->prepare("SELECT value FROM settings WHERE key = 'google_oauth_is_app' LIMIT 1");
+        $stmt->execute();
+        $isAppLogin = (string) ($stmt->fetchColumn() ?: '0') === '1';
+        $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_is_app'")->execute();
+
         if ($expectedState === '' || !hash_equals($expectedState, $state)) {
             header('Location: ' . $frontend . '?google=error&reason=invalid_state', true, 302);
             exit;
@@ -223,6 +234,7 @@ final class SettingsController
         }
 
         $sessionIssued = false;
+        $sessionToken = '';
         $accessToken = (string) ($token['access_token'] ?? '');
         $profile = $this->fetchGoogleProfile($accessToken);
         if ($profile !== null) {
@@ -259,15 +271,17 @@ final class SettingsController
                         $db->prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)')
                             ->execute([$userId, $sessionToken, $expiresAt]);
 
-                        $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
-                        $sameSite = $secure ? 'None' : 'Lax';
-                        setcookie('codex_session', $sessionToken, [
-                            'expires' => $expiresAt,
-                            'path' => '/',
-                            'httponly' => true,
-                            'secure' => $secure,
-                            'samesite' => $sameSite,
-                        ]);
+                        if (!$isAppLogin) {
+                            $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+                            $sameSite = $secure ? 'None' : 'Lax';
+                            setcookie('codex_session', $sessionToken, [
+                                'expires' => $expiresAt,
+                                'path' => '/',
+                                'httponly' => true,
+                                'secure' => $secure,
+                                'samesite' => $sameSite,
+                            ]);
+                        }
                         $sessionIssued = true;
                     }
                 }
@@ -284,8 +298,15 @@ final class SettingsController
             }
         }
 
-        $destination = $sessionIssued ? $this->frontendHomeUrl($request) : ($frontend . '?google=connected');
-        header('Location: ' . $destination, true, 302);
+        if ($sessionIssued) {
+            if ($isAppLogin && $sessionToken !== '') {
+                header('Location: com.codex.life://login-success?token=' . rawurlencode($sessionToken), true, 302);
+            } else {
+                header('Location: ' . $this->frontendHomeUrl($request), true, 302);
+            }
+        } else {
+            header('Location: ' . $frontend . '?google=connected', true, 302);
+        }
         exit;
     }
 

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Project Codex</string>
+    <string name="title_activity_main">Project Codex</string>
+    <string name="package_name">com.codex.life</string>
+    <string name="custom_url_scheme">com.codex.life</string>
+</resources>

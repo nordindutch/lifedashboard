@@ -1,11 +1,30 @@
 const CHECKIN_HOURS = [8, 12, 15, 18, 21];
-
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+
+// Capacitor detection — Capacitor sets window.Capacitor
+const isCapacitor =
+  typeof window !== 'undefined' && typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== 'undefined';
 
 let clickFocusRegistered = false;
 let scheduleStarted = false;
 
-async function registerNotificationClickFocus(): Promise<void> {
+// --- Tauri notification helpers ---
+
+async function requestPermissionTauri(): Promise<boolean> {
+  try {
+    const { isPermissionGranted, requestPermission } = await import('@tauri-apps/plugin-notification');
+    let granted = await isPermissionGranted();
+    if (!granted) {
+      const perm = await requestPermission();
+      granted = perm === 'granted';
+    }
+    return granted;
+  } catch {
+    return false;
+  }
+}
+
+async function registerNotificationClickFocusTauri(): Promise<void> {
   if (!isTauri || clickFocusRegistered) {
     return;
   }
@@ -29,27 +48,7 @@ async function registerNotificationClickFocus(): Promise<void> {
   }
 }
 
-async function requestPermission(): Promise<boolean> {
-  if (!isTauri) {
-    return false;
-  }
-  try {
-    const { isPermissionGranted, requestPermission: req } = await import('@tauri-apps/plugin-notification');
-    let granted = await isPermissionGranted();
-    if (!granted) {
-      const permission = await req();
-      granted = permission === 'granted';
-    }
-    return granted;
-  } catch {
-    return false;
-  }
-}
-
-async function sendMoodNotification(hour: number): Promise<void> {
-  if (!isTauri) {
-    return;
-  }
+async function sendMoodNotificationTauri(hour: number): Promise<void> {
   try {
     const { sendNotification } = await import('@tauri-apps/plugin-notification');
     sendNotification({
@@ -57,37 +56,108 @@ async function sendMoodNotification(hour: number): Promise<void> {
       body: `It's ${String(hour).padStart(2, '0')}:00 — how are you feeling?`,
     });
   } catch {
-    // Silently ignore — notification is non-critical
+    // non-critical
   }
 }
 
-export async function scheduleMoodNotifications(): Promise<void> {
-  if (!isTauri || scheduleStarted) {
-    return;
+// --- Capacitor notification helpers ---
+
+async function requestPermissionCapacitor(): Promise<boolean> {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const result = await LocalNotifications.requestPermissions();
+    return result.display === 'granted';
+  } catch {
+    return false;
   }
+}
+
+async function scheduleCapacitorNotifications(): Promise<void> {
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const now = new Date();
+
+    const notifications = CHECKIN_HOURS
+      .map((hour, index) => {
+        const target = new Date();
+        target.setHours(hour, 0, 0, 0);
+        if (target.getTime() <= now.getTime()) return null;
+        return {
+          id: 100 + index, // stable IDs so re-scheduling replaces old ones
+          title: 'Mood check-in',
+          body: `It's ${String(hour).padStart(2, '0')}:00 — how are you feeling?`,
+          schedule: { at: target },
+          smallIcon: 'ic_stat_codex',
+          actionTypeId: 'MOOD_CHECKIN',
+          extra: { type: 'mood', hour },
+        };
+      })
+      .filter(Boolean);
+
+    await LocalNotifications.cancel({
+      notifications: CHECKIN_HOURS.map((_, i) => ({ id: 100 + i })),
+    });
+
+    if (notifications.length > 0) {
+      await LocalNotifications.schedule({ notifications: notifications as never[] });
+    }
+  } catch {
+    // non-critical
+  }
+}
+
+// --- Evening summary notification (Capacitor only) ---
+
+export async function sendEveningNotificationCapacitor(): Promise<void> {
+  if (!isCapacitor) return;
+  try {
+    const { LocalNotifications } = await import('@capacitor/local-notifications');
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: 200,
+          title: 'Day summary ready',
+          body: 'Your end-of-day reflection is ready. Time to close off the day.',
+          schedule: { at: new Date(Date.now() + 1000) },
+          smallIcon: 'ic_stat_codex',
+          actionTypeId: 'EVENING_SUMMARY',
+        },
+      ],
+    });
+  } catch {
+    // non-critical
+  }
+}
+
+// --- Main export ---
+
+export async function scheduleMoodNotifications(): Promise<void> {
+  if (scheduleStarted) return;
   scheduleStarted = true;
 
-  const granted = await requestPermission();
-  if (!granted) {
+  if (isTauri) {
+    const granted = await requestPermissionTauri();
+    if (!granted) return;
+
+    await registerNotificationClickFocusTauri();
+
+    const now = new Date();
+    const nowMs = now.getTime();
+    for (const hour of CHECKIN_HOURS) {
+      const target = new Date();
+      target.setHours(hour, 0, 0, 0);
+      const delayMs = target.getTime() - nowMs;
+      if (delayMs < 0) continue;
+      window.setTimeout(() => {
+        void sendMoodNotificationTauri(hour);
+      }, delayMs);
+    }
     return;
   }
 
-  await registerNotificationClickFocus();
-
-  const now = new Date();
-  const nowMs = now.getTime();
-
-  for (const hour of CHECKIN_HOURS) {
-    const target = new Date();
-    target.setHours(hour, 0, 0, 0);
-    const delayMs = target.getTime() - nowMs;
-
-    if (delayMs < 0) {
-      continue;
-    }
-
-    window.setTimeout(() => {
-      void sendMoodNotification(hour);
-    }, delayMs);
+  if (isCapacitor) {
+    const granted = await requestPermissionCapacitor();
+    if (!granted) return;
+    await scheduleCapacitorNotifications();
   }
 }

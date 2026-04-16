@@ -1,9 +1,10 @@
 import { format } from 'date-fns';
 import { Clock3 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { syncCalendar, syncGmail } from '../../api/settings';
 import { useBriefing } from '../../hooks/useBriefing';
 import { useSettings } from '../../hooks/useSettings';
+import { sendEveningNotificationCapacitor } from '../../lib/moodNotifications';
 import { useUiStore } from '../../stores/uiStore';
 import { EmptyState } from '../ui/EmptyState';
 import { AiPlanCard } from './AiPlanCard';
@@ -28,7 +29,7 @@ function BriefingSkeleton() {
         </div>
       </div>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:items-stretch lg:gap-5">
-        <div className="flex min-h-0 flex-col gap-4 lg:h-full">
+        <div className="flex flex-col gap-4 lg:min-h-0">
           <div className="animate-pulse rounded-xl border border-codex-border bg-codex-surface p-4">
             <div className="mb-3 h-4 w-24 rounded bg-codex-border" />
             <div className="h-16 rounded bg-codex-border/60" />
@@ -41,13 +42,13 @@ function BriefingSkeleton() {
         {[1, 2].map((i) => (
           <div
             key={i}
-            className="animate-pulse flex min-h-0 flex-col rounded-xl border border-codex-border bg-codex-surface p-4 lg:h-full"
+            className="animate-pulse flex flex-col rounded-xl border border-codex-border bg-codex-surface p-4 lg:min-h-0"
           >
             <div className="mb-3 h-4 w-24 rounded bg-codex-border" />
             <div className="min-h-[12rem] flex-1 rounded bg-codex-border/60" />
           </div>
         ))}
-        <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+        <div className="flex flex-col gap-3 lg:min-h-0">
           <div className="animate-pulse rounded-xl border border-codex-border bg-codex-surface p-3">
             <div className="h-12 rounded bg-codex-border/60" />
           </div>
@@ -73,6 +74,7 @@ export function DailyBriefing() {
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [isSyncingEmail, setIsSyncingEmail] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const prevEveningPlan = useRef<(typeof q.data extends { evening_plan: infer T } ? T : unknown) | null>(null);
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 1000);
@@ -161,6 +163,13 @@ export function DailyBriefing() {
   const shouldShowDaySummary =
     b.date === todayInActiveTimezone && minutesSinceMidnight >= (22 * 60 + 30) && eveningPlanHasRenderableContent(b.evening_plan);
 
+  useEffect(() => {
+    if (b.evening_plan && !prevEveningPlan.current) {
+      void sendEveningNotificationCapacitor();
+    }
+    prevEveningPlan.current = b.evening_plan;
+  }, [b.evening_plan]);
+
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-6 md:px-6">
       <header className="mb-8 border-b border-codex-border pb-6">
@@ -187,14 +196,14 @@ export function DailyBriefing() {
       </header>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:items-stretch lg:gap-5">
-        <div className="flex min-h-0 flex-col gap-4 lg:h-full">
+        <div className="flex flex-col gap-4 lg:min-h-0">
           <section aria-labelledby="home-weather">
             <h2 id="home-weather" className="sr-only">
               Weather
             </h2>
             <WeatherCard weather={b.weather} />
           </section>
-          <section aria-labelledby="home-ai" className="flex min-h-0 flex-1 flex-col">
+          <section aria-labelledby="home-ai" className="flex flex-1 flex-col lg:min-h-0">
             <h2 id="home-ai" className="sr-only">
               AI plan
             </h2>
@@ -202,7 +211,7 @@ export function DailyBriefing() {
           </section>
         </div>
 
-        <section aria-labelledby="home-calendar" className="flex min-h-0 flex-col lg:h-full">
+        <section aria-labelledby="home-calendar" className="flex flex-col lg:min-h-0">
           <h2 id="home-calendar" className="sr-only">
             Calendar
           </h2>
@@ -210,11 +219,11 @@ export function DailyBriefing() {
             events={b.events}
             onSync={() => void handleCalendarSync()}
             isSyncing={isSyncingCalendar}
-            className="min-h-0 flex-1 flex flex-col"
+            className="flex flex-1 flex-col lg:min-h-0"
           />
         </section>
 
-        <section aria-labelledby="home-inbox" className="flex min-h-0 flex-col lg:h-full">
+        <section aria-labelledby="home-inbox" className="flex flex-col lg:min-h-0">
           <h2 id="home-inbox" className="sr-only">
             Inbox
           </h2>
@@ -222,11 +231,11 @@ export function DailyBriefing() {
             emails={b.emails}
             onSync={() => void handleEmailSync()}
             isSyncing={isSyncingEmail}
-            className="min-h-0 flex-1 flex flex-col"
+            className="flex flex-1 flex-col lg:min-h-0"
           />
         </section>
 
-        <div className="flex min-h-0 flex-col gap-3 lg:h-full">
+        <div className="flex flex-col gap-3 lg:min-h-0">
           <section aria-labelledby="home-stats">
             <h2 id="home-stats" className="sr-only">
               Today&apos;s stats
@@ -243,7 +252,7 @@ export function DailyBriefing() {
             </section>
           ) : null}
 
-          <section aria-labelledby="home-diary" className="flex min-h-0 flex-1 flex-col">
+          <section aria-labelledby="home-diary" className="flex flex-1 flex-col lg:min-h-0">
             <h2 id="home-diary" className="sr-only">
               Diary
             </h2>

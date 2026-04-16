@@ -1,25 +1,122 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TitleBar } from '../components/layout/TitleBar';
 import { useAuth } from '../hooks/useAuth';
 
-function startGoogleLogin(): void {
-  const redirectUri = `${window.location.origin}/api/auth/google/callback`;
-  window.location.href = `/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}`;
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+const isCapacitor =
+  typeof window !== 'undefined' && typeof (window as { Capacitor?: unknown }).Capacitor !== 'undefined';
+const isNative = isTauri || isCapacitor;
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
+
+async function openInSystemBrowser(url: string): Promise<void> {
+  if (isTauri) {
+    const { open } = await import('@tauri-apps/plugin-shell');
+    await open(url);
+    return;
+  }
+  if (isCapacitor) {
+    try {
+      const { Browser } = await import('@capacitor/browser');
+      await Browser.open({ url });
+      return;
+    } catch {
+      /* fallback */
+    }
+  }
+  window.location.href = url;
+}
+
+function buildLoginUrl(): string {
+  const origin = isNative && API_BASE !== '' ? API_BASE : window.location.origin;
+  const redirectUri = `${origin}/api/auth/google/callback`;
+  const appParam = isCapacitor ? '&app=1' : '';
+  return `${API_BASE}/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}${appParam}`;
 }
 
 export function LoginPage() {
-  const { data: user, isLoading } = useAuth();
+  const { data: user, isLoading, refetch } = useAuth();
   const navigate = useNavigate();
+  const [polling, setPolling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Redirect if already logged in
   useEffect(() => {
-    if (user) {
-      navigate('/', { replace: true });
-    }
+    if (user) navigate('/', { replace: true });
   }, [user, navigate]);
 
-  const params = new URLSearchParams(window.location.search);
-  const errorParam = params.get('error') ?? params.get('reason');
+  // Show error from OAuth callback redirect params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const err = params.get('error') ?? params.get('reason');
+    if (err) setError(`Login failed: ${err.replace(/_/g, ' ')}`);
+  }, []);
+
+  // Handle deep link callback on Capacitor: com.codex.life://login-success?token=xxx
+  useEffect(() => {
+    if (!isCapacitor) return;
+
+    let unlisten: (() => void) | null = null;
+
+    void (async () => {
+      try {
+        const { App } = await import('@capacitor/app');
+        const handle = await App.addListener('appUrlOpen', (data: { url: string }) => {
+          const url = new URL(data.url);
+          if (url.host === 'login-success') {
+            const token = url.searchParams.get('token');
+            if (token) {
+              localStorage.setItem('codex_session', token);
+              void refetch().then(() => navigate('/', { replace: true }));
+            }
+          }
+        });
+        unlisten = () => {
+          void handle.remove();
+        };
+      } catch {
+        /* non-critical */
+      }
+    })();
+
+    return () => unlisten?.();
+  }, [navigate, refetch]);
+
+  // Tauri: poll for session after opening browser
+  useEffect(() => {
+    if (!polling || !isTauri) return;
+    const id = window.setInterval(() => {
+      void refetch().then((res) => {
+        if (res.data) {
+          window.clearInterval(id);
+          window.clearTimeout(timeout);
+          setPolling(false);
+          navigate('/', { replace: true });
+        }
+      });
+    }, 2000);
+    const timeout = window.setTimeout(() => {
+      window.clearInterval(id);
+      setPolling(false);
+      setError('Login timed out. Please try again.');
+    }, 5 * 60 * 1000);
+    return () => {
+      window.clearInterval(id);
+      window.clearTimeout(timeout);
+    };
+  }, [polling, refetch, navigate]);
+
+  const handleLogin = async (): Promise<void> => {
+    setError(null);
+    const url = buildLoginUrl();
+    if (isNative) {
+      await openInSystemBrowser(url);
+      if (isTauri) setPolling(true);
+      // Capacitor: waits for deep link via appUrlOpen listener above
+    } else {
+      window.location.href = url;
+    }
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-codex-bg">
@@ -33,18 +130,28 @@ export function LoginPage() {
           <p className="text-sm text-codex-muted">Your personal Life OS</p>
         </div>
 
-        {errorParam ? (
-          <p className="rounded-lg border border-rose-500/40 bg-rose-900/20 px-4 py-2 text-sm text-rose-300">
-            Login failed: {errorParam.replace(/_/g, ' ')}
-          </p>
+        {error ? (
+          <p className="rounded-lg border border-rose-500/40 bg-rose-900/20 px-4 py-2 text-sm text-rose-300">{error}</p>
         ) : null}
 
         {isLoading ? (
           <p className="text-sm text-codex-muted">Checking session…</p>
+        ) : polling ? (
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-codex-border border-t-codex-accent" />
+            <p className="text-sm text-codex-muted">Complete sign-in in your browser…</p>
+            <button
+              type="button"
+              onClick={() => setPolling(false)}
+              className="text-xs text-slate-500 hover:text-slate-300"
+            >
+              Cancel
+            </button>
+          </div>
         ) : (
           <button
             type="button"
-            onClick={startGoogleLogin}
+            onClick={() => void handleLogin()}
             className="flex items-center gap-3 rounded-xl border border-codex-border bg-codex-surface px-6 py-3 text-sm font-medium text-slate-200 transition-colors hover:border-codex-accent/50 hover:text-white"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>

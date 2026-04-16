@@ -214,7 +214,9 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
   };
 
   return (
-    <Card className={`flex min-h-0 flex-col ${className ?? ''}`}>
+    <Card
+      className={`flex max-h-[500px] min-h-0 flex-col overflow-hidden lg:max-h-none ${className ?? ''}`}
+    >
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h3 className="text-sm font-medium text-slate-300">Today</h3>
         <button
@@ -229,7 +231,7 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto lg:overflow-visible">
         {allDayEvents.length > 0 ? (
           <div className="shrink-0 space-y-1">
             <p className="text-xs font-medium uppercase tracking-wide text-codex-muted">All day</p>
