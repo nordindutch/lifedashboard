@@ -15,8 +15,3 @@ export async function getMe(): Promise<ApiResponse<AuthUser>> {
 export async function logout(): Promise<ApiResponse<{ logged_out: boolean }>> {
   return parseApiResponse(apiClient.post('/api/auth/logout', {}));
 }
-
-export function getLoginUrl(): string {
-  const base = import.meta.env.VITE_API_BASE_URL || '';
-  return base + '/api/auth/login';
-}

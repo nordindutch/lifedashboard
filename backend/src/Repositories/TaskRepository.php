@@ -500,6 +500,7 @@ final class TaskRepository
             'body' => (string) $row['body'],
             'body_format' => (string) $row['body_format'],
             'is_pinned' => ((int) $row['is_pinned']) === 1,
+            'labels' => [],
             'created_at' => (int) $row['created_at'],
             'updated_at' => (int) $row['updated_at'],
             'deleted_at' => $row['deleted_at'] !== null ? (int) $row['deleted_at'] : null,

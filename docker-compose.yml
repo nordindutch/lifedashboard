@@ -22,7 +22,7 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-
+      GOOGLE_REDIRECT_URI: http://localhost:8180/api/auth/callback
   frontend:
     image: node:20-alpine
     working_dir: /app

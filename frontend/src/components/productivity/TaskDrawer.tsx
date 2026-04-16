@@ -1,5 +1,6 @@
 import { format, fromUnixTime } from 'date-fns';
 import { useEffect, useState } from 'react';
+import { TaskNotesList } from '../notes/TaskNotesList';
 import { useProjects } from '../../hooks/useProjects';
 import { useDeleteTask, useUpdateTask } from '../../hooks/useTasks';
 import { useUiStore } from '../../stores/uiStore';
@@ -19,6 +20,7 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
 type Props = { task: Task | null; onClose: () => void };
 
 export function TaskDrawer({ task, onClose }: Props) {
+  const [activeTab, setActiveTab] = useState<'details' | 'notes'>('details');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState<TaskStatus>('todo');
@@ -36,6 +38,7 @@ export function TaskDrawer({ task, onClose }: Props) {
     if (!task) {
       return;
     }
+    setActiveTab('details');
     setTitle(task.title);
     setDescription(task.description ?? '');
     setStatus(task.status);
@@ -93,6 +96,27 @@ export function TaskDrawer({ task, onClose }: Props) {
     <Drawer open={open} title={drawerTitle} onClose={onClose} side="bottom">
       {task ? (
         <div className="space-y-3 text-sm">
+          <div className="mb-1 flex border-b border-codex-border">
+            {(['details', 'notes'] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 text-sm capitalize transition-colors ${
+                  activeTab === tab
+                    ? 'border-b-2 border-codex-accent text-slate-200'
+                    : 'text-codex-muted hover:text-slate-300'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'notes' ? <TaskNotesList taskId={task.id} /> : null}
+
+          {activeTab === 'details' ? (
+            <>
           <div>
             <label htmlFor="task-drawer-title" className="mb-1 block text-slate-500">
               Title
@@ -237,6 +261,8 @@ export function TaskDrawer({ task, onClose }: Props) {
               {deleteTask.isPending ? 'Deleting…' : 'Delete'}
             </button>
           </div>
+            </>
+          ) : null}
         </div>
       ) : null}
     </Drawer>

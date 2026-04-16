@@ -1,6 +1,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Maximize2, Minimize2, Minus, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import type { MouseEvent } from 'react';
 
 const isTauri =
   typeof window !== 'undefined' &&
@@ -45,9 +46,21 @@ export function TitleBar() {
     void appWindow.close();
   };
 
+  const handleDragMouseDown = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button')) {
+      return;
+    }
+    void appWindow.startDragging();
+  };
+
   return (
     <div
       data-tauri-drag-region
+      onMouseDown={handleDragMouseDown}
       className="flex h-9 w-full shrink-0 select-none items-center justify-between border-b border-codex-border/40 bg-codex-bg px-3"
     >
       <span

@@ -77,9 +77,9 @@ export function ProjectsPanel({ activeProjectId, onProjectSelect }: ProjectsPane
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="flex items-center gap-1.5 text-sm font-medium text-slate-300 hover:text-slate-100"
+          className="flex items-center gap-2.5 text-sm font-medium text-slate-300 hover:text-slate-100"
         >
-          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          {expanded ? <ChevronDown size={14} className="mr-2 shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
           Projects
           <span className="ml-1 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-400">{projects.length}</span>
         </button>

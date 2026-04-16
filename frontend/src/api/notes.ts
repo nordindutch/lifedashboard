@@ -1,35 +1,45 @@
 import { apiClient, parseApiResponse } from './client';
-import type { ApiResponse, Note } from '../types';
+import type { Note } from '../types';
 
-export async function listNotes(params?: {
-  task_id?: number;
+export interface NoteFilters {
   project_id?: number;
+  task_id?: number;
   goal_id?: number;
-  canvas_only?: boolean | string;
-}): Promise<ApiResponse<Note[]>> {
-  return parseApiResponse<Note[]>(apiClient.get('/api/notes', { params }));
+  label_id?: number;
+  search?: string;
+  is_pinned?: boolean;
+  page?: number;
+  per_page?: number;
 }
 
-export async function createNote(body: Partial<Note> & { body: string }): Promise<ApiResponse<Note>> {
-  return parseApiResponse<Note>(apiClient.post('/api/notes', body));
+export interface NoteListResponse {
+  items: Note[];
+  total: number;
+  page: number;
+  per_page: number;
 }
 
-export async function updateNote(id: number, body: Partial<Note>): Promise<ApiResponse<Note>> {
-  return parseApiResponse<Note>(apiClient.put(`/api/notes/${id}`, body));
+export interface NoteBody {
+  title?: string | null;
+  body?: string;
+  body_format?: 'html' | 'markdown' | 'plain';
+  project_id?: number | null;
+  task_id?: number | null;
+  goal_id?: number | null;
+  is_pinned?: boolean;
+  label_ids?: number[];
+  label_names?: string[];
 }
 
-export async function deleteNote(id: number): Promise<ApiResponse<{ deleted: boolean }>> {
-  return parseApiResponse<{ deleted: boolean }>(apiClient.delete(`/api/notes/${id}`));
-}
+export const listNotes = (params?: NoteFilters) =>
+  parseApiResponse<NoteListResponse>(apiClient.get('/api/notes', { params }));
 
-export async function patchNoteCanvas(
-  id: number,
-  body: {
-    canvas_x: number;
-    canvas_y: number;
-    canvas_z_index: number;
-    canvas_pinned: boolean;
-  },
-): Promise<ApiResponse<Note>> {
-  return parseApiResponse<Note>(apiClient.patch(`/api/notes/${id}/canvas`, body));
-}
+export const getNote = (id: number) => parseApiResponse<Note>(apiClient.get(`/api/notes/${id}`));
+
+export const createNote = (body: NoteBody) => parseApiResponse<Note>(apiClient.post('/api/notes', body));
+
+export const updateNote = (id: number, body: NoteBody) =>
+  parseApiResponse<Note>(apiClient.put(`/api/notes/${id}`, body));
+
+export const deleteNote = (id: number) =>
+  parseApiResponse<{ deleted: boolean }>(apiClient.delete(`/api/notes/${id}`));

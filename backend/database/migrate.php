@@ -7,6 +7,7 @@ $baseDir = dirname(__DIR__);
 $schemaPath = __DIR__ . '/schema.sql';
 $budgetMigrationPath = __DIR__ . '/migrations/001_budget.sql';
 $authMigrationPath = __DIR__ . '/migrations/002_auth.sql';
+$noteLabelsMigrationPath = __DIR__ . '/migrations/003_note_labels.sql';
 $dbPath = $baseDir . '/database/codex.sqlite';
 
 if (!is_readable($schemaPath)) {
@@ -66,6 +67,20 @@ if ($usersTableCheck === false) {
         exit(1);
     }
     $pdo->exec($authSql);
+}
+
+$noteLabelsTableCheck = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'note_labels'")->fetchColumn();
+if ($noteLabelsTableCheck === false) {
+    if (!is_readable($noteLabelsMigrationPath)) {
+        fwrite(STDERR, "Note labels migration file not found: {$noteLabelsMigrationPath}\n");
+        exit(1);
+    }
+    $noteLabelsSql = file_get_contents($noteLabelsMigrationPath);
+    if ($noteLabelsSql === false) {
+        fwrite(STDERR, "Could not read note labels migration file.\n");
+        exit(1);
+    }
+    $pdo->exec($noteLabelsSql);
 }
 
 echo "Migration OK: {$dbPath}\n";

@@ -4,8 +4,8 @@ export function pathToTab(path: string): AppTab {
   if (path.startsWith('/tasks')) {
     return 'tasks';
   }
-  if (path.startsWith('/canvas')) {
-    return 'canvas';
+  if (path.startsWith('/notes')) {
+    return 'notes';
   }
   if (path.startsWith('/diary')) {
     return 'diary';
@@ -23,8 +23,8 @@ export function tabToPath(tab: AppTab): string {
   switch (tab) {
     case 'tasks':
       return '/tasks';
-    case 'canvas':
-      return '/canvas';
+    case 'notes':
+      return '/notes';
     case 'diary':
       return '/diary';
     case 'budget':

@@ -21,6 +21,7 @@ use Codex\Controllers\AuthController;
 use Codex\Controllers\AiController;
 use Codex\Controllers\DiaryController;
 use Codex\Controllers\GoalController;
+use Codex\Controllers\NoteController;
 use Codex\Controllers\ProjectController;
 use Codex\Controllers\SettingsController;
 use Codex\Controllers\TaskController;
@@ -31,6 +32,7 @@ use Codex\Core\Router;
 use Codex\Repositories\DiaryRepository;
 use Codex\Repositories\AiPlanRepository;
 use Codex\Repositories\GoalRepository;
+use Codex\Repositories\NoteRepository;
 use Codex\Repositories\ProjectRepository;
 use Codex\Repositories\TaskRepository;
 
@@ -78,8 +80,8 @@ $rawBody = file_get_contents('php://input') ?: '';
 $request = Request::fromGlobals($_SERVER, $rawBody);
 
 $publicPaths = [
-    '/api/auth/login',
-    '/api/auth/callback',
+    '/api/auth/google',
+    '/api/auth/google/callback',
     '/api/auth/me',
     '/api/auth/logout',
 ];
@@ -129,6 +131,15 @@ $projectsController = static function () use (&$projectController): ProjectContr
     return $projectController;
 };
 
+$noteController = null;
+$notesController = static function () use (&$noteController): NoteController {
+    if ($noteController === null) {
+        $noteController = new NoteController(NoteRepository::make());
+    }
+
+    return $noteController;
+};
+
 $briefingController = new BriefingController();
 $budgetController = new BudgetController();
 $authController = new AuthController();
@@ -141,8 +152,6 @@ $aiCtrl = static function () use (&$aiController): AiController {
 
     return $aiController;
 };
-$router->get('/api/auth/login', [$authController, 'login']);
-$router->get('/api/auth/callback', [$authController, 'callback']);
 $router->get('/api/auth/me', [$authController, 'me']);
 $router->post('/api/auth/logout', [$authController, 'logout']);
 
@@ -208,6 +217,12 @@ $router->delete('/api/tasks/:id', static function (Request $request) use ($tasks
 $router->patch('/api/tasks/:id/canvas', static function (Request $request) use ($tasksController): void {
     $tasksController()->patchCanvas($request);
 });
+
+$router->get('/api/notes', static fn (Request $r) => $notesController()->index($r));
+$router->post('/api/notes', static fn (Request $r) => $notesController()->store($r));
+$router->get('/api/notes/:id', static fn (Request $r) => $notesController()->show($r));
+$router->put('/api/notes/:id', static fn (Request $r) => $notesController()->update($r));
+$router->delete('/api/notes/:id', static fn (Request $r) => $notesController()->destroy($r));
 
 $router->get('/api/projects', static function (Request $request) use ($projectsController): void {
     $projectsController()->index($request);

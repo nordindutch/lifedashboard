@@ -1,8 +1,12 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getLoginUrl } from '../api/auth';
 import { TitleBar } from '../components/layout/TitleBar';
 import { useAuth } from '../hooks/useAuth';
+
+function startGoogleLogin(): void {
+  const redirectUri = `${window.location.origin}/api/auth/google/callback`;
+  window.location.href = `/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}`;
+}
 
 export function LoginPage() {
   const { data: user, isLoading } = useAuth();
@@ -13,6 +17,9 @@ export function LoginPage() {
       navigate('/', { replace: true });
     }
   }, [user, navigate]);
+
+  const params = new URLSearchParams(window.location.search);
+  const errorParam = params.get('error') ?? params.get('reason');
 
   return (
     <div className="flex min-h-screen flex-col bg-codex-bg">
@@ -26,11 +33,18 @@ export function LoginPage() {
           <p className="text-sm text-codex-muted">Your personal Life OS</p>
         </div>
 
+        {errorParam ? (
+          <p className="rounded-lg border border-rose-500/40 bg-rose-900/20 px-4 py-2 text-sm text-rose-300">
+            Login failed: {errorParam.replace(/_/g, ' ')}
+          </p>
+        ) : null}
+
         {isLoading ? (
           <p className="text-sm text-codex-muted">Checking session…</p>
         ) : (
-          <a
-            href={getLoginUrl()}
+          <button
+            type="button"
+            onClick={startGoogleLogin}
             className="flex items-center gap-3 rounded-xl border border-codex-border bg-codex-surface px-6 py-3 text-sm font-medium text-slate-200 transition-colors hover:border-codex-accent/50 hover:text-white"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
@@ -52,7 +66,7 @@ export function LoginPage() {
               />
             </svg>
             Sign in with Google
-          </a>
+          </button>
         )}
 
         <p className="text-xs text-codex-muted/60">Personal access only</p>

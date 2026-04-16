@@ -180,7 +180,7 @@ final class SettingsController
     public function googleCallback(Request $request): void
     {
         $error = $request->getQueryString('error');
-        $frontend = $this->frontendSettingsUrl($request);
+        $frontend = $this->hasSessionCookie() ? $this->frontendSettingsUrl($request) : $this->frontendLoginUrl($request);
         if ($error !== null && $error !== '') {
             header('Location: ' . $frontend . '?google=error&reason=' . rawurlencode($error), true, 302);
             exit;
@@ -222,6 +222,58 @@ final class SettingsController
             exit;
         }
 
+        $sessionIssued = false;
+        $accessToken = (string) ($token['access_token'] ?? '');
+        $profile = $this->fetchGoogleProfile($accessToken);
+        if ($profile !== null) {
+            $googleId = (string) ($profile['sub'] ?? '');
+            $email = (string) ($profile['email'] ?? '');
+            $name = (string) ($profile['name'] ?? '');
+            $avatarUrl = isset($profile['picture']) ? (string) $profile['picture'] : null;
+
+            if ($googleId !== '' && $email !== '' && $name !== '') {
+                $ownerStmt = $db->query('SELECT google_id FROM users ORDER BY id ASC LIMIT 1');
+                $ownerGoogleId = $ownerStmt === false ? false : $ownerStmt->fetchColumn();
+                if ($ownerGoogleId === false || (string) $ownerGoogleId === $googleId) {
+                    $db->prepare(
+                        'INSERT INTO users (google_id, email, name, avatar_url, last_login_at)
+                         VALUES (:google_id, :email, :name, :avatar_url, unixepoch())
+                         ON CONFLICT(google_id) DO UPDATE SET
+                            email         = excluded.email,
+                            name          = excluded.name,
+                            avatar_url    = excluded.avatar_url,
+                            last_login_at = unixepoch()',
+                    )->execute([
+                        'google_id' => $googleId,
+                        'email' => $email,
+                        'name' => $name,
+                        'avatar_url' => $avatarUrl,
+                    ]);
+
+                    $userStmt = $db->prepare('SELECT id FROM users WHERE google_id = ?');
+                    $userStmt->execute([$googleId]);
+                    $userId = (int) $userStmt->fetchColumn();
+                    if ($userId > 0) {
+                        $sessionToken = bin2hex(random_bytes(32));
+                        $expiresAt = time() + (30 * 86400);
+                        $db->prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)')
+                            ->execute([$userId, $sessionToken, $expiresAt]);
+
+                        $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+                        $sameSite = $secure ? 'None' : 'Lax';
+                        setcookie('codex_session', $sessionToken, [
+                            'expires' => $expiresAt,
+                            'path' => '/',
+                            'httponly' => true,
+                            'secure' => $secure,
+                            'samesite' => $sameSite,
+                        ]);
+                        $sessionIssued = true;
+                    }
+                }
+            }
+        }
+
         // Attempt initial sync (non-fatal). User can manually sync from settings page as well.
         $access = $service->getValidAccessToken();
         if ($access !== null) {
@@ -232,7 +284,8 @@ final class SettingsController
             }
         }
 
-        header('Location: ' . $frontend . '?google=connected', true, 302);
+        $destination = $sessionIssued ? $this->frontendHomeUrl($request) : ($frontend . '?google=connected');
+        header('Location: ' . $destination, true, 302);
         exit;
     }
 
@@ -546,5 +599,80 @@ final class SettingsController
         }
         // Dev default uses Vite on 5273; in other environments user can still navigate manually.
         return 'http://' . $hostOnly . ':5273/settings';
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function fetchGoogleProfile(string $accessToken): ?array
+    {
+        if ($accessToken === '') {
+            return null;
+        }
+
+        $ctx = stream_context_create(['http' => [
+            'method' => 'GET',
+            'timeout' => 8,
+            'ignore_errors' => true,
+            'header' => "Authorization: Bearer {$accessToken}\r\n",
+        ]]);
+
+        $raw = @file_get_contents('https://openidconnect.googleapis.com/v1/userinfo', false, $ctx);
+        if (!is_string($raw)) {
+            return null;
+        }
+
+        $json = json_decode($raw, true);
+        return is_array($json) && isset($json['sub']) ? $json : null;
+    }
+
+    private function frontendHomeUrl(Request $request): string
+    {
+        $envUrl = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? '');
+        if (is_string($envUrl) && $envUrl !== '') {
+            return rtrim($envUrl, '/') . '/';
+        }
+
+        $origin = $request->getHeader('origin') ?? $request->getHeader('referer') ?? '';
+        if ($origin !== '') {
+            $parsed = parse_url($origin);
+            if (is_array($parsed) && isset($parsed['scheme'], $parsed['host'])) {
+                $base = $parsed['scheme'] . '://' . $parsed['host'];
+                if (isset($parsed['port'])) {
+                    $base .= ':' . $parsed['port'];
+                }
+                return $base . '/';
+            }
+        }
+
+        return 'http://localhost:5273/';
+    }
+
+    private function frontendLoginUrl(Request $request): string
+    {
+        $envUrl = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? '');
+        if (is_string($envUrl) && $envUrl !== '') {
+            return rtrim($envUrl, '/') . '/login';
+        }
+
+        $origin = $request->getHeader('origin') ?? $request->getHeader('referer') ?? '';
+        if ($origin !== '') {
+            $parsed = parse_url($origin);
+            if (is_array($parsed) && isset($parsed['scheme'], $parsed['host'])) {
+                $base = $parsed['scheme'] . '://' . $parsed['host'];
+                if (isset($parsed['port'])) {
+                    $base .= ':' . $parsed['port'];
+                }
+                return $base . '/login';
+            }
+        }
+
+        return 'http://localhost:5273/login';
+    }
+
+    private function hasSessionCookie(): bool
+    {
+        $token = $_COOKIE['codex_session'] ?? '';
+        return is_string($token) && $token !== '';
     }
 }

@@ -126,16 +126,16 @@ export interface Label {
   color: string;
 }
 
-export interface Note extends Partial<CanvasPosition> {
+export interface Note {
   id: number;
   goal_id: number | null;
   project_id: number | null;
   task_id: number | null;
-  canvas_z_index: number;
   title: string | null;
   body: string;
   body_format: NoteFormat;
   is_pinned: boolean;
+  labels: Label[];
   created_at: UnixTimestamp;
   updated_at: UnixTimestamp;
   deleted_at: UnixTimestamp | null;

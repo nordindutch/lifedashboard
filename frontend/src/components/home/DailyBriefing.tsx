@@ -11,7 +11,7 @@ import { BriefingTasksCard } from './BriefingTasksCard';
 import { CalendarStrip } from './CalendarStrip';
 import { DiaryCard } from './DiaryCard';
 import { EmailPreview } from './EmailPreview';
-import { EveningSummaryCard } from './EveningSummaryCard';
+import { EveningSummaryCard, eveningPlanHasRenderableContent } from './EveningSummaryCard';
 import { StatsStrip } from './StatsStrip';
 import { WeatherCard } from './WeatherCard';
 
@@ -141,6 +141,26 @@ export function DailyBriefing() {
     }
   })();
 
+  const nowParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: activeTimezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(now);
+
+  const getPart = (type: Intl.DateTimeFormatPartTypes): string =>
+    nowParts.find((part) => part.type === type)?.value ?? '';
+  const todayInActiveTimezone = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+  const hourInActiveTimezone = Number(getPart('hour'));
+  const minuteInActiveTimezone = Number(getPart('minute'));
+  const minutesSinceMidnight = (Number.isNaN(hourInActiveTimezone) ? 0 : hourInActiveTimezone) * 60
+    + (Number.isNaN(minuteInActiveTimezone) ? 0 : minuteInActiveTimezone);
+  const shouldShowDaySummary =
+    b.date === todayInActiveTimezone && minutesSinceMidnight >= (22 * 60 + 30) && eveningPlanHasRenderableContent(b.evening_plan);
+
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-6 md:px-6">
       <header className="mb-8 border-b border-codex-border pb-6">
@@ -214,12 +234,14 @@ export function DailyBriefing() {
             <StatsStrip snapshot={b.snapshot} recentLogs={b.recent_logs} onMoodClick={openMoodModal} />
           </section>
 
-          <section aria-labelledby="home-evening">
-            <h2 id="home-evening" className="sr-only">
-              Day summary
-            </h2>
-            <EveningSummaryCard plan={b.evening_plan} date={b.date} />
-          </section>
+          {shouldShowDaySummary ? (
+            <section aria-labelledby="home-evening">
+              <h2 id="home-evening" className="sr-only">
+                Day summary
+              </h2>
+              <EveningSummaryCard plan={b.evening_plan} date={b.date} />
+            </section>
+          ) : null}
 
           <section aria-labelledby="home-diary" className="flex min-h-0 flex-1 flex-col">
             <h2 id="home-diary" className="sr-only">
