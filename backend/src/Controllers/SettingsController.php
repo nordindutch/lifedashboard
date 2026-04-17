@@ -304,25 +304,78 @@ final class SettingsController
 
         if ($sessionIssued) {
             if ($isAppLogin && $sessionToken !== '') {
+                // Capacitor: redirect straight to custom scheme deep link.
                 header('Location: com.codex.life://login-success?token=' . rawurlencode($sessionToken), true, 302);
-            } elseif ($isTauriLogin && $sessionToken !== '') {
-                // Store a short-lived pending token the Tauri app will claim via /api/auth/tauri/claim.
-                $pendingExpiry = time() + 300; // 5 minutes
-                $db->prepare(
-                    "INSERT INTO settings (key, value, value_type, description, updated_at)
-                     VALUES ('tauri_pending_token', :v, 'string', 'Short-lived token for Tauri desktop login', unixepoch())
-                     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
-                )->execute(['v' => $sessionToken . '|' . $pendingExpiry]);
-                // Show a simple close-this-tab page; the desktop app will claim the token via polling.
-                http_response_code(200);
-                header('Content-Type: text/html; charset=utf-8');
-                echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Signed in</title>'
-                    . '<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;'
-                    . 'height:100vh;margin:0;background:#0f1117;color:#e2e8f0;}</style></head>'
-                    . '<body><p>✅ Signed in successfully. You can close this tab and return to the app.</p></body></html>';
-            } else {
-                header('Location: ' . $this->frontendHomeUrl($request), true, 302);
+                exit;
             }
+
+            // For all other logins (web browser or Tauri desktop) show a page with:
+            //  - An "Open in app" button that fires the custom URI scheme so the Tauri
+            //    desktop app can pick up the token via its deep-link handler.
+            //  - A "Continue in browser" fallback that redirects to the web dashboard.
+            $appUrl    = 'com.codex.life://login-success?token=' . rawurlencode($sessionToken);
+            $webUrl    = $this->frontendHomeUrl($request);
+            $encodedToken = htmlspecialchars($sessionToken, ENT_QUOTES, 'UTF-8');
+            $encodedAppUrl = htmlspecialchars($appUrl, ENT_QUOTES, 'UTF-8');
+            $encodedWebUrl = htmlspecialchars($webUrl, ENT_QUOTES, 'UTF-8');
+
+            http_response_code(200);
+            header('Content-Type: text/html; charset=utf-8');
+            echo <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Signed in — Project Codex</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117; color: #e2e8f0;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .card {
+      background: #1e2130; border: 1px solid #2d3148; border-radius: 16px;
+      padding: 2.5rem 2rem; max-width: 380px; width: 100%; text-align: center;
+      display: flex; flex-direction: column; gap: 1.25rem;
+    }
+    .icon { font-size: 2.5rem; }
+    h1 { font-size: 1.25rem; font-weight: 600; color: #f1f5f9; }
+    p  { font-size: 0.875rem; color: #94a3b8; line-height: 1.5; }
+    .btn-primary {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      padding: 0.75rem 1.5rem; border-radius: 10px; font-size: 0.9rem; font-weight: 500;
+      background: #6366f1; color: #fff; border: none; cursor: pointer;
+      text-decoration: none; transition: background 0.15s;
+    }
+    .btn-primary:hover { background: #4f46e5; }
+    .btn-secondary {
+      font-size: 0.8rem; color: #64748b; background: none; border: none;
+      cursor: pointer; text-decoration: underline;
+    }
+    .btn-secondary:hover { color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">✅</div>
+    <h1>Signed in successfully</h1>
+    <p>Click below to open Project Codex, or continue in the browser.</p>
+    <a class="btn-primary" href="{$encodedAppUrl}" id="openApp">
+      Open in app
+    </a>
+    <a class="btn-secondary" href="{$encodedWebUrl}">Continue in browser</a>
+  </div>
+  <script>
+    // Auto-attempt to open the app after a short delay so the page renders first.
+    setTimeout(function() {
+      document.getElementById('openApp').click();
+    }, 400);
+  </script>
+</body>
+</html>
+HTML;
         } else {
             header('Location: ' . $frontend . '?google=connected', true, 302);
         }

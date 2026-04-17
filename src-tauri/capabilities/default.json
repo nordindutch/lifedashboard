@@ -19,6 +19,7 @@
       "identifier": "shell:allow-open",
       "allow": [{ "url": "https://**" }]
     },
+    "deep-link:default",
     "http:default",
     "notification:default",
     "notification:allow-request-permission",

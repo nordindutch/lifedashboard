@@ -8,6 +8,3 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
-
-// Injected at build time by vite.config.ts define: true for Tauri builds, false otherwise.
-declare const __TAURI_BUILD__: boolean;
