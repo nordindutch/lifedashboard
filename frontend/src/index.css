@@ -2,8 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Bug 3 — scrolling: keep overflow clipping on #root only; `overflow: hidden` on html/body
+   can prevent reliable touch scrolling in Capacitor WebView when the scroll container is nested. */
 html,
-body,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 #root {
   height: 100%;
   margin: 0;

@@ -12,6 +12,7 @@ import { LoginPage } from './pages/LoginPage';
 import { NotesPage } from './pages/NotesPage';
 import { ProductivityPage } from './pages/ProductivityPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { useNativeOAuthDeepLink } from './hooks/useNativeOAuthDeepLink';
 import { useUiStore } from './stores/uiStore';
 
 const queryClient = new QueryClient({
@@ -24,6 +25,8 @@ function RouterShell() {
   const location = useLocation();
   const setActiveTab = useUiStore((s) => s.setActiveTab);
   const { data: user, isLoading } = useAuth();
+
+  useNativeOAuthDeepLink();
 
   useEffect(() => {
     setActiveTab(pathToTab(location.pathname));

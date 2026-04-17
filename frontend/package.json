@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:tauri": "vite --mode tauri",
     "build": "tsc --noEmit && vite build",
     "build:tauri": "tsc --noEmit && vite build --mode tauri",
     "build:android": "tsc --noEmit && vite build --mode android",

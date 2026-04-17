@@ -7,6 +7,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://127.0.0.1:8180';
 
+/*
+ * Bug 1 — Tauri title bar: When `isTauri` is false at build time, Vite aliases
+ * `@tauri-apps/api/window` to `src/stubs/tauri-api-window.ts`, so minimize / maximize /
+ * close / startDragging become no-ops. `tauri build` already uses `--mode tauri`, but
+ * `tauri dev` used to run plain `vite` (mode `development`), so unless `TAURI_ENV_*`
+ * was always inherited by the Vite process, the desktop app could ship dev bundles
+ * that still pointed at the stub. `beforeDevCommand` now runs `vite --mode tauri`.
+ */
 export default defineConfig(({ mode }) => {
   const isTauri =
     mode === 'tauri' ||

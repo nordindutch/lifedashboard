@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { TitleBar } from '../components/layout/TitleBar';
 import { useAuth } from '../hooks/useAuth';
 
-const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 const isCapacitor =
   typeof window !== 'undefined' && typeof (window as { Capacitor?: unknown }).Capacitor !== 'undefined';
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
@@ -16,7 +15,7 @@ function buildLoginUrl(): string {
 }
 
 export function LoginPage() {
-  const { data: user, isLoading, refetch } = useAuth();
+  const { data: user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
@@ -29,47 +28,6 @@ export function LoginPage() {
     const err = params.get('error') ?? params.get('reason');
     if (err) setError(`Login failed: ${err.replace(/_/g, ' ')}`);
   }, []);
-
-  useEffect(() => {
-    if (!isTauri && !isCapacitor) return;
-    let unlisten: (() => void) | null = null;
-    void (async () => {
-      try {
-        if (isTauri) {
-          const { onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
-          const handler = await onOpenUrl((urls: string[]) => {
-            for (const raw of urls) {
-              const url = new URL(raw);
-              if (url.host === 'login-success') {
-                const token = url.searchParams.get('token');
-                if (token) {
-                  localStorage.setItem('codex_session', token);
-                  void refetch().then(() => navigate('/', { replace: true }));
-                }
-              }
-            }
-          });
-          unlisten = handler;
-        } else {
-          const { App } = await import('@capacitor/app');
-          const handler = await App.addListener('appUrlOpen', (data: { url: string }) => {
-            const url = new URL(data.url);
-            if (url.host === 'login-success') {
-              const token = url.searchParams.get('token');
-              if (token) {
-                localStorage.setItem('codex_session', token);
-                void refetch().then(() => navigate('/', { replace: true }));
-              }
-            }
-          });
-          unlisten = () => void handler.remove();
-        }
-      } catch {
-        /* non-critical */
-      }
-    })();
-    return () => unlisten?.();
-  }, [navigate, refetch]);
 
   const handleLogin = (): void => {
     setError(null);
