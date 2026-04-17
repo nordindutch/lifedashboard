@@ -88,6 +88,7 @@ $publicPaths = [
     '/api/auth/google/callback',
     '/api/auth/me',
     '/api/auth/logout',
+    '/api/auth/tauri/claim',
 ];
 if (!in_array($request->getPath(), $publicPaths, true)) {
     $userId = Middleware::sessionAuth($request);
@@ -158,6 +159,7 @@ $aiCtrl = static function () use (&$aiController): AiController {
 };
 $router->get('/api/auth/me', [$authController, 'me']);
 $router->post('/api/auth/logout', [$authController, 'logout']);
+$router->post('/api/auth/tauri/claim', [$authController, 'tauriClaim']);
 
 $router->get('/api/briefing', [$briefingController, 'index']);
 $router->get('/api/evening-plan', [$briefingController, 'eveningPlan']);

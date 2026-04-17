@@ -178,6 +178,12 @@ final class SettingsController
              VALUES ('google_oauth_is_app', :v, 'string', 'Login from app', unixepoch())
              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
         )->execute(['v' => $isApp]);
+        $isTauri = $request->getQueryString('tauri') === '1' ? '1' : '0';
+        $db->prepare(
+            "INSERT INTO settings (key, value, value_type, description, updated_at)
+             VALUES ('google_oauth_is_tauri', :v, 'string', 'Login from Tauri desktop', unixepoch())
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
+        )->execute(['v' => $isTauri]);
         $url = $service->buildAuthUrl($redirectUri, $state);
         header('Location: ' . $url, true, 302);
         exit;
@@ -212,6 +218,11 @@ final class SettingsController
         $stmt->execute();
         $isAppLogin = (string) ($stmt->fetchColumn() ?: '0') === '1';
         $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_is_app'")->execute();
+
+        $stmt = $db->prepare("SELECT value FROM settings WHERE key = 'google_oauth_is_tauri' LIMIT 1");
+        $stmt->execute();
+        $isTauriLogin = (string) ($stmt->fetchColumn() ?: '0') === '1';
+        $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_is_tauri'")->execute();
 
         if ($expectedState === '' || !hash_equals($expectedState, $state)) {
             header('Location: ' . $frontend . '?google=error&reason=invalid_state', true, 302);
@@ -301,6 +312,21 @@ final class SettingsController
         if ($sessionIssued) {
             if ($isAppLogin && $sessionToken !== '') {
                 header('Location: com.codex.life://login-success?token=' . rawurlencode($sessionToken), true, 302);
+            } elseif ($isTauriLogin && $sessionToken !== '') {
+                // Store a short-lived pending token the Tauri app will claim via /api/auth/tauri/claim.
+                $pendingExpiry = time() + 300; // 5 minutes
+                $db->prepare(
+                    "INSERT INTO settings (key, value, value_type, description, updated_at)
+                     VALUES ('tauri_pending_token', :v, 'string', 'Short-lived token for Tauri desktop login', unixepoch())
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
+                )->execute(['v' => $sessionToken . '|' . $pendingExpiry]);
+                // Show a simple close-this-tab page; the desktop app will claim the token via polling.
+                http_response_code(200);
+                header('Content-Type: text/html; charset=utf-8');
+                echo '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Signed in</title>'
+                    . '<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;'
+                    . 'height:100vh;margin:0;background:#0f1117;color:#e2e8f0;}</style></head>'
+                    . '<body><p>✅ Signed in successfully. You can close this tab and return to the app.</p></body></html>';
             } else {
                 header('Location: ' . $this->frontendHomeUrl($request), true, 302);
             }

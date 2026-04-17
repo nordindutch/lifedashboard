@@ -28,7 +28,7 @@ async function openInSystemBrowser(url: string): Promise<void> {
 function buildLoginUrl(): string {
   const origin = isNative && API_BASE !== '' ? API_BASE : window.location.origin;
   const redirectUri = `${origin}/api/auth/google/callback`;
-  const appParam = isCapacitor ? '&app=1' : '';
+  const appParam = isCapacitor ? '&app=1' : isTauri ? '&tauri=1' : '';
   return `${API_BASE}/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}${appParam}`;
 }
 
@@ -73,18 +73,24 @@ export function LoginPage() {
     return () => unlisten?.();
   }, [navigate, refetch]);
 
-  // Tauri: poll /api/auth/me after opening system browser
+  // Tauri: poll /api/auth/tauri/claim after opening system browser.
+  // The backend stores a short-lived pending token on callback; we claim it here
+  // and store it in localStorage so the axios client can send it as X-Codex-Session.
   useEffect(() => {
     if (!polling || !isTauri) return;
     const id = window.setInterval(() => {
-      void refetch().then((res) => {
-        if (res.data) {
-          window.clearInterval(id);
-          window.clearTimeout(timeout);
-          setPolling(false);
-          navigate('/', { replace: true });
-        }
-      });
+      void fetch(`${API_BASE}/api/auth/tauri/claim`, { method: 'POST' })
+        .then((r) => r.json())
+        .then((json: { success: boolean; data?: { token: string } }) => {
+          if (json.success && json.data?.token) {
+            window.clearInterval(id);
+            window.clearTimeout(timeout);
+            setPolling(false);
+            localStorage.setItem('codex_session', json.data.token);
+            void refetch().then(() => navigate('/', { replace: true }));
+          }
+        })
+        .catch(() => { /* keep polling */ });
     }, 2000);
     const timeout = window.setTimeout(() => {
       window.clearInterval(id);

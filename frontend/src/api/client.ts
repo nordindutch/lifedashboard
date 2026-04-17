@@ -3,6 +3,7 @@ import type { ApiError, ApiResponse } from '../types';
 
 const isCapacitor =
   typeof window !== 'undefined' && typeof (window as { Capacitor?: unknown }).Capacitor !== 'undefined';
+const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 // For Tauri production builds, set VITE_API_BASE_URL=http://localhost:8180
 // (or wherever the PHP backend is hosted) in your .env file.
@@ -23,15 +24,15 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  // On Capacitor, use token from localStorage instead of cookie
-  if (isCapacitor) {
+  // On Capacitor or Tauri, use token from localStorage instead of cookie
+  if (isCapacitor || isTauri) {
     const token = localStorage.getItem('codex_session');
     if (token) {
       config.headers['X-Codex-Session'] = token;
     }
     return config;
   }
-  // Browser/Tauri: use cookie (existing behaviour)
+  // Browser: use cookie (existing behaviour)
   const key = import.meta.env.VITE_CODEX_API_KEY;
   const hasSessionCookie =
     typeof document !== 'undefined' && document.cookie.includes('codex_session=');
