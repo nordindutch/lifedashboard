@@ -313,9 +313,8 @@ final class SettingsController
             //  - An "Open in app" button that fires the custom URI scheme so the Tauri
             //    desktop app can pick up the token via its deep-link handler.
             //  - A "Continue in browser" fallback that redirects to the web dashboard.
-            $appUrl    = 'com.codex.life://login-success?token=' . rawurlencode($sessionToken);
-            $webUrl    = $this->frontendHomeUrl($request);
-            $encodedToken = htmlspecialchars($sessionToken, ENT_QUOTES, 'UTF-8');
+            $appUrl = 'com.codex.life://login-success?token=' . rawurlencode($sessionToken);
+            $webUrl = $this->frontendHomeUrl($request);
             $encodedAppUrl = htmlspecialchars($appUrl, ENT_QUOTES, 'UTF-8');
             $encodedWebUrl = htmlspecialchars($webUrl, ENT_QUOTES, 'UTF-8');
 
