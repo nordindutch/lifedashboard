@@ -159,31 +159,28 @@ final class SettingsController
             Response::error('not_configured', 'Google client ID/secret are missing (set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET in .env or in settings)', 422);
             return;
         }
-        $state = bin2hex(random_bytes(16));
-        $db = Database::getInstance();
+
         $redirectUri = $this->buildGoogleRedirectUri($request);
+
+        // Encode the nonce + client flags directly in the state so they survive the
+        // Google round-trip without any DB dependency. This prevents stale DB rows
+        // from a previous (web or Tauri) login attempt from corrupting the flow.
+        $statePayload = json_encode([
+            'nonce'   => bin2hex(random_bytes(16)),
+            'app'     => $request->getQueryString('app') === '1',
+            'tauri'   => $request->getQueryString('tauri') === '1',
+            'redirect_uri' => $redirectUri,
+        ]);
+        $state = base64_encode((string) $statePayload);
+
+        $db = Database::getInstance();
+        // Store only the nonce for CSRF verification; flags come back in state itself.
         $db->prepare(
             "INSERT INTO settings (key, value, value_type, description, updated_at)
-             VALUES ('google_oauth_state', :value, 'string', 'Temporary OAuth state', unixepoch())
+             VALUES ('google_oauth_state', :value, 'string', 'Temporary OAuth state nonce', unixepoch())
              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
         )->execute(['value' => $state]);
-        $db->prepare(
-            "INSERT INTO settings (key, value, value_type, description, updated_at)
-             VALUES ('google_oauth_redirect_uri', :value, 'string', 'Temporary OAuth redirect URI', unixepoch())
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
-        )->execute(['value' => $redirectUri]);
-        $isApp = $request->getQueryString('app') === '1' ? '1' : '0';
-        $db->prepare(
-            "INSERT INTO settings (key, value, value_type, description, updated_at)
-             VALUES ('google_oauth_is_app', :v, 'string', 'Login from app', unixepoch())
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
-        )->execute(['v' => $isApp]);
-        $isTauri = $request->getQueryString('tauri') === '1' ? '1' : '0';
-        $db->prepare(
-            "INSERT INTO settings (key, value, value_type, description, updated_at)
-             VALUES ('google_oauth_is_tauri', :v, 'string', 'Login from Tauri desktop', unixepoch())
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
-        )->execute(['v' => $isTauri]);
+
         $url = $service->buildAuthUrl($redirectUri, $state);
         header('Location: ' . $url, true, 302);
         exit;
@@ -198,36 +195,32 @@ final class SettingsController
             exit;
         }
         $code = $request->getQueryString('code');
-        $state = $request->getQueryString('state');
-        if ($code === null || $code === '' || $state === null || $state === '') {
+        $stateParam = $request->getQueryString('state');
+        if ($code === null || $code === '' || $stateParam === null || $stateParam === '') {
             header('Location: ' . $frontend . '?google=error&reason=missing_code_or_state', true, 302);
             exit;
         }
+
         $db = Database::getInstance();
         $stmt = $db->prepare("SELECT value FROM settings WHERE key = 'google_oauth_state' LIMIT 1");
         $stmt->execute();
         $expectedState = (string) ($stmt->fetchColumn() ?: '');
         $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_state'")->execute();
 
-        $stmt = $db->prepare("SELECT value FROM settings WHERE key = 'google_oauth_redirect_uri' LIMIT 1");
-        $stmt->execute();
-        $redirectUri = (string) ($stmt->fetchColumn() ?: '');
-        $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_redirect_uri'")->execute();
+        // Clean up any leftover legacy flag rows from older code.
+        $db->prepare("DELETE FROM settings WHERE key IN ('google_oauth_redirect_uri','google_oauth_is_app','google_oauth_is_tauri')")->execute();
 
-        $stmt = $db->prepare("SELECT value FROM settings WHERE key = 'google_oauth_is_app' LIMIT 1");
-        $stmt->execute();
-        $isAppLogin = (string) ($stmt->fetchColumn() ?: '0') === '1';
-        $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_is_app'")->execute();
-
-        $stmt = $db->prepare("SELECT value FROM settings WHERE key = 'google_oauth_is_tauri' LIMIT 1");
-        $stmt->execute();
-        $isTauriLogin = (string) ($stmt->fetchColumn() ?: '0') === '1';
-        $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_is_tauri'")->execute();
-
-        if ($expectedState === '' || !hash_equals($expectedState, $state)) {
+        if ($expectedState === '' || !hash_equals($expectedState, $stateParam)) {
             header('Location: ' . $frontend . '?google=error&reason=invalid_state', true, 302);
             exit;
         }
+
+        // Decode flags from the state blob (set in googleAuth).
+        $decoded = json_decode(base64_decode($stateParam), true);
+        $isAppLogin   = is_array($decoded) && !empty($decoded['app']);
+        $isTauriLogin = is_array($decoded) && !empty($decoded['tauri']);
+        $redirectUri  = is_array($decoded) && isset($decoded['redirect_uri']) ? (string) $decoded['redirect_uri'] : '';
+
         if ($redirectUri === '') {
             header('Location: ' . $frontend . '?google=error&reason=missing_redirect_uri', true, 302);
             exit;
@@ -282,7 +275,7 @@ final class SettingsController
                         $db->prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)')
                             ->execute([$userId, $sessionToken, $expiresAt]);
 
-                        if (!$isAppLogin) {
+                        if (!$isAppLogin && !$isTauriLogin) {
                             $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
                             $sameSite = $secure ? 'None' : 'Lax';
                             setcookie('codex_session', $sessionToken, [
