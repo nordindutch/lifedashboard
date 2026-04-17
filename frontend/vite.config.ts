@@ -17,12 +17,12 @@ export default defineConfig({
     alias: isTauri
       ? {}
       : {
-          '@tauri-apps/plugin-notification': path.resolve(
-            __dirname,
-            'src/stubs/tauri-plugin-notification.ts',
-          ),
-          '@tauri-apps/api/window': path.resolve(__dirname, 'src/stubs/tauri-api-window.ts'),
-        },
+        '@tauri-apps/plugin-notification': path.resolve(
+          __dirname,
+          'src/stubs/tauri-plugin-notification.ts',
+        ),
+        '@tauri-apps/api/window': path.resolve(__dirname, 'src/stubs/tauri-api-window.ts'),
+      },
   },
 
   server: {
@@ -39,10 +39,10 @@ export default defineConfig({
 
   build: isTauri
     ? {
-        target: ['chrome105', 'safari13'],
-        minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
-        sourcemap: !!process.env.TAURI_ENV_DEBUG,
-      }
+      target: ['chrome120', 'safari16'],
+      minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
+      sourcemap: !!process.env.TAURI_ENV_DEBUG,
+    }
     : {},
 
   base: isTauri ? './' : '/',
