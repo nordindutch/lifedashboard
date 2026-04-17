@@ -1,7 +1,6 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Maximize2, Minimize2, Minus, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import type { MouseEvent } from 'react';
 
 const isTauri =
   typeof window !== 'undefined' &&
@@ -19,11 +18,13 @@ export function TitleBar() {
     void appWindow.isMaximized().then(setMaximized);
 
     let unlisten: (() => void) | null = null;
-    void appWindow.onResized(() => {
-      void appWindow.isMaximized().then(setMaximized);
-    }).then((fn) => {
-      unlisten = fn;
-    });
+    void appWindow
+      .onResized(() => {
+        void appWindow.isMaximized().then(setMaximized);
+      })
+      .then((fn) => {
+        unlisten = fn;
+      });
 
     return () => {
       unlisten?.();
@@ -46,33 +47,20 @@ export function TitleBar() {
     void appWindow.close();
   };
 
-  const handleDragMouseDown = (event: MouseEvent<HTMLDivElement>) => {
-    if (event.button !== 0) {
-      return;
-    }
-    const target = event.target as HTMLElement | null;
-    if (target?.closest('button')) {
-      return;
-    }
-    void appWindow.startDragging();
-  };
-
+  // Drag region must not wrap window buttons — Tauri can eat clicks; keep z above main overlays.
   return (
-    <div
-      data-tauri-drag-region
-      onMouseDown={handleDragMouseDown}
-      className="flex h-9 w-full shrink-0 select-none items-center justify-between border-b border-codex-border/40 bg-codex-bg px-3"
-    >
-      <span
+    <div className="relative z-50 flex h-9 w-full shrink-0 select-none items-stretch justify-between border-b border-codex-border/40 bg-codex-bg px-0">
+      <div
         data-tauri-drag-region
-        className="text-[11px] font-medium uppercase tracking-widest text-codex-muted/60"
+        className="flex h-full min-w-0 flex-1 items-center gap-2 px-3"
       >
-        Project Codex
-      </span>
+        <span className="text-[11px] font-medium uppercase tracking-widest text-codex-muted/60">
+          Project Codex
+        </span>
+        <div data-tauri-drag-region className="h-full min-h-0 flex-1" />
+      </div>
 
-      <div data-tauri-drag-region className="flex-1" />
-
-      <div className="flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1 px-2">
         <button
           type="button"
           onClick={handleMinimize}

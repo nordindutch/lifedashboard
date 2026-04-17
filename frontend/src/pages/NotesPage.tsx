@@ -244,8 +244,8 @@ export function NotesPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-4rem)] p-4">
-      <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
+    <div className="p-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
         <aside className="flex min-h-0 flex-col rounded-xl border border-codex-border bg-codex-surface">
           <div className="space-y-3 border-b border-codex-border p-3">
             <div className="flex items-center justify-between">
@@ -472,7 +472,7 @@ export function NotesPage() {
               />
             </>
           ) : (
-            <div className="flex h-full items-center justify-center text-sm text-codex-muted">
+            <div className="flex min-h-[12rem] items-center justify-center py-12 text-sm text-codex-muted">
               Select a note or create a new one.
             </div>
           )}

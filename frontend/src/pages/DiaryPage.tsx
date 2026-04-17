@@ -29,10 +29,10 @@ export function DiaryPage() {
   };
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-6xl flex-col gap-4 p-4 pb-40 md:pb-28">
+    <div className="mx-auto flex max-w-6xl flex-col gap-4 p-4 pb-40 md:pb-28">
       <h1 className="text-xl font-semibold text-slate-100">Diary</h1>
 
-      <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-start">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-start">
         <div className="flex min-h-0 flex-col gap-4">
           {q.isLoading ? <p className="text-sm text-slate-400">Loading…</p> : null}
           {!q.isLoading ? (

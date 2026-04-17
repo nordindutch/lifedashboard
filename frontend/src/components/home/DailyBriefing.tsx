@@ -81,6 +81,14 @@ export function DailyBriefing() {
     return () => window.clearInterval(id);
   }, []);
 
+  const eveningPlan = q.data?.evening_plan;
+  useEffect(() => {
+    if (eveningPlan && !prevEveningPlan.current) {
+      void sendEveningNotificationCapacitor();
+    }
+    prevEveningPlan.current = eveningPlan ?? null;
+  }, [eveningPlan]);
+
   const activeTimezone = settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const timeLabel = new Intl.DateTimeFormat(undefined, {
     hour: '2-digit',
@@ -162,13 +170,6 @@ export function DailyBriefing() {
     + (Number.isNaN(minuteInActiveTimezone) ? 0 : minuteInActiveTimezone);
   const shouldShowDaySummary =
     b.date === todayInActiveTimezone && minutesSinceMidnight >= (22 * 60 + 30) && eveningPlanHasRenderableContent(b.evening_plan);
-
-  useEffect(() => {
-    if (b.evening_plan && !prevEveningPlan.current) {
-      void sendEveningNotificationCapacitor();
-    }
-    prevEveningPlan.current = b.evening_plan;
-  }, [b.evening_plan]);
 
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-6 md:px-6">
