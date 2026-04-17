@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { TitleBar } from '../components/layout/TitleBar';
 import { useAuth } from '../hooks/useAuth';
 
-const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+// __TAURI_BUILD__ is injected at compile time by vite.config.ts (true for Tauri builds).
+// We combine it with the runtime check as a fallback for `tauri dev`.
+const isTauri =
+  (typeof __TAURI_BUILD__ !== 'undefined' && __TAURI_BUILD__) ||
+  (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window);
+
 const isCapacitor = typeof window !== 'undefined' &&
   typeof (window as { Capacitor?: unknown }).Capacitor !== 'undefined';
 const isNative = isTauri || isCapacitor;
