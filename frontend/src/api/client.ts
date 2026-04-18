@@ -27,6 +27,10 @@ export const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
+  const method = (config.method ?? 'get').toLowerCase();
+  if (method === 'get' || method === 'head') {
+    config.headers.delete('Content-Type');
+  }
   // On Capacitor or Tauri, use token from localStorage instead of cookie
   if (isCapacitor || isTauri) {
     const token = localStorage.getItem('codex_session');

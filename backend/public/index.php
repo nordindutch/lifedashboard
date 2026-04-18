@@ -75,6 +75,26 @@ $prodUrl = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? '');
 if ($prodUrl !== '') {
     $allowedOrigins[] = rtrim($prodUrl, '/');
 }
+
+// Same host as this API (reverse-proxied prod). Axios GETs use Content-Type: application/json,
+// which triggers a CORS preflight; the browser sends Origin: https://your-domain — it must match.
+$xfProto = isset($_SERVER['HTTP_X_FORWARDED_PROTO']) ? trim(explode(',', (string) $_SERVER['HTTP_X_FORWARDED_PROTO'])[0]) : '';
+$xfHost = isset($_SERVER['HTTP_X_FORWARDED_HOST']) ? trim(explode(',', (string) $_SERVER['HTTP_X_FORWARDED_HOST'])[0]) : '';
+$hostHeader = $xfHost !== '' ? $xfHost : (string) ($_SERVER['HTTP_HOST'] ?? '');
+if ($hostHeader !== '') {
+    $scheme = $xfProto !== '' ? $xfProto : ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
+    $hostname = $hostHeader;
+    if ($scheme === 'https' && str_ends_with($hostname, ':443')) {
+        $hostname = substr($hostname, 0, -4);
+    } elseif ($scheme === 'http' && str_ends_with($hostname, ':80')) {
+        $hostname = substr($hostname, 0, -3);
+    }
+    $siteOrigin = $scheme . '://' . $hostname;
+    if (!in_array($siteOrigin, $allowedOrigins, true)) {
+        $allowedOrigins[] = $siteOrigin;
+    }
+}
+
 $allowOrigin = in_array($origin, $allowedOrigins, true) ? $origin : ($allowedOrigins[0] ?? '*');
 header('Access-Control-Allow-Origin: ' . $allowOrigin);
 header('Access-Control-Allow-Credentials: true');
