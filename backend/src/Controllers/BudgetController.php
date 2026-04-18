@@ -201,6 +201,183 @@ final class BudgetController
         Response::success($this->buildPayload($month));
     }
 
+    public function listAccounts(Request $request): void
+    {
+        unset($request);
+        $db = Database::getInstance();
+        $rows = $db->query(
+            'SELECT id, name, kind, balance, sort_order, created_at, updated_at
+             FROM budget_accounts ORDER BY sort_order ASC, id ASC',
+        )->fetchAll(PDO::FETCH_ASSOC);
+
+        $items = array_map([$this, 'mapAccountRow'], $rows);
+        $total = 0.0;
+        foreach ($items as $row) {
+            $total += (float) $row['balance'];
+        }
+
+        Response::success([
+            'items' => $items,
+            'total' => round($total, 2),
+        ]);
+    }
+
+    public function upsertAccount(Request $request): void
+    {
+        $body = $request->getBody();
+        $id = isset($body['id']) ? (int) $body['id'] : 0;
+        $name = trim((string) ($body['name'] ?? ''));
+        $kind = (string) ($body['kind'] ?? 'checking');
+        $balance = (float) ($body['balance'] ?? 0);
+        $sortOrder = (int) ($body['sort_order'] ?? 0);
+
+        if ($name === '') {
+            Response::error('validation_error', 'Name is required', 422, 'name');
+
+            return;
+        }
+        $validKinds = ['checking', 'savings', 'cash', 'investment', 'other'];
+        if (!in_array($kind, $validKinds, true)) {
+            Response::error('validation_error', 'Invalid kind', 422, 'kind');
+
+            return;
+        }
+
+        $db = Database::getInstance();
+        if ($id > 0) {
+            $db->prepare(
+                'UPDATE budget_accounts SET name = ?, kind = ?, balance = ?, sort_order = ?
+                 WHERE id = ?',
+            )->execute([$name, $kind, $balance, $sortOrder, $id]);
+        } else {
+            $db->prepare(
+                'INSERT INTO budget_accounts (name, kind, balance, sort_order)
+                 VALUES (?, ?, ?, ?)',
+            )->execute([$name, $kind, $balance, $sortOrder]);
+        }
+
+        $this->listAccounts($request);
+    }
+
+    public function deleteAccount(Request $request): void
+    {
+        $id = (int) ($request->routeParams['id'] ?? 0);
+        if ($id < 1) {
+            Response::error('validation_error', 'Invalid id', 422);
+
+            return;
+        }
+        Database::getInstance()->prepare('DELETE FROM budget_accounts WHERE id = ?')->execute([$id]);
+        $this->listAccounts($request);
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>
+     */
+    private function mapAccountRow(array $row): array
+    {
+        return [
+            'id' => (int) $row['id'],
+            'name' => (string) $row['name'],
+            'kind' => (string) $row['kind'],
+            'balance' => round((float) $row['balance'], 2),
+            'sort_order' => (int) $row['sort_order'],
+            'created_at' => (int) $row['created_at'],
+            'updated_at' => (int) $row['updated_at'],
+        ];
+    }
+
+    public function listDebts(Request $request): void
+    {
+        unset($request);
+        $db = Database::getInstance();
+        $rows = $db->query(
+            'SELECT id, name, amount, deadline, paid, notes, sort_order, created_at, updated_at
+             FROM budget_debts ORDER BY paid ASC, sort_order ASC, deadline ASC NULLS LAST, id ASC',
+        )->fetchAll(PDO::FETCH_ASSOC);
+
+        $items = array_map([$this, 'mapDebtRow'], $rows);
+        $outstanding = 0.0;
+        foreach ($items as $row) {
+            if (!$row['paid']) {
+                $outstanding += (float) $row['amount'];
+            }
+        }
+
+        Response::success([
+            'items' => $items,
+            'outstanding' => round($outstanding, 2),
+        ]);
+    }
+
+    public function upsertDebt(Request $request): void
+    {
+        $body = $request->getBody();
+        $id = isset($body['id']) ? (int) $body['id'] : 0;
+        $name = trim((string) ($body['name'] ?? ''));
+        $amount = (float) ($body['amount'] ?? 0);
+        $deadline = isset($body['deadline']) && $body['deadline'] !== null && $body['deadline'] !== ''
+            ? (int) $body['deadline'] : null;
+        $paid = !empty($body['paid']) ? 1 : 0;
+        $notes = isset($body['notes']) ? (string) $body['notes'] : null;
+        $sortOrder = (int) ($body['sort_order'] ?? 0);
+
+        if ($name === '') {
+            Response::error('validation_error', 'Name is required', 422, 'name');
+
+            return;
+        }
+
+        $db = Database::getInstance();
+        if ($id > 0) {
+            $db->prepare(
+                'UPDATE budget_debts SET name = ?, amount = ?, deadline = ?, paid = ?,
+                 notes = ?, sort_order = ? WHERE id = ?',
+            )->execute([$name, $amount, $deadline, $paid, $notes, $sortOrder, $id]);
+        } else {
+            $db->prepare(
+                'INSERT INTO budget_debts (name, amount, deadline, paid, notes, sort_order)
+                 VALUES (?, ?, ?, ?, ?, ?)',
+            )->execute([$name, $amount, $deadline, $paid, $notes, $sortOrder]);
+        }
+
+        $this->listDebts($request);
+    }
+
+    public function deleteDebt(Request $request): void
+    {
+        $id = (int) ($request->routeParams['id'] ?? 0);
+        if ($id < 1) {
+            Response::error('validation_error', 'Invalid id', 422);
+
+            return;
+        }
+        Database::getInstance()->prepare('DELETE FROM budget_debts WHERE id = ?')->execute([$id]);
+        $this->listDebts($request);
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     *
+     * @return array<string, mixed>
+     */
+    private function mapDebtRow(array $row): array
+    {
+        return [
+            'id' => (int) $row['id'],
+            'name' => (string) $row['name'],
+            'amount' => round((float) $row['amount'], 2),
+            'deadline' => $row['deadline'] !== null ? (int) $row['deadline'] : null,
+            'paid' => ((int) $row['paid']) === 1,
+            'notes' => $row['notes'] !== null ? (string) $row['notes'] : null,
+            'sort_order' => (int) $row['sort_order'],
+            'created_at' => (int) $row['created_at'],
+            'updated_at' => (int) $row['updated_at'],
+        ];
+    }
+
     public function copyFromPrevious(Request $request): void
     {
         $month = $this->monthFromRequest($request);

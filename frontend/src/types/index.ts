@@ -262,6 +262,48 @@ export interface BudgetMonthPayload {
   summary: BudgetSummary;
 }
 
+export type AccountKind = 'checking' | 'savings' | 'cash' | 'investment' | 'other';
+
+export const ACCOUNT_KINDS: { value: AccountKind; label: string }[] = [
+  { value: 'checking', label: 'Checking' },
+  { value: 'savings', label: 'Savings' },
+  { value: 'cash', label: 'Cash' },
+  { value: 'investment', label: 'Investment' },
+  { value: 'other', label: 'Other' },
+];
+
+export interface Account {
+  id: number;
+  name: string;
+  kind: AccountKind;
+  balance: number;
+  sort_order: number;
+  created_at: UnixTimestamp;
+  updated_at: UnixTimestamp;
+}
+
+export interface AccountsPayload {
+  items: Account[];
+  total: number;
+}
+
+export interface Debt {
+  id: number;
+  name: string;
+  amount: number;
+  deadline: UnixTimestamp | null;
+  paid: boolean;
+  notes: string | null;
+  sort_order: number;
+  created_at: UnixTimestamp;
+  updated_at: UnixTimestamp;
+}
+
+export interface DebtsPayload {
+  items: Debt[];
+  outstanding: number;
+}
+
 export interface WeatherData {
   city: string;
   country: string;

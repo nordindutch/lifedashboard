@@ -108,4 +108,21 @@ if ($usersTableForPassword !== false) {
     }
 }
 
+$accountsTableCheck = $pdo->query(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'budget_accounts'",
+)->fetchColumn();
+if ($accountsTableCheck === false) {
+    $accountsDebtsMigrationPath = __DIR__ . '/migrations/005_accounts_debts.sql';
+    if (!is_readable($accountsDebtsMigrationPath)) {
+        fwrite(STDERR, "Accounts/debts migration file not found: {$accountsDebtsMigrationPath}\n");
+        exit(1);
+    }
+    $sql = file_get_contents($accountsDebtsMigrationPath);
+    if ($sql === false) {
+        fwrite(STDERR, "Could not read accounts/debts migration file.\n");
+        exit(1);
+    }
+    $pdo->exec($sql);
+}
+
 echo "Migration OK: {$dbPath}\n";

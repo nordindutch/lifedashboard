@@ -2,6 +2,8 @@ import { format } from 'date-fns';
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { AccountsPanel } from '../components/budget/AccountsPanel';
+import { DebtsPanel } from '../components/budget/DebtsPanel';
 import {
   useBudget,
   useCopyFromPrevious,
@@ -133,9 +135,13 @@ export function BudgetPage() {
 
       {q.isLoading ? (
         <p className="text-sm text-slate-400">Loading budget…</p>
-      ) : q.isError || !data || !summary ? (
-        <p className="text-sm text-rose-400">{q.error instanceof Error ? q.error.message : 'Budget unavailable'}</p>
       ) : (
+        <>
+          {q.isError || !data || !summary ? (
+            <p className="text-sm text-rose-400">
+              {q.error instanceof Error ? q.error.message : 'Budget unavailable'}
+            </p>
+          ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <section className="min-w-0 overflow-hidden rounded-xl border border-codex-border bg-codex-surface p-4">
             <h2 className="mb-3 text-sm font-medium text-slate-300">Inkomen</h2>
@@ -469,6 +475,13 @@ export function BudgetPage() {
             </div>
           </section>
         </div>
+          )}
+
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <AccountsPanel />
+          <DebtsPanel />
+        </div>
+        </>
       )}
     </div>
   );

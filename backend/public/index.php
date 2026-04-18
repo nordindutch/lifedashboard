@@ -208,6 +208,14 @@ $router->get('/api/settings/weather-test', [$settingsController, 'weatherTest'])
 $router->get('/api/settings', [$settingsController, 'index']);
 $router->put('/api/settings', [$settingsController, 'update']);
 
+$router->get('/api/budget/accounts', [$budgetController, 'listAccounts']);
+$router->post('/api/budget/accounts', [$budgetController, 'upsertAccount']);
+$router->delete('/api/budget/accounts/:id', [$budgetController, 'deleteAccount']);
+
+$router->get('/api/budget/debts', [$budgetController, 'listDebts']);
+$router->post('/api/budget/debts', [$budgetController, 'upsertDebt']);
+$router->delete('/api/budget/debts/:id', [$budgetController, 'deleteDebt']);
+
 $router->get('/api/budget/:month', [$budgetController, 'getMonth']);
 $router->put('/api/budget/:month', [$budgetController, 'updateMonth']);
 $router->post('/api/budget/:month/income', [$budgetController, 'upsertIncome']);

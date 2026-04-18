@@ -71,3 +71,61 @@ export function useUpdateBudgetMonth(month: string) {
     onSuccess: set,
   });
 }
+
+export function useAccounts() {
+  return useQuery({
+    queryKey: ['budget-accounts'],
+    queryFn: async () => {
+      const res = await budgetApi.getAccounts();
+      if (!res.success) {
+        throw new Error(res.error.message);
+      }
+      return res.data;
+    },
+  });
+}
+
+export function useUpsertAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof budgetApi.upsertAccount>[0]) => budgetApi.upsertAccount(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['budget-accounts'] }),
+  });
+}
+
+export function useDeleteAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => budgetApi.deleteAccount(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['budget-accounts'] }),
+  });
+}
+
+export function useDebts() {
+  return useQuery({
+    queryKey: ['budget-debts'],
+    queryFn: async () => {
+      const res = await budgetApi.getDebts();
+      if (!res.success) {
+        throw new Error(res.error.message);
+      }
+      return res.data;
+    },
+  });
+}
+
+export function useUpsertDebt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Parameters<typeof budgetApi.upsertDebt>[0]) => budgetApi.upsertDebt(body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['budget-debts'] }),
+  });
+}
+
+export function useDeleteDebt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => budgetApi.deleteDebt(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['budget-debts'] }),
+  });
+}

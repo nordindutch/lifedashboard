@@ -1,5 +1,12 @@
 import { apiClient, parseApiResponse } from './client';
-import type { ApiResponse, BudgetCategory, BudgetMonthPayload } from '../types';
+import type {
+  AccountKind,
+  AccountsPayload,
+  ApiResponse,
+  BudgetCategory,
+  BudgetMonthPayload,
+  DebtsPayload,
+} from '../types';
 
 export const getBudgetMonth = (month: string) =>
   parseApiResponse<BudgetMonthPayload>(apiClient.get(`/api/budget/${month}`));
@@ -44,3 +51,32 @@ export const deleteExpense = (month: string, id: number): Promise<ApiResponse<Bu
 
 export const copyFromPrevious = (month: string): Promise<ApiResponse<BudgetMonthPayload>> =>
   parseApiResponse<BudgetMonthPayload>(apiClient.post(`/api/budget/${month}/copy-previous`, {}));
+
+export const getAccounts = () =>
+  parseApiResponse<AccountsPayload>(apiClient.get('/api/budget/accounts'));
+
+export const upsertAccount = (body: {
+  id?: number;
+  name: string;
+  kind: AccountKind;
+  balance: number;
+  sort_order?: number;
+}) => parseApiResponse<AccountsPayload>(apiClient.post('/api/budget/accounts', body));
+
+export const deleteAccount = (id: number) =>
+  parseApiResponse<AccountsPayload>(apiClient.delete(`/api/budget/accounts/${id}`));
+
+export const getDebts = () => parseApiResponse<DebtsPayload>(apiClient.get('/api/budget/debts'));
+
+export const upsertDebt = (body: {
+  id?: number;
+  name: string;
+  amount: number;
+  deadline: number | null;
+  paid: boolean;
+  notes?: string | null;
+  sort_order?: number;
+}) => parseApiResponse<DebtsPayload>(apiClient.post('/api/budget/debts', body));
+
+export const deleteDebt = (id: number) =>
+  parseApiResponse<DebtsPayload>(apiClient.delete(`/api/budget/debts/${id}`));
