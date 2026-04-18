@@ -6,8 +6,8 @@ const config: CapacitorConfig = {
   webDir: 'frontend/dist',
   server: {
     androidScheme: 'https',
-    // Points the WebView at the live server instead of bundled assets.
-    // This means the app always runs the latest version without an APK update.
+    // WebView loads this URL (not frontend/dist). After you change the UI, deploy a fresh
+    // `npm run build` to that host — otherwise the app keeps showing an old bundle (e.g. old login).
     url: 'https://codex.nordinkole.nl',
     cleartext: false,
   },

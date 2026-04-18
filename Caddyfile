@@ -3,9 +3,18 @@ codex.nordinkole.nl {
         reverse_proxy php:80
     }
 
+    # Vite hashed files — safe to cache forever
+    handle /assets/* {
+        root * /srv/frontend
+        header Cache-Control "public, max-age=31536000, immutable"
+        file_server
+    }
+
     handle {
         root * /srv/frontend
         try_files {path} /index.html
+        # SPA shell must not be cached aggressively or users keep stale index + old JS references
+        header Cache-Control "no-cache, no-store, must-revalidate"
         file_server
     }
 

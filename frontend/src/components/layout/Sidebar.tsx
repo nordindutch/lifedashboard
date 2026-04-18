@@ -23,7 +23,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`hidden shrink-0 border-r border-codex-border bg-codex-surface md:flex md:flex-col ${
+      className={`hidden h-full min-h-0 shrink-0 self-stretch border-r border-codex-border bg-codex-surface md:flex md:flex-col ${
         expanded ? 'w-60' : 'w-16'
       }`}
     >
