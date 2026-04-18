@@ -112,7 +112,7 @@ $accountsTableCheck = $pdo->query(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'budget_accounts'",
 )->fetchColumn();
 if ($accountsTableCheck === false) {
-    $accountsDebtsMigrationPath = __DIR__ . '/migrations/005_accounts_debts.sql';
+    $accountsDebtsMigrationPath = __DIR__ . '/../sql/budget/005_accounts_debts.sql';
     if (!is_readable($accountsDebtsMigrationPath)) {
         fwrite(STDERR, "Accounts/debts migration file not found: {$accountsDebtsMigrationPath}\n");
         exit(1);
@@ -138,7 +138,7 @@ if ($debtsTableCheck !== false) {
         }
     }
     if (!$hasPaidAmount) {
-        $debtPaidMigrationPath = __DIR__ . '/migrations/006_debt_paid_amount.sql';
+        $debtPaidMigrationPath = __DIR__ . '/../sql/budget/006_debt_paid_amount.sql';
         if (!is_readable($debtPaidMigrationPath)) {
             fwrite(STDERR, "Debt paid_amount migration file not found: {$debtPaidMigrationPath}\n");
             exit(1);
@@ -168,7 +168,7 @@ if ($budgetMonthsTable !== false) {
     }
 }
 if (!$hasBalanceAccountId) {
-    $balanceAccountMigrationPath = __DIR__ . '/migrations/007_budget_month_balance_account.sql';
+    $balanceAccountMigrationPath = __DIR__ . '/../sql/budget/007_budget_month_balance_account.sql';
     if (!is_readable($balanceAccountMigrationPath)) {
         fwrite(STDERR, "Budget month balance account migration not found: {$balanceAccountMigrationPath}\n");
         exit(1);

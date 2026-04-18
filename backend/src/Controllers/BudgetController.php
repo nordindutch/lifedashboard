@@ -80,7 +80,9 @@ final class BudgetController
         if (!in_array($filename, self::BUDGET_MIGRATION_FILES, true)) {
             throw new \InvalidArgumentException('Invalid migration filename');
         }
-        $path = dirname(__DIR__, 2) . '/database/migrations/' . $filename;
+        // Not under database/ — Docker prod mounts sqlite_data at /var/www/html/database,
+        // which hides database/migrations from the bind mount. SQL lives in sql/budget/.
+        $path = dirname(__DIR__, 2) . '/sql/budget/' . $filename;
         if (!is_readable($path)) {
             throw new \RuntimeException('Migration file not readable: ' . $filename);
         }
