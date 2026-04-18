@@ -7,23 +7,52 @@ const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 const isCapacitor =
   typeof window !== 'undefined' && typeof (window as { Capacitor?: unknown }).Capacitor !== 'undefined';
 const isNative = isTauri || isCapacitor;
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
+const API_BASE = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').trim();
 
-/** Capacitor only — Google blocks OAuth inside embedded WebViews; must use the system browser. */
-async function openOAuthInSystemBrowser(url: string): Promise<void> {
-  const { Browser } = await import('@capacitor/browser');
-  await Browser.open({ url });
+/** Public origin for API routes (prod site or VITE_API_BASE_URL / window.location). */
+function apiPublicOrigin(): string {
+  if (API_BASE !== '') {
+    return API_BASE.replace(/\/$/, '');
+  }
+  return typeof window !== 'undefined' ? window.location.origin.replace(/\/$/, '') : '';
+}
+
+/**
+ * App + Tauri: OAuth in the system browser. Session returns via
+ * `com.codex.life://login-success?token=...` (`useNativeOAuthDeepLink`).
+ *
+ * Capacitor `Browser.open` and Tauri `shell.open` require a full https URL — a path like
+ * `/api/auth/google?...` is invalid and fails silently on Android / misroutes on Windows.
+ */
+async function openOAuthInExternalBrowser(url: string): Promise<void> {
+  if (isTauri) {
+    const { open } = await import('@tauri-apps/plugin-shell');
+    await open(url);
+    return;
+  }
+  if (isCapacitor) {
+    const { Browser } = await import('@capacitor/browser');
+    await Browser.open({ url });
+    return;
+  }
+  window.location.href = url;
 }
 
 function buildLoginUrl(): string {
-  const origin = isNative && API_BASE !== '' ? API_BASE : window.location.origin;
+  const origin = apiPublicOrigin();
   const redirectUri = `${origin}/api/auth/google/callback`;
-  const appParam = isCapacitor || isTauri ? '&app=1' : '';
-  return `${API_BASE}/api/auth/google?redirect_uri=${encodeURIComponent(redirectUri)}${appParam}`;
+  const appParam = isNative ? '&app=1' : '';
+  const query = `redirect_uri=${encodeURIComponent(redirectUri)}${appParam}`;
+  const path = `/api/auth/google?${query}`;
+  // Native external browsers + optional explicit API host: must be absolute.
+  if (isNative || API_BASE !== '') {
+    return `${origin}${path}`;
+  }
+  return path;
 }
 
 export function LoginPage() {
-  const { data: user, isLoading, refetch } = useAuth();
+  const { data: user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,40 +67,19 @@ export function LoginPage() {
     if (err) setError(`Login failed: ${err.replace(/_/g, ' ')}`);
   }, []);
 
-  // OAuth deep links are handled in `useNativeOAuthDeepLink` (RouterShell) so they are not
-  // missed during the initial auth loading spinner. Tauri polling below covers deep-link failures.
-
-  useEffect(() => {
-    if (!waiting || !isTauri) return;
-    const id = window.setInterval(() => {
-      void refetch().then((res) => {
-        if (res.data) {
-          window.clearInterval(id);
-          window.clearTimeout(timeout);
-          setWaiting(false);
-          navigate('/', { replace: true });
-        }
-      });
-    }, 2000);
-    const timeout = window.setTimeout(() => {
-      window.clearInterval(id);
-      setWaiting(false);
-    }, 5 * 60 * 1000);
-    return () => {
-      window.clearInterval(id);
-      window.clearTimeout(timeout);
-    };
-  }, [waiting, refetch, navigate]);
-
   const handleLogin = async (): Promise<void> => {
     setError(null);
-    const url = buildLoginUrl();
-    if (isCapacitor) {
-      await openOAuthInSystemBrowser(url);
-      setWaiting(true);
-    } else {
-      // Web + Tauri: same webview/window (Tauri used to rely on this; shell.open broke that).
-      window.location.href = url;
+    try {
+      const url = buildLoginUrl();
+      if (isNative) {
+        await openOAuthInExternalBrowser(url);
+        setWaiting(true);
+      } else {
+        window.location.href = url;
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not open the sign-in page';
+      setError(msg);
     }
   };
 
@@ -98,7 +106,10 @@ export function LoginPage() {
         ) : waiting ? (
           <div className="flex flex-col items-center gap-3">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-codex-border border-t-codex-accent" />
-            <p className="text-sm text-codex-muted">Complete sign-in in Chrome…</p>
+            <p className="text-sm text-codex-muted">Complete sign-in in your browser…</p>
+            <p className="max-w-xs text-center text-xs text-codex-muted/70">
+              When Google finishes, return here — we’ll connect your session automatically.
+            </p>
             <button
               type="button"
               onClick={() => setWaiting(false)}

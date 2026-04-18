@@ -17,7 +17,11 @@
     "core:window:allow-show",
     {
       "identifier": "shell:allow-open",
-      "allow": [{ "url": "https://**" }]
+      "allow": [
+        { "url": "https://**" },
+        { "url": "http://localhost:**" },
+        { "url": "http://127.0.0.1:**" }
+      ]
     },
     "deep-link:default",
     "http:default",

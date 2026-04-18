@@ -4,11 +4,12 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 /*
- * Android / iOS OAuth return: session token arrives via `com.codex.life://login-success?token=...`.
- * Registered from RouterShell so it runs even while the auth query is still loading.
+ * Capacitor + Tauri: OAuth runs in the system browser; backend redirects to
+ * `com.codex.life://login-success?token=...`. Same session path for both: store token,
+ * cancel stale /api/auth/me, refetch, navigate home.
  *
- * Important: cancel any in-flight /api/auth/me from the first load before storing the token.
- * Otherwise the slower anonymous request can finish last and overwrite the user with null.
+ * Capacitor: App.getLaunchUrl() + appUrlOpen. Tauri: getCurrent() + onOpenUrl.
+ * Registered from RouterShell so handlers exist during the initial auth loading state.
  */
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -87,7 +88,13 @@ export function useNativeOAuthDeepLink(): void {
     void (async () => {
       try {
         if (isTauri) {
-          const { onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
+          const { getCurrent, onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
+          const initial = await getCurrent();
+          if (initial) {
+            for (const raw of initial) {
+              handleUrl(raw);
+            }
+          }
           unlisten = await onOpenUrl((urls: string[]) => {
             for (const raw of urls) {
               handleUrl(raw);
