@@ -137,67 +137,75 @@ export function BudgetPage() {
         <p className="text-sm text-rose-400">{q.error instanceof Error ? q.error.message : 'Budget unavailable'}</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <section className="rounded-xl border border-codex-border bg-codex-surface p-4">
+          <section className="min-w-0 overflow-hidden rounded-xl border border-codex-border bg-codex-surface p-4">
             <h2 className="mb-3 text-sm font-medium text-slate-300">Inkomen</h2>
             <div className="space-y-2">
               {data.income.map((row) => (
-                <div key={row.id} className="group grid grid-cols-[auto_1fr_120px_auto] items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={row.received}
-                    disabled={isArchive}
-                    onChange={() =>
-                      void saveIncome({
-                        id: row.id,
-                        name: row.name,
-                        amount: row.amount,
-                        received: !row.received,
-                        sort_order: row.sort_order,
-                      })
-                    }
-                  />
-                  <input
-                    type="text"
-                    defaultValue={row.name}
-                    disabled={isArchive}
-                    onBlur={(e) =>
-                      void saveIncome({
-                        id: row.id,
-                        name: e.target.value,
-                        amount: row.amount,
-                        received: row.received,
-                        sort_order: row.sort_order,
-                      })
-                    }
-                    className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
-                  />
-                  <input
-                    type="number"
-                    step="0.01"
-                    defaultValue={row.amount.toFixed(2)}
-                    disabled={isArchive}
-                    onBlur={(e) =>
-                      void saveIncome({
-                        id: row.id,
-                        name: row.name,
-                        amount: Number(e.target.value),
-                        received: row.received,
-                        sort_order: row.sort_order,
-                      })
-                    }
-                    className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
-                  />
-                  <button
-                    type="button"
-                    disabled={isArchive}
-                    onClick={() => void deleteIncome.mutateAsync(row.id)}
-                    className="rounded p-1 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:text-rose-300 disabled:opacity-20"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                <div
+                  key={row.id}
+                  className="group flex flex-col gap-2 rounded-lg border border-codex-border/40 p-2 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,120px)_auto] md:items-center md:gap-2 md:rounded-none md:border-0 md:p-0"
+                >
+                  <div className="flex min-w-0 items-center gap-2 md:contents">
+                    <input
+                      type="checkbox"
+                      checked={row.received}
+                      disabled={isArchive}
+                      onChange={() =>
+                        void saveIncome({
+                          id: row.id,
+                          name: row.name,
+                          amount: row.amount,
+                          received: !row.received,
+                          sort_order: row.sort_order,
+                        })
+                      }
+                      className="shrink-0"
+                    />
+                    <input
+                      type="text"
+                      defaultValue={row.name}
+                      disabled={isArchive}
+                      onBlur={(e) =>
+                        void saveIncome({
+                          id: row.id,
+                          name: e.target.value,
+                          amount: row.amount,
+                          received: row.received,
+                          sort_order: row.sort_order,
+                        })
+                      }
+                      className="min-w-0 flex-1 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200 md:min-w-0"
+                    />
+                  </div>
+                  <div className="flex min-w-0 items-center justify-end gap-2 md:contents">
+                    <input
+                      type="number"
+                      step="0.01"
+                      defaultValue={row.amount.toFixed(2)}
+                      disabled={isArchive}
+                      onBlur={(e) =>
+                        void saveIncome({
+                          id: row.id,
+                          name: row.name,
+                          amount: Number(e.target.value),
+                          received: row.received,
+                          sort_order: row.sort_order,
+                        })
+                      }
+                      className="min-w-0 w-full max-w-[11rem] rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200 md:max-w-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={isArchive}
+                      onClick={() => void deleteIncome.mutateAsync(row.id)}
+                      className="shrink-0 rounded p-1 text-slate-500 opacity-100 transition hover:text-rose-300 disabled:opacity-20 md:opacity-0 md:group-hover:opacity-100"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
               ))}
-              <div className="grid grid-cols-[1fr_120px_auto] gap-2 pt-2">
+              <div className="flex min-w-0 flex-col gap-2 pt-2 md:grid md:grid-cols-[minmax(0,1fr)_120px_auto] md:gap-2">
                 <input
                   type="text"
                   value={newIncomeName}
@@ -217,88 +225,147 @@ export function BudgetPage() {
                     }
                   }}
                   placeholder="Add income..."
-                  className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
+                  className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
                 />
-                <input
-                  type="number"
-                  step="0.01"
-                  value={newIncomeAmount}
-                  disabled={isArchive}
-                  onChange={(e) => setNewIncomeAmount(e.target.value)}
-                  className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
-                />
-                <button
-                  type="button"
-                  disabled={isArchive}
-                  onClick={() =>
-                    void saveIncome({
-                      name: newIncomeName,
-                      amount: Number(newIncomeAmount || 0),
-                      received: false,
-                      sort_order: data.income.length + 1,
-                    }).then(() => {
-                      setNewIncomeName('');
-                      setNewIncomeAmount('');
-                    })
-                  }
-                  className="rounded border border-codex-border px-2 text-slate-300 disabled:opacity-40"
-                >
-                  <Plus size={14} />
-                </button>
+                <div className="flex items-center gap-2 md:contents">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newIncomeAmount}
+                    disabled={isArchive}
+                    onChange={(e) => setNewIncomeAmount(e.target.value)}
+                    className="min-w-0 flex-1 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200 md:flex-none"
+                  />
+                  <button
+                    type="button"
+                    disabled={isArchive}
+                    onClick={() =>
+                      void saveIncome({
+                        name: newIncomeName,
+                        amount: Number(newIncomeAmount || 0),
+                        received: false,
+                        sort_order: data.income.length + 1,
+                      }).then(() => {
+                        setNewIncomeName('');
+                        setNewIncomeAmount('');
+                      })
+                    }
+                    className="shrink-0 rounded border border-codex-border px-2 text-slate-300 disabled:opacity-40"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
               </div>
             </div>
           </section>
 
-          <section className="rounded-xl border border-codex-border bg-codex-surface p-4">
+          <section className="min-w-0 overflow-hidden rounded-xl border border-codex-border bg-codex-surface p-4">
             <h2 className="mb-3 text-sm font-medium text-slate-300">Uitgaven</h2>
             <div className="space-y-2">
               {data.expenses.map((row) => (
-                <div key={row.id} className="group grid grid-cols-[auto_1fr_150px_120px_auto] items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={row.paid}
-                    disabled={isArchive}
-                    onChange={() =>
-                      void saveExpense({
-                        id: row.id,
-                        name: row.name,
-                        amount: row.amount,
-                        category: row.category,
-                        paid: !row.paid,
-                        sort_order: row.sort_order,
-                      })
-                    }
-                  />
-                  <input
-                    type="text"
-                    defaultValue={row.name}
-                    disabled={isArchive}
-                    onBlur={(e) =>
-                      void saveExpense({
-                        id: row.id,
-                        name: e.target.value,
-                        amount: row.amount,
-                        category: row.category,
-                        paid: row.paid,
-                        sort_order: row.sort_order,
-                      })
-                    }
-                    className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
-                  />
+                <div
+                  key={row.id}
+                  className="group flex flex-col gap-2 rounded-lg border border-codex-border/40 p-2 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,150px)_minmax(0,120px)_auto] md:items-center md:gap-2 md:rounded-none md:border-0 md:p-0"
+                >
+                  <div className="flex min-w-0 items-center gap-2 md:contents">
+                    <input
+                      type="checkbox"
+                      checked={row.paid}
+                      disabled={isArchive}
+                      onChange={() =>
+                        void saveExpense({
+                          id: row.id,
+                          name: row.name,
+                          amount: row.amount,
+                          category: row.category,
+                          paid: !row.paid,
+                          sort_order: row.sort_order,
+                        })
+                      }
+                      className="shrink-0"
+                    />
+                    <input
+                      type="text"
+                      defaultValue={row.name}
+                      disabled={isArchive}
+                      onBlur={(e) =>
+                        void saveExpense({
+                          id: row.id,
+                          name: e.target.value,
+                          amount: row.amount,
+                          category: row.category,
+                          paid: row.paid,
+                          sort_order: row.sort_order,
+                        })
+                      }
+                      className="min-w-0 flex-1 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200 md:min-w-0"
+                    />
+                  </div>
+                  <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] md:contents">
+                    <select
+                      defaultValue={row.category}
+                      disabled={isArchive}
+                      onChange={(e) =>
+                        void saveExpense({
+                          id: row.id,
+                          name: row.name,
+                          amount: row.amount,
+                          category: e.target.value as BudgetCategory,
+                          paid: row.paid,
+                          sort_order: row.sort_order,
+                        })
+                      }
+                      className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-xs text-slate-200"
+                    >
+                      {BUDGET_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      step="0.01"
+                      defaultValue={row.amount.toFixed(2)}
+                      disabled={isArchive}
+                      onBlur={(e) =>
+                        void saveExpense({
+                          id: row.id,
+                          name: row.name,
+                          amount: Number(e.target.value),
+                          category: row.category,
+                          paid: row.paid,
+                          sort_order: row.sort_order,
+                        })
+                      }
+                      className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
+                    />
+                    <button
+                      type="button"
+                      disabled={isArchive}
+                      onClick={() => void deleteExpense.mutateAsync(row.id)}
+                      className="justify-self-end rounded p-1 text-slate-500 opacity-100 transition hover:text-rose-300 disabled:opacity-20 sm:justify-self-auto md:opacity-0 md:group-hover:opacity-100"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              <div className="flex min-w-0 flex-col gap-2 pt-2 md:grid md:grid-cols-[minmax(0,1fr)_150px_120px_auto] md:gap-2">
+                <input
+                  type="text"
+                  value={newExpenseName}
+                  disabled={isArchive}
+                  onChange={(e) => setNewExpenseName(e.target.value)}
+                  placeholder="Add expense..."
+                  className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
+                />
+                <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] md:contents">
                   <select
-                    defaultValue={row.category}
+                    value={newExpenseCategory}
                     disabled={isArchive}
-                    onChange={(e) =>
-                      void saveExpense({
-                        id: row.id,
-                        name: row.name,
-                        amount: row.amount,
-                        category: e.target.value as BudgetCategory,
-                        paid: row.paid,
-                        sort_order: row.sort_order,
-                      })
-                    }
-                    className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-xs text-slate-200"
+                    onChange={(e) => setNewExpenseCategory(e.target.value as BudgetCategory)}
+                    className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-xs text-slate-200"
                   >
                     {BUDGET_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
@@ -309,78 +376,31 @@ export function BudgetPage() {
                   <input
                     type="number"
                     step="0.01"
-                    defaultValue={row.amount.toFixed(2)}
+                    value={newExpenseAmount}
                     disabled={isArchive}
-                    onBlur={(e) =>
-                      void saveExpense({
-                        id: row.id,
-                        name: row.name,
-                        amount: Number(e.target.value),
-                        category: row.category,
-                        paid: row.paid,
-                        sort_order: row.sort_order,
-                      })
-                    }
-                    className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
+                    onChange={(e) => setNewExpenseAmount(e.target.value)}
+                    className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
                   />
                   <button
                     type="button"
                     disabled={isArchive}
-                    onClick={() => void deleteExpense.mutateAsync(row.id)}
-                    className="rounded p-1 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:text-rose-300 disabled:opacity-20"
+                    onClick={() =>
+                      void saveExpense({
+                        name: newExpenseName,
+                        amount: Number(newExpenseAmount || 0),
+                        category: newExpenseCategory,
+                        paid: false,
+                        sort_order: data.expenses.length + 1,
+                      }).then(() => {
+                        setNewExpenseName('');
+                        setNewExpenseAmount('');
+                      })
+                    }
+                    className="shrink-0 justify-self-start rounded border border-codex-border px-2 py-1.5 text-slate-300 disabled:opacity-40 sm:justify-self-auto"
                   >
-                    <Trash2 size={14} />
+                    <Plus size={14} />
                   </button>
                 </div>
-              ))}
-              <div className="grid grid-cols-[1fr_150px_120px_auto] gap-2 pt-2">
-                <input
-                  type="text"
-                  value={newExpenseName}
-                  disabled={isArchive}
-                  onChange={(e) => setNewExpenseName(e.target.value)}
-                  placeholder="Add expense..."
-                  className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
-                />
-                <select
-                  value={newExpenseCategory}
-                  disabled={isArchive}
-                  onChange={(e) => setNewExpenseCategory(e.target.value as BudgetCategory)}
-                  className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-xs text-slate-200"
-                >
-                  {BUDGET_CATEGORIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={newExpenseAmount}
-                  disabled={isArchive}
-                  onChange={(e) => setNewExpenseAmount(e.target.value)}
-                  className="rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
-                />
-                <button
-                  type="button"
-                  disabled={isArchive}
-                  onClick={() =>
-                    void saveExpense({
-                      name: newExpenseName,
-                      amount: Number(newExpenseAmount || 0),
-                      category: newExpenseCategory,
-                      paid: false,
-                      sort_order: data.expenses.length + 1,
-                    }).then(() => {
-                      setNewExpenseName('');
-                      setNewExpenseAmount('');
-                    })
-                  }
-                  className="rounded border border-codex-border px-2 text-slate-300 disabled:opacity-40"
-                >
-                  <Plus size={14} />
-                </button>
               </div>
             </div>
           </section>

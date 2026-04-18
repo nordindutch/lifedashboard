@@ -17,7 +17,10 @@ export function BottomNav() {
   const active = useUiStore((s) => s.activeTab);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-codex-border bg-codex-bg/95 backdrop-blur md:hidden">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 min-h-[var(--codex-bottom-nav-height)] border-t border-codex-border bg-codex-bg/95 backdrop-blur md:hidden"
+      aria-label="Primary"
+    >
       <ul className="mx-auto flex max-w-lg items-stretch justify-around gap-1 px-2 py-2">
         {tabs.map((t) => {
           const Icon = t.icon;

@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    /* Mobile bottom tab bar — keep in sync with `BottomNav` visual height */
+    --codex-bottom-nav-height: 4.5rem;
+  }
+}
+
 /*
  * Scroll surface: `#root` scrolls. html/body use a real height % chain so `h-full` works
  * inside the app (desktop sidebar + main fill the viewport).
