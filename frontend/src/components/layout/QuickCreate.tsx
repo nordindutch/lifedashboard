@@ -192,7 +192,7 @@ export function QuickCreate() {
 
   return (
     <>
-      <div className="fixed bottom-[4.5rem] left-1/2 z-40 -translate-x-1/2 md:bottom-6">
+      <div className="fixed left-1/2 z-40 -translate-x-1/2 max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6">
         <button
           type="button"
           onClick={openQuickCreate}
