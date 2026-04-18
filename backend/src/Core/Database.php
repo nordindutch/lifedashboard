@@ -33,6 +33,9 @@ final class Database
         $pdo->exec('PRAGMA journal_mode = WAL;');
         $pdo->exec('PRAGMA foreign_keys = ON;');
         $pdo->exec('PRAGMA synchronous = NORMAL;');
+        // Wait up to 10s when another request (OAuth callback, calendar sync, etc.) holds the DB.
+        // Without this, concurrent SQLite access often surfaces as SQLSTATE[HY000] "database is locked".
+        $pdo->exec('PRAGMA busy_timeout = 10000;');
 
         self::$instance = $pdo;
         return self::$instance;

@@ -9,8 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "build:tauri": "tsc --noEmit && vite build --mode tauri",
     "build:android": "tsc --noEmit && vite build --mode android",
-    "cap:sync": "cd .. && npx cap sync android",
-    "cap:open": "cd .. && npx cap open android",
+    "cap:sync": "cd .. && npx --prefix frontend cap sync android",
+    "cap:open": "cd .. && npx --prefix frontend cap open android",
     "preview": "vite preview",
     "tauri:dev": "cd .. && tauri dev",
     "tauri:build": "cd .. && tauri build"
