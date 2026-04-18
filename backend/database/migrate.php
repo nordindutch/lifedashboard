@@ -8,6 +8,7 @@ $schemaPath = __DIR__ . '/schema.sql';
 $budgetMigrationPath = __DIR__ . '/migrations/001_budget.sql';
 $authMigrationPath = __DIR__ . '/migrations/002_auth.sql';
 $noteLabelsMigrationPath = __DIR__ . '/migrations/003_note_labels.sql';
+$passwordAuthMigrationPath = __DIR__ . '/migrations/004_password_auth.sql';
 $dbPath = $baseDir . '/database/codex.sqlite';
 
 if (!is_readable($schemaPath)) {
@@ -81,6 +82,30 @@ if ($noteLabelsTableCheck === false) {
         exit(1);
     }
     $pdo->exec($noteLabelsSql);
+}
+
+$usersTableForPassword = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'users'")->fetchColumn();
+if ($usersTableForPassword !== false) {
+    $usersInfo = $pdo->query('PRAGMA table_info(users)')->fetchAll(PDO::FETCH_ASSOC);
+    $hasPasswordHash = false;
+    foreach ($usersInfo as $col) {
+        if (($col['name'] ?? '') === 'password_hash') {
+            $hasPasswordHash = true;
+            break;
+        }
+    }
+    if (!$hasPasswordHash) {
+        if (!is_readable($passwordAuthMigrationPath)) {
+            fwrite(STDERR, "Password auth migration file not found: {$passwordAuthMigrationPath}\n");
+            exit(1);
+        }
+        $passwordSql = file_get_contents($passwordAuthMigrationPath);
+        if ($passwordSql === false) {
+            fwrite(STDERR, "Could not read password auth migration file.\n");
+            exit(1);
+        }
+        $pdo->exec($passwordSql);
+    }
 }
 
 echo "Migration OK: {$dbPath}\n";

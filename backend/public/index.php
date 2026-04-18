@@ -84,11 +84,12 @@ $rawBody = file_get_contents('php://input') ?: '';
 $request = Request::fromGlobals($_SERVER, $rawBody);
 
 $publicPaths = [
-    '/api/auth/google',
     '/api/auth/google/callback',
     '/api/auth/me',
     '/api/auth/logout',
-    '/api/auth/tauri/claim',
+    '/api/auth/login',
+    '/api/auth/setup',
+    '/api/auth/bootstrap',
 ];
 if (!in_array($request->getPath(), $publicPaths, true)) {
     $userId = Middleware::sessionAuth($request);
@@ -158,15 +159,17 @@ $aiCtrl = static function () use (&$aiController): AiController {
     return $aiController;
 };
 $router->get('/api/auth/me', [$authController, 'me']);
+$router->get('/api/auth/bootstrap', [$authController, 'bootstrap']);
+$router->post('/api/auth/login', [$authController, 'login']);
+$router->post('/api/auth/setup', [$authController, 'setup']);
 $router->post('/api/auth/logout', [$authController, 'logout']);
-$router->post('/api/auth/tauri/claim', [$authController, 'tauriClaim']);
 
 $router->get('/api/briefing', [$briefingController, 'index']);
 $router->get('/api/evening-plan', [$briefingController, 'eveningPlan']);
 $router->get('/api/ai/plan', static fn (Request $r) => $aiCtrl()->getPlan($r));
 $router->post('/api/ai/plan/generate', static fn (Request $r) => $aiCtrl()->generate($r));
 $router->get('/api/ai/history', static fn (Request $r) => $aiCtrl()->history($r));
-$router->get('/api/auth/google', [$settingsController, 'googleAuth']);
+$router->get('/api/integrations/google/oauth-url', [$settingsController, 'googleIntegrationOAuthUrl']);
 $router->get('/api/auth/google/callback', [$settingsController, 'googleCallback']);
 $router->delete('/api/auth/google', [$settingsController, 'revokeGoogle']);
 $router->post('/api/calendar/sync', [$settingsController, 'syncCalendar']);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getGoogleAuth, getIntegrationStatus, revokeGoogle, syncCalendar, syncGmail, testWeather } from '../api/settings';
+import { getGoogleOAuthUrl, getIntegrationStatus, revokeGoogle, syncCalendar, syncGmail, testWeather } from '../api/settings';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -25,6 +25,7 @@ export function SettingsPage() {
   const [testResult, setTestResult] = useState<WeatherData | null>(null);
   const [googleConnected, setGoogleConnected] = useState<boolean>(false);
   const [googleLoading, setGoogleLoading] = useState<boolean>(true);
+  const [googleConnectPending, setGoogleConnectPending] = useState(false);
   const [googleMessage, setGoogleMessage] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
   const [calendarPending, setCalendarPending] = useState(false);
@@ -152,10 +153,35 @@ export function SettingsPage() {
     }
   };
 
-  const handleGoogleConnect = (): void => {
+  const handleGoogleConnect = async (): Promise<void> => {
     setGoogleError(null);
     setGoogleMessage(null);
-    void getGoogleAuth();
+    setGoogleConnectPending(true);
+    try {
+      const res = await getGoogleOAuthUrl();
+      if (!res.success || !res.data?.url) {
+        setGoogleError(res.success ? 'Could not start Google connection' : res.error.message);
+        return;
+      }
+      const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+      const isCapacitor =
+        typeof window !== 'undefined' && typeof (window as { Capacitor?: unknown }).Capacitor !== 'undefined';
+      if (isTauri) {
+        const { open } = await import('@tauri-apps/plugin-shell');
+        await open(res.data.url);
+        return;
+      }
+      if (isCapacitor) {
+        const { Browser } = await import('@capacitor/browser');
+        await Browser.open({ url: res.data.url });
+        return;
+      }
+      window.location.href = res.data.url;
+    } catch (e: unknown) {
+      setGoogleError(e instanceof Error ? e.message : 'Could not start Google connection');
+    } finally {
+      setGoogleConnectPending(false);
+    }
   };
 
   const handleGoogleDisconnect = async (): Promise<void> => {
@@ -368,10 +394,10 @@ export function SettingsPage() {
             <Button
               type="button"
               variant="primary"
-              onClick={handleGoogleConnect}
-              disabled={calendarPending || gmailPending || disconnectPending}
+              onClick={() => void handleGoogleConnect()}
+              disabled={calendarPending || gmailPending || disconnectPending || googleConnectPending}
             >
-              Connect Google
+              {googleConnectPending ? 'Opening…' : 'Connect Google'}
             </Button>
             <Button type="button" variant="ghost" onClick={handleCalendarSync} disabled={calendarPending}>
               {calendarPending ? 'Syncing…' : 'Sync Calendar'}

@@ -1,5 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getMe, logout } from '../api/auth';
+import { getBootstrap, getMe, logout } from '../api/auth';
+
+export function useBootstrap() {
+  return useQuery({
+    queryKey: ['auth', 'bootstrap'],
+    queryFn: async () => {
+      const res = await getBootstrap();
+      if (!res.success) {
+        return { needs_setup: false };
+      }
+      return res.data;
+    },
+    staleTime: 60_000,
+  });
+}
 
 export function useAuth() {
   return useQuery({
@@ -21,6 +35,9 @@ export function useLogout() {
   return useMutation({
     mutationFn: logout,
     onSuccess: () => {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('codex_session');
+      }
       qc.clear();
       window.location.href = '/login';
     },

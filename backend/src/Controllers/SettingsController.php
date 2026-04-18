@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Codex\Controllers;
 
 use Codex\Core\Database;
+use Codex\Core\Middleware;
 use Codex\Core\Request;
 use Codex\Core\Response;
 use Codex\Services\CalendarService;
@@ -152,8 +153,17 @@ final class SettingsController
         ]);
     }
 
-    public function googleAuth(Request $request): void
+    /**
+     * Calendar/Gmail sync only — must be logged in. Returns the Google authorization URL as JSON
+     * so native clients can open it with the session header (cookie may be absent cross-origin).
+     */
+    public function googleIntegrationOAuthUrl(Request $request): void
     {
+        $userId = Middleware::sessionAuth($request);
+        if ($userId === null) {
+            return;
+        }
+
         $service = GoogleAuthService::makeFromSettings();
         if ($service === null) {
             Response::error('not_configured', 'Google client ID/secret are missing (set GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET in .env or in settings)', 422);
@@ -162,34 +172,29 @@ final class SettingsController
 
         $redirectUri = $this->buildGoogleRedirectUri($request);
 
-        // Encode the nonce + client flags directly in the state so they survive the
-        // Google round-trip without any DB dependency. This prevents stale DB rows
-        // from a previous (web or Tauri) login attempt from corrupting the flow.
         $statePayload = json_encode([
-            'nonce'   => bin2hex(random_bytes(16)),
-            'app'     => $request->getQueryString('app') === '1',
-            'tauri'   => $request->getQueryString('tauri') === '1',
+            'mode' => 'integration',
+            'nonce' => bin2hex(random_bytes(16)),
+            'user_id' => $userId,
             'redirect_uri' => $redirectUri,
         ]);
         $state = base64_encode((string) $statePayload);
 
         $db = Database::getInstance();
-        // Store only the nonce for CSRF verification; flags come back in state itself.
         $db->prepare(
             "INSERT INTO settings (key, value, value_type, description, updated_at)
-             VALUES ('google_oauth_state', :value, 'string', 'Temporary OAuth state nonce', unixepoch())
+             VALUES ('google_oauth_state', :value, 'string', 'Temporary OAuth state for Google integration', unixepoch())
              ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
         )->execute(['value' => $state]);
 
         $url = $service->buildAuthUrl($redirectUri, $state);
-        header('Location: ' . $url, true, 302);
-        exit;
+        Response::success(['url' => $url]);
     }
 
     public function googleCallback(Request $request): void
     {
+        $frontend = $this->frontendSettingsUrl($request);
         $error = $request->getQueryString('error');
-        $frontend = $this->hasSessionCookie() ? $this->frontendSettingsUrl($request) : $this->frontendLoginUrl($request);
         if ($error !== null && $error !== '') {
             header('Location: ' . $frontend . '?google=error&reason=' . rawurlencode($error), true, 302);
             exit;
@@ -207,22 +212,29 @@ final class SettingsController
         $expectedState = (string) ($stmt->fetchColumn() ?: '');
         $db->prepare("DELETE FROM settings WHERE key = 'google_oauth_state'")->execute();
 
-        // Clean up any leftover legacy flag rows from older code.
-        $db->prepare("DELETE FROM settings WHERE key IN ('google_oauth_redirect_uri','google_oauth_is_app','google_oauth_is_tauri')")->execute();
-
         if ($expectedState === '' || !hash_equals($expectedState, $stateParam)) {
             header('Location: ' . $frontend . '?google=error&reason=invalid_state', true, 302);
             exit;
         }
 
-        // Decode flags from the state blob (set in googleAuth).
-        $decoded = json_decode(base64_decode($stateParam), true);
-        $isAppLogin   = is_array($decoded) && !empty($decoded['app']);
-        $isTauriLogin = is_array($decoded) && !empty($decoded['tauri']);
-        $redirectUri  = is_array($decoded) && isset($decoded['redirect_uri']) ? (string) $decoded['redirect_uri'] : '';
+        $decoded = json_decode((string) base64_decode($stateParam, true), true);
+        if (!is_array($decoded) || ($decoded['mode'] ?? '') !== 'integration') {
+            header('Location: ' . $frontend . '?google=error&reason=invalid_state', true, 302);
+            exit;
+        }
 
-        if ($redirectUri === '') {
+        $userId = isset($decoded['user_id']) ? (int) $decoded['user_id'] : 0;
+        $redirectUri = isset($decoded['redirect_uri']) ? (string) $decoded['redirect_uri'] : '';
+
+        if ($userId < 1 || $redirectUri === '') {
             header('Location: ' . $frontend . '?google=error&reason=missing_redirect_uri', true, 302);
+            exit;
+        }
+
+        $exists = $db->prepare('SELECT id FROM users WHERE id = ? LIMIT 1');
+        $exists->execute([$userId]);
+        if ($exists->fetchColumn() === false) {
+            header('Location: ' . $frontend . '?google=error&reason=user_not_found', true, 302);
             exit;
         }
 
@@ -237,62 +249,12 @@ final class SettingsController
             exit;
         }
 
-        $sessionIssued = false;
-        $sessionToken = '';
         $accessToken = (string) ($token['access_token'] ?? '');
         $profile = $this->fetchGoogleProfile($accessToken);
-        if ($profile !== null) {
-            $googleId = (string) ($profile['sub'] ?? '');
-            $email = (string) ($profile['email'] ?? '');
-            $name = (string) ($profile['name'] ?? '');
-            $avatarUrl = isset($profile['picture']) ? (string) $profile['picture'] : null;
-
-            if ($googleId !== '' && $email !== '' && $name !== '') {
-                $ownerStmt = $db->query('SELECT google_id FROM users ORDER BY id ASC LIMIT 1');
-                $ownerGoogleId = $ownerStmt === false ? false : $ownerStmt->fetchColumn();
-                if ($ownerGoogleId === false || (string) $ownerGoogleId === $googleId) {
-                    $db->prepare(
-                        'INSERT INTO users (google_id, email, name, avatar_url, last_login_at)
-                         VALUES (:google_id, :email, :name, :avatar_url, unixepoch())
-                         ON CONFLICT(google_id) DO UPDATE SET
-                            email         = excluded.email,
-                            name          = excluded.name,
-                            avatar_url    = excluded.avatar_url,
-                            last_login_at = unixepoch()',
-                    )->execute([
-                        'google_id' => $googleId,
-                        'email' => $email,
-                        'name' => $name,
-                        'avatar_url' => $avatarUrl,
-                    ]);
-
-                    $userStmt = $db->prepare('SELECT id FROM users WHERE google_id = ?');
-                    $userStmt->execute([$googleId]);
-                    $userId = (int) $userStmt->fetchColumn();
-                    if ($userId > 0) {
-                        $sessionToken = bin2hex(random_bytes(32));
-                        $expiresAt = time() + (30 * 86400);
-                        $db->prepare('INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)')
-                            ->execute([$userId, $sessionToken, $expiresAt]);
-
-                        if (!$isAppLogin && !$isTauriLogin) {
-                            $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
-                            $sameSite = $secure ? 'None' : 'Lax';
-                            setcookie('codex_session', $sessionToken, [
-                                'expires' => $expiresAt,
-                                'path' => '/',
-                                'httponly' => true,
-                                'secure' => $secure,
-                                'samesite' => $sameSite,
-                            ]);
-                        }
-                        $sessionIssued = true;
-                    }
-                }
-            }
+        if ($profile !== null && isset($profile['picture'])) {
+            $db->prepare('UPDATE users SET avatar_url = ? WHERE id = ?')->execute([(string) $profile['picture'], $userId]);
         }
 
-        // Attempt initial sync (non-fatal). User can manually sync from settings page as well.
         $access = $service->getValidAccessToken();
         if ($access !== null) {
             $calendarService = new CalendarService($access);
@@ -302,145 +264,7 @@ final class SettingsController
             }
         }
 
-        if ($sessionIssued) {
-            if ($isAppLogin && $sessionToken !== '') {
-                // App + Tauri: do not use HTTP 302 to a custom scheme — many browsers hand off
-                // unreliably or “before” the OAuth page finishes. Serve HTML and navigate via JS
-                // after a short delay so the document commits, then open the app (same idea as the
-                // interstitial below, but without the “continue in browser” options).
-                //
-                // Also store a one-time claim row so the native client can poll POST /api/auth/tauri/claim
-                // when the custom scheme never reaches the app (common on Windows / some browsers).
-                $pendingExpiry = time() + 300;
-                $db->prepare(
-                    "INSERT INTO settings (key, value, value_type, description, updated_at)
-                     VALUES ('tauri_pending_token', :value, 'string', 'One-time native OAuth session claim', unixepoch())
-                     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
-                )->execute(['value' => $sessionToken . '|' . $pendingExpiry]);
-
-                $appUrl = 'com.codex.life://login-success?token=' . rawurlencode($sessionToken);
-                $appUrlJs = json_encode($appUrl, JSON_THROW_ON_ERROR);
-                $encodedAppUrl = htmlspecialchars($appUrl, ENT_QUOTES, 'UTF-8');
-
-                http_response_code(200);
-                header('Content-Type: text/html; charset=utf-8');
-                echo <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Return to Project Codex</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f1117; color: #e2e8f0;
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      padding: 1rem;
-    }
-    .card {
-      background: #1e2130; border: 1px solid #2d3148; border-radius: 16px;
-      padding: 2rem; max-width: 380px; width: 100%; text-align: center;
-      display: flex; flex-direction: column; gap: 1rem;
-    }
-    h1 { font-size: 1.1rem; font-weight: 600; color: #f1f5f9; }
-    p  { font-size: 0.875rem; color: #94a3b8; line-height: 1.5; }
-    a  { color: #818cf8; font-size: 0.875rem; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h1>Opening Project Codex…</h1>
-    <p>If the app does not open, tap the link below.</p>
-    <a href="{$encodedAppUrl}">Open in app</a>
-  </div>
-  <script>
-    (function () {
-      var url = {$appUrlJs};
-      function go() {
-        window.location.href = url;
-      }
-      // Let the OAuth redirect fully settle in the browser before custom-scheme handoff.
-      setTimeout(go, 450);
-    })();
-  </script>
-  <noscript><p><a href="{$encodedAppUrl}">Open in app</a></p></noscript>
-</body>
-</html>
-HTML;
-                exit;
-            }
-
-            // For all other logins (web browser or Tauri desktop) show a page with:
-            //  - An "Open in app" button that fires the custom URI scheme so the Tauri
-            //    desktop app can pick up the token via its deep-link handler.
-            //  - A "Continue in browser" fallback that redirects to the web dashboard.
-            $appUrl = 'com.codex.life://login-success?token=' . rawurlencode($sessionToken);
-            $webUrl = $this->frontendHomeUrl($request);
-            $encodedAppUrl = htmlspecialchars($appUrl, ENT_QUOTES, 'UTF-8');
-            $encodedWebUrl = htmlspecialchars($webUrl, ENT_QUOTES, 'UTF-8');
-
-            http_response_code(200);
-            header('Content-Type: text/html; charset=utf-8');
-            echo <<<HTML
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Signed in — Project Codex</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f1117; color: #e2e8f0;
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
-    }
-    .card {
-      background: #1e2130; border: 1px solid #2d3148; border-radius: 16px;
-      padding: 2.5rem 2rem; max-width: 380px; width: 100%; text-align: center;
-      display: flex; flex-direction: column; gap: 1.25rem;
-    }
-    .icon { font-size: 2.5rem; }
-    h1 { font-size: 1.25rem; font-weight: 600; color: #f1f5f9; }
-    p  { font-size: 0.875rem; color: #94a3b8; line-height: 1.5; }
-    .btn-primary {
-      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-      padding: 0.75rem 1.5rem; border-radius: 10px; font-size: 0.9rem; font-weight: 500;
-      background: #6366f1; color: #fff; border: none; cursor: pointer;
-      text-decoration: none; transition: background 0.15s;
-    }
-    .btn-primary:hover { background: #4f46e5; }
-    .btn-secondary {
-      font-size: 0.8rem; color: #64748b; background: none; border: none;
-      cursor: pointer; text-decoration: underline;
-    }
-    .btn-secondary:hover { color: #94a3b8; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="icon">✅</div>
-    <h1>Signed in successfully</h1>
-    <p>Click below to open Project Codex, or continue in the browser.</p>
-    <a class="btn-primary" href="{$encodedAppUrl}" id="openApp">
-      Open in app
-    </a>
-    <a class="btn-secondary" href="{$encodedWebUrl}">Continue in browser</a>
-  </div>
-  <script>
-    // Auto-attempt to open the app after a short delay so the page renders first.
-    setTimeout(function() {
-      document.getElementById('openApp').click();
-    }, 400);
-  </script>
-</body>
-</html>
-HTML;
-        } else {
-            header('Location: ' . $frontend . '?google=connected', true, 302);
-        }
+        header('Location: ' . $frontend . '?google=connected', true, 302);
         exit;
     }
 
@@ -779,55 +603,5 @@ HTML;
 
         $json = json_decode($raw, true);
         return is_array($json) && isset($json['sub']) ? $json : null;
-    }
-
-    private function frontendHomeUrl(Request $request): string
-    {
-        $envUrl = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? '');
-        if (is_string($envUrl) && $envUrl !== '') {
-            return rtrim($envUrl, '/') . '/';
-        }
-
-        $origin = $request->getHeader('origin') ?? $request->getHeader('referer') ?? '';
-        if ($origin !== '') {
-            $parsed = parse_url($origin);
-            if (is_array($parsed) && isset($parsed['scheme'], $parsed['host'])) {
-                $base = $parsed['scheme'] . '://' . $parsed['host'];
-                if (isset($parsed['port'])) {
-                    $base .= ':' . $parsed['port'];
-                }
-                return $base . '/';
-            }
-        }
-
-        return 'http://localhost:5273/';
-    }
-
-    private function frontendLoginUrl(Request $request): string
-    {
-        $envUrl = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? '');
-        if (is_string($envUrl) && $envUrl !== '') {
-            return rtrim($envUrl, '/') . '/login';
-        }
-
-        $origin = $request->getHeader('origin') ?? $request->getHeader('referer') ?? '';
-        if ($origin !== '') {
-            $parsed = parse_url($origin);
-            if (is_array($parsed) && isset($parsed['scheme'], $parsed['host'])) {
-                $base = $parsed['scheme'] . '://' . $parsed['host'];
-                if (isset($parsed['port'])) {
-                    $base .= ':' . $parsed['port'];
-                }
-                return $base . '/login';
-            }
-        }
-
-        return 'http://localhost:5273/login';
-    }
-
-    private function hasSessionCookie(): bool
-    {
-        $token = $_COOKIE['codex_session'] ?? '';
-        return is_string($token) && $token !== '';
     }
 }

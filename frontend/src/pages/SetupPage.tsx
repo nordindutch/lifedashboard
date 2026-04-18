@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { login } from '../api/auth';
+import { setupAccount } from '../api/auth';
 import { TitleBar } from '../components/layout/TitleBar';
 import { useAuth } from '../hooks/useAuth';
 
@@ -13,12 +13,14 @@ const isNative = isTauri || isCapacitor;
 const AUTH_ME_KEY = ['auth', 'me'] as const;
 const AUTH_BOOTSTRAP_KEY = ['auth', 'bootstrap'] as const;
 
-export function LoginPage() {
+export function SetupPage() {
   const queryClient = useQueryClient();
   const { data: user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,18 +28,24 @@ export function LoginPage() {
     if (user) navigate('/', { replace: true });
   }, [user, navigate]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const err = params.get('error') ?? params.get('reason');
-    if (err) setError(`Session issue: ${err.replace(/_/g, ' ')}`);
-  }, []);
-
   const handleSubmit = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     setError(null);
+    if (password !== password2) {
+      setError('Passwords do not match');
+      return;
+    }
+    if (password.length < 10) {
+      setError('Password must be at least 10 characters');
+      return;
+    }
     setPending(true);
     try {
-      const res = await login({ email: email.trim(), password });
+      const res = await setupAccount({
+        email: email.trim(),
+        name: name.trim(),
+        password,
+      });
       if (!res.success) {
         setError(res.error.message);
         return;
@@ -45,12 +53,11 @@ export function LoginPage() {
       if (isNative) {
         localStorage.setItem('codex_session', res.data.token);
       }
-      await queryClient.cancelQueries({ queryKey: AUTH_ME_KEY });
       queryClient.setQueryData(AUTH_ME_KEY, res.data.user);
-      await queryClient.invalidateQueries({ queryKey: AUTH_BOOTSTRAP_KEY });
+      queryClient.setQueryData(AUTH_BOOTSTRAP_KEY, { needs_setup: false });
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-in failed');
+      setError(err instanceof Error ? err.message : 'Setup failed');
     } finally {
       setPending(false);
     }
@@ -59,13 +66,13 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col bg-codex-bg">
       <TitleBar />
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 px-4">
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-codex-border bg-codex-surface">
-            <span className="text-2xl font-bold text-codex-accent">C</span>
-          </div>
-          <h1 className="text-2xl font-semibold text-slate-100">Project Codex</h1>
-          <p className="text-sm text-codex-muted">Your personal Life OS</p>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 px-4 py-8">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <h1 className="text-xl font-semibold text-slate-100">Welcome to Project Codex</h1>
+          <p className="max-w-md text-sm text-codex-muted">
+            Create the single account for this instance. Use a strong password; you can connect Google
+            later in Settings for calendar and mail sync only.
+          </p>
         </div>
 
         {error ? (
@@ -75,12 +82,23 @@ export function LoginPage() {
         ) : null}
 
         {isLoading ? (
-          <p className="text-sm text-codex-muted">Checking session…</p>
+          <p className="text-sm text-codex-muted">Loading…</p>
         ) : (
           <form
             onSubmit={(e) => void handleSubmit(e)}
             className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-codex-border bg-codex-surface/60 p-6"
           >
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-codex-muted">Your name</span>
+              <input
+                type="text"
+                autoComplete="name"
+                value={name}
+                onChange={(ev) => setName(ev.target.value)}
+                required
+                className="rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-slate-100 outline-none ring-codex-accent focus:ring-1"
+              />
+            </label>
             <label className="flex flex-col gap-1.5 text-sm">
               <span className="text-codex-muted">Email</span>
               <input
@@ -93,12 +111,24 @@ export function LoginPage() {
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-codex-muted">Password</span>
+              <span className="text-codex-muted">Password (min 10 characters)</span>
               <input
                 type="password"
-                autoComplete="current-password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(ev) => setPassword(ev.target.value)}
+                required
+                minLength={10}
+                className="rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-slate-100 outline-none ring-codex-accent focus:ring-1"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5 text-sm">
+              <span className="text-codex-muted">Confirm password</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={password2}
+                onChange={(ev) => setPassword2(ev.target.value)}
                 required
                 minLength={10}
                 className="rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-slate-100 outline-none ring-codex-accent focus:ring-1"
@@ -109,19 +139,17 @@ export function LoginPage() {
               disabled={pending}
               className="mt-2 rounded-xl border border-codex-accent/40 bg-codex-accent/20 px-4 py-2.5 text-sm font-medium text-slate-100 transition-colors hover:bg-codex-accent/30 disabled:opacity-50"
             >
-              {pending ? 'Signing in…' : 'Sign in'}
+              {pending ? 'Creating…' : 'Create account'}
             </button>
           </form>
         )}
 
         <p className="text-xs text-codex-muted/60">
-          First time?{' '}
-          <Link to="/setup" className="text-codex-accent hover:underline">
-            Create your account
+          Already set up?{' '}
+          <Link to="/login" className="text-codex-accent hover:underline">
+            Sign in
           </Link>
         </p>
-
-        <p className="text-xs text-codex-muted/60">Personal access only</p>
       </div>
     </div>
   );
