@@ -48,9 +48,9 @@ export function SettingsPage() {
     const google = params.get('google');
     const reason = params.get('reason');
     if (google === 'connected') {
-      setGoogleMessage('Google account connected. You can sync calendar now.');
+      setGoogleMessage('Google-account gekoppeld. Je kunt nu de agenda synchroniseren.');
     } else if (google === 'error') {
-      setGoogleError(reason ? `Google connect failed: ${reason}` : 'Google connect failed.');
+      setGoogleError(reason ? `Google-koppeling mislukt: ${reason}` : 'Google-koppeling mislukt.');
     }
   }, []);
 
@@ -65,7 +65,7 @@ export function SettingsPage() {
           setGoogleError(res.error.message);
         }
       } catch (e: unknown) {
-        setGoogleError(e instanceof Error ? e.message : 'Failed to load integration status');
+        setGoogleError(e instanceof Error ? e.message : 'Integratiestatus laden mislukt');
       } finally {
         setGoogleLoading(false);
       }
@@ -74,13 +74,13 @@ export function SettingsPage() {
   }, []);
 
   if (isLoading) {
-    return <p className="p-4 text-sm text-codex-muted">Loading settings…</p>;
+    return <p className="p-4 text-sm text-codex-muted">Instellingen laden…</p>;
   }
   if (!settings) {
     return (
       <EmptyState
-        title="Could not load settings"
-        description="API error"
+        title="Instellingen laden mislukt"
+        description="API-fout"
       />
     );
   }
@@ -94,9 +94,9 @@ export function SettingsPage() {
         openweather_lat: lat.trim(),
         openweather_lon: lon.trim(),
       });
-      setWeatherSaveOk('Weather settings saved.');
+      setWeatherSaveOk('Weerinstellingen opgeslagen.');
     } catch (e: unknown) {
-      setWeatherSaveError(e instanceof Error ? e.message : 'Failed to save settings');
+      setWeatherSaveError(e instanceof Error ? e.message : 'Opslaan mislukt');
     }
   };
 
@@ -107,9 +107,9 @@ export function SettingsPage() {
       await updateSettings({
         anthropic_api_key: anthropicKey.trim(),
       });
-      setAnthropicSaveOk('Anthropic API key saved.');
+      setAnthropicSaveOk('Anthropic API-sleutel opgeslagen.');
     } catch (e: unknown) {
-      setAnthropicSaveError(e instanceof Error ? e.message : 'Failed to save settings');
+      setAnthropicSaveError(e instanceof Error ? e.message : 'Opslaan mislukt');
     }
   };
 
@@ -120,9 +120,9 @@ export function SettingsPage() {
       await updateSettings({
         timezone: timezone.trim() || 'UTC',
       });
-      setTimezoneSaveOk('Timezone saved.');
+      setTimezoneSaveOk('Tijdzone opgeslagen.');
     } catch (e: unknown) {
-      setTimezoneSaveError(e instanceof Error ? e.message : 'Failed to save settings');
+      setTimezoneSaveError(e instanceof Error ? e.message : 'Opslaan mislukt');
     }
   };
 
@@ -135,10 +135,10 @@ export function SettingsPage() {
       if (!res.success) {
         const code = res.error.code;
         if (code === 'not_configured') {
-          setTestError('OpenWeather is not configured. Add API key, latitude, and longitude, then save first.');
+          setTestError('OpenWeather is niet geconfigureerd. Voeg API-sleutel, breedte- en lengtegraad toe en sla eerst op.');
         } else if (code === 'EXTERNAL_API_ERROR') {
           setTestError(
-            'OpenWeather request failed. Check API key validity, ensure the key is activated, and verify coordinates.',
+            'OpenWeather-verzoek mislukt. Controleer de API-sleutel, of die geactiveerd is, en de coördinaten.',
           );
         } else {
           setTestError(res.error.message);
@@ -147,7 +147,7 @@ export function SettingsPage() {
         setTestResult(res.data);
       }
     } catch (e: unknown) {
-      setTestError(e instanceof Error ? e.message : 'Weather test failed');
+      setTestError(e instanceof Error ? e.message : 'Weertest mislukt');
     } finally {
       setIsTesting(false);
     }
@@ -160,7 +160,7 @@ export function SettingsPage() {
     try {
       const res = await getGoogleOAuthUrl();
       if (!res.success || !res.data?.url) {
-        setGoogleError(res.success ? 'Could not start Google connection' : res.error.message);
+        setGoogleError(res.success ? 'Google-koppeling starten mislukt' : res.error.message);
         return;
       }
       const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -178,7 +178,7 @@ export function SettingsPage() {
       }
       window.location.href = res.data.url;
     } catch (e: unknown) {
-      setGoogleError(e instanceof Error ? e.message : 'Could not start Google connection');
+      setGoogleError(e instanceof Error ? e.message : 'Google-koppeling starten mislukt');
     } finally {
       setGoogleConnectPending(false);
     }
@@ -195,9 +195,9 @@ export function SettingsPage() {
         return;
       }
       setGoogleConnected(false);
-      setGoogleMessage('Google disconnected.');
+      setGoogleMessage('Google losgekoppeld.');
     } catch (e: unknown) {
-      setGoogleError(e instanceof Error ? e.message : 'Failed to disconnect Google');
+      setGoogleError(e instanceof Error ? e.message : 'Google loskoppelen mislukt');
     } finally {
       setDisconnectPending(false);
     }
@@ -214,9 +214,9 @@ export function SettingsPage() {
         return;
       }
       setGoogleConnected(true);
-      setGoogleMessage(`Calendar synced: ${res.data.events} event(s) cached.`);
+      setGoogleMessage(`Agenda gesynchroniseerd: ${res.data.events} gebeurtenis(sen) in cache.`);
     } catch (e: unknown) {
-      setGoogleError(e instanceof Error ? e.message : 'Calendar sync failed');
+      setGoogleError(e instanceof Error ? e.message : 'Agenda-sync mislukt');
     } finally {
       setCalendarPending(false);
     }
@@ -233,9 +233,9 @@ export function SettingsPage() {
         return;
       }
       setGoogleConnected(true);
-      setGoogleMessage(`Gmail synced: ${res.data.emails} unread cached.`);
+      setGoogleMessage(`Gmail gesynchroniseerd: ${res.data.emails} ongelezen in cache.`);
     } catch (e: unknown) {
-      setGoogleError(e instanceof Error ? e.message : 'Gmail sync failed');
+      setGoogleError(e instanceof Error ? e.message : 'Gmail-sync mislukt');
     } finally {
       setGmailPending(false);
     }
@@ -243,18 +243,18 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-4 md:p-6">
-      <h1 className="text-xl font-semibold text-slate-100">Settings</h1>
+      <h1 className="text-xl font-semibold text-slate-100">Instellingen</h1>
       <Card>
         <div className="space-y-4">
           <div>
             <h2 className="text-sm font-medium text-slate-200">OpenWeather</h2>
             <p className="mt-1 text-xs text-codex-muted">
-              Configure API key and coordinates used for the Home weather card.
+              API-sleutel en coördinaten voor het weer op Start.
             </p>
           </div>
 
           <label className="block space-y-1">
-            <span className="text-xs text-codex-muted">API Key</span>
+            <span className="text-xs text-codex-muted">API-sleutel</span>
             <input
               type="password"
               value={apiKey}
@@ -266,7 +266,7 @@ export function SettingsPage() {
 
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <label className="block space-y-1">
-              <span className="text-xs text-codex-muted">Latitude</span>
+              <span className="text-xs text-codex-muted">Breedtegraad</span>
               <input
                 type="text"
                 value={lat}
@@ -276,7 +276,7 @@ export function SettingsPage() {
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-xs text-codex-muted">Longitude</span>
+              <span className="text-xs text-codex-muted">Lengtegraad</span>
               <input
                 type="text"
                 value={lon}
@@ -289,16 +289,16 @@ export function SettingsPage() {
 
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="ghost" onClick={handleTest} disabled={isTesting}>
-              {isTesting ? 'Testing…' : 'Test Connection'}
+              {isTesting ? 'Testen…' : 'Verbinding testen'}
             </Button>
             <Button type="button" variant="primary" onClick={handleSave} disabled={isPending}>
-              {isPending ? 'Saving…' : 'Save'}
+              {isPending ? 'Opslaan…' : 'Opslaan'}
             </Button>
           </div>
 
           {testResult ? (
             <p className="text-sm text-emerald-400">
-              Connected: {testResult.city}, {testResult.country} — {Math.round(testResult.temp_c)}°C
+              Verbonden: {testResult.city}, {testResult.country} — {Math.round(testResult.temp_c)}°C
             </p>
           ) : null}
           {testError ? <p className="text-sm text-rose-400">{testError}</p> : null}
@@ -310,13 +310,13 @@ export function SettingsPage() {
       <Card>
         <div className="space-y-4">
           <div>
-            <h2 className="text-sm font-medium text-slate-200">Timezone</h2>
+            <h2 className="text-sm font-medium text-slate-200">Tijdzone</h2>
             <p className="mt-1 text-xs text-codex-muted">
-              Used by AI planning and calendar day boundaries.
+              Gebruikt voor AI-planning en kalenderdaggrenzen.
             </p>
           </div>
           <label className="block space-y-1">
-            <span className="text-xs text-codex-muted">IANA timezone</span>
+            <span className="text-xs text-codex-muted">IANA-tijdzone</span>
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
@@ -342,7 +342,7 @@ export function SettingsPage() {
             </select>
           </label>
           <Button type="button" variant="primary" onClick={handleSaveTimezone} disabled={isPending}>
-            {isPending ? 'Saving…' : 'Save'}
+            {isPending ? 'Opslaan…' : 'Opslaan'}
           </Button>
           {timezoneSaveOk ? <p className="text-sm text-emerald-400">{timezoneSaveOk}</p> : null}
           {timezoneSaveError ? <p className="text-sm text-rose-400">{timezoneSaveError}</p> : null}
@@ -352,13 +352,13 @@ export function SettingsPage() {
       <Card>
         <div className="space-y-4">
           <div>
-            <h2 className="text-sm font-medium text-slate-200">AI Planning (Claude)</h2>
+            <h2 className="text-sm font-medium text-slate-200">AI-planning (Claude)</h2>
             <p className="mt-1 text-xs text-codex-muted">
-              Anthropic API key used to generate your daily block schedule. Get one at console.anthropic.com.
+              Anthropic API-sleutel voor je dagelijkse blokken. Vraag er een aan op console.anthropic.com.
             </p>
           </div>
           <label className="block space-y-1">
-            <span className="text-xs text-codex-muted">API Key</span>
+            <span className="text-xs text-codex-muted">API-sleutel</span>
             <input
               type="password"
               value={anthropicKey}
@@ -368,7 +368,7 @@ export function SettingsPage() {
             />
           </label>
           <Button type="button" variant="primary" onClick={handleSaveAnthropic} disabled={isPending}>
-            {isPending ? 'Saving…' : 'Save'}
+            {isPending ? 'Opslaan…' : 'Opslaan'}
           </Button>
           {anthropicSaveOk ? <p className="text-sm text-emerald-400">{anthropicSaveOk}</p> : null}
           {anthropicSaveError ? <p className="text-sm text-rose-400">{anthropicSaveError}</p> : null}
@@ -378,14 +378,14 @@ export function SettingsPage() {
       <Card>
         <div className="space-y-4">
           <div>
-            <h2 className="text-sm font-medium text-slate-200">Google Calendar</h2>
+            <h2 className="text-sm font-medium text-slate-200">Google Agenda</h2>
             <p className="mt-1 text-xs text-codex-muted">
-              Connect your Google account, then sync upcoming events into the briefing cache.
+              Koppel je Google-account en synchroniseer aankomende gebeurtenissen naar de briefing-cache.
             </p>
             <p className="mt-2 text-xs text-codex-muted">
               Status:{' '}
               <span className={googleConnected ? 'text-emerald-400' : 'text-codex-muted'}>
-                {googleLoading ? 'checking…' : googleConnected ? 'connected' : 'not connected'}
+                {googleLoading ? 'controleren…' : googleConnected ? 'verbonden' : 'niet verbonden'}
               </span>
             </p>
           </div>
@@ -397,13 +397,13 @@ export function SettingsPage() {
               onClick={() => void handleGoogleConnect()}
               disabled={calendarPending || gmailPending || disconnectPending || googleConnectPending}
             >
-              {googleConnectPending ? 'Opening…' : 'Connect Google'}
+              {googleConnectPending ? 'Openen…' : 'Google koppelen'}
             </Button>
             <Button type="button" variant="ghost" onClick={handleCalendarSync} disabled={calendarPending}>
-              {calendarPending ? 'Syncing…' : 'Sync Calendar'}
+              {calendarPending ? 'Synchroniseren…' : 'Agenda syncen'}
             </Button>
             <Button type="button" variant="ghost" onClick={handleGmailSync} disabled={gmailPending}>
-              {gmailPending ? 'Syncing…' : 'Sync Gmail'}
+              {gmailPending ? 'Synchroniseren…' : 'Gmail syncen'}
             </Button>
             <Button
               type="button"
@@ -411,11 +411,11 @@ export function SettingsPage() {
               onClick={handleGoogleDisconnect}
               disabled={calendarPending || gmailPending || disconnectPending}
             >
-              Disconnect
+              Loskoppelen
             </Button>
           </div>
           <p className="text-xs text-amber-400/80">
-            Note: If you connected before adding Gmail, disconnect and reconnect to grant inbox access.
+            Tip: als je al verbonden was vóór Gmail, koppel los en opnieuw voor inbox-toegang.
           </p>
 
           {googleMessage ? <p className="text-sm text-emerald-400">{googleMessage}</p> : null}

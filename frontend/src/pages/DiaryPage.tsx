@@ -16,9 +16,9 @@ export function DiaryPage() {
   const logEmptyDescription = useMemo(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
     if (selectedDate === today) {
-      return 'Capture thoughts with the quick log bar below.';
+      return 'Vang gedachten hieronder in de snelle logbalk.';
     }
-    return 'Switch back to today or pick another day to see other entries.';
+    return 'Ga terug naar vandaag of kies een andere dag.';
   }, [selectedDate]);
 
   const onSubmit = async (body: string, logType: LogType) => {
@@ -30,18 +30,18 @@ export function DiaryPage() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-4 p-4 pb-40 md:pb-28">
-      <h1 className="text-xl font-semibold text-slate-100">Diary</h1>
+      <h1 className="text-xl font-semibold text-slate-100">Dagboek</h1>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-start">
         <div className="flex min-h-0 flex-col gap-4">
-          {q.isLoading ? <p className="text-sm text-slate-400">Loading…</p> : null}
+          {q.isLoading ? <p className="text-sm text-slate-400">Laden…</p> : null}
           {!q.isLoading ? (
             <LogFeed logs={q.data ?? []} emptyDescription={logEmptyDescription} />
           ) : null}
           <QuickLogBar onSubmit={onSubmit} />
         </div>
 
-        <aside className="lg:sticky lg:top-4 lg:self-start" aria-label="Day summaries">
+        <aside className="lg:sticky lg:top-4 lg:self-start" aria-label="Dag samenvattingen">
           <DiaryDaySummaryColumn date={selectedDate} hasLogs={(q.data?.length ?? 0) > 0} onDateChange={setSelectedDate} />
         </aside>
       </div>

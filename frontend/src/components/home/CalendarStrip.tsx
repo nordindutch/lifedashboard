@@ -66,10 +66,10 @@ function DeleteEventButton({ event, onDeleted, compact = false }: DeleteEventBut
             ? 'bg-rose-500/30 text-rose-300'
             : 'text-indigo-300/60 hover:bg-rose-500/20 hover:text-rose-300'
         }`}
-        title={confirmed ? 'Click again to delete' : 'Delete event'}
+        title={confirmed ? 'Nogmaals klikken om te verwijderen' : 'Afspraak verwijderen'}
       >
         <Trash2 size={9} />
-        {confirmed ? 'Confirm' : 'Delete'}
+        {confirmed ? 'Bevestigen' : 'Verwijderen'}
       </button>
     );
   }
@@ -82,7 +82,7 @@ function DeleteEventButton({ event, onDeleted, compact = false }: DeleteEventBut
       className={`shrink-0 rounded p-1 text-slate-600 transition-colors disabled:opacity-50 ${
         confirmed ? 'bg-rose-500/20 text-rose-400' : 'hover:bg-rose-500/10 hover:text-rose-400'
       }`}
-      title={confirmed ? 'Click again to confirm delete' : 'Delete event'}
+      title={confirmed ? 'Nogmaals klikken om te bevestigen' : 'Afspraak verwijderen'}
     >
       <Trash2 size={12} />
     </button>
@@ -218,23 +218,23 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
       className={`flex max-h-[500px] min-h-0 flex-col overflow-hidden lg:max-h-none ${className ?? ''}`}
     >
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-slate-300">Today</h3>
+        <h3 className="text-sm font-medium text-slate-300">Vandaag</h3>
         <button
           type="button"
           onClick={onSync}
           disabled={!onSync || isSyncing}
           className="inline-flex min-h-[36px] items-center gap-1 rounded-md border border-codex-border px-2 py-1 text-xs text-codex-muted hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Sync calendar"
+          aria-label="Agenda synchroniseren"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-          {isSyncing ? 'Syncing…' : 'Sync'}
+          {isSyncing ? 'Synchroniseren…' : 'Sync'}
         </button>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto lg:overflow-visible">
         {allDayEvents.length > 0 ? (
           <div className="shrink-0 space-y-1">
-            <p className="text-xs font-medium uppercase tracking-wide text-codex-muted">All day</p>
+            <p className="text-xs font-medium uppercase tracking-wide text-codex-muted">Hele dag</p>
             <div className="space-y-1.5">
               {allDayEvents.map((event) => (
                 <div
@@ -277,10 +277,10 @@ export function CalendarStrip({ events, onSync, isSyncing = false, className }: 
               <div
                 className="absolute left-0 right-0 z-20 border-t border-rose-500/80"
                 style={{ top: `${nowTopPct}%` }}
-                aria-label="Current time"
+                aria-label="Huidige tijd"
               >
                 <span className="absolute right-1 top-1 rounded bg-rose-500/20 px-1 py-0.5 text-[10px] font-medium text-rose-300">
-                  Now {format(now, 'HH:mm')}
+                  Nu {format(now, 'HH:mm')}
                 </span>
               </div>
 

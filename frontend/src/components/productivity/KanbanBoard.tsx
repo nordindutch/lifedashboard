@@ -22,11 +22,11 @@ import { TaskDrawer } from './TaskDrawer';
 const DEFAULT_COLUMNS: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
 const COLUMN_LABELS: Record<TaskStatus, string> = {
   backlog: 'Backlog',
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  in_review: 'In Review',
-  done: 'Done',
-  cancelled: 'Cancelled',
+  todo: 'Te doen',
+  in_progress: 'Bezig',
+  in_review: 'In review',
+  done: 'Klaar',
+  cancelled: 'Geannuleerd',
 };
 export function KanbanBoard() {
   const [activeProjectId, setActiveProjectId] = useState<number | null>(null);
@@ -128,13 +128,13 @@ export function KanbanBoard() {
       <ProjectsPanel activeProjectId={activeProjectId} onProjectSelect={setActiveProjectId} />
 
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-100">Tasks</h1>
+        <h1 className="text-xl font-semibold text-slate-100">Taken</h1>
         <button
           type="button"
           onClick={() => setCreating(true)}
           className="flex items-center gap-1.5 rounded-lg border border-codex-border bg-codex-surface px-3 py-1.5 text-sm text-slate-200 hover:border-codex-accent/50"
         >
-          <Plus size={15} /> New task
+          <Plus size={15} /> Nieuwe taak
         </button>
       </div>
 
@@ -154,7 +154,7 @@ export function KanbanBoard() {
                 setNewDueDate('');
               }
             }}
-            placeholder="Task title..."
+            placeholder="Titel…"
             className="flex-1 rounded-md border border-codex-border bg-codex-bg px-3 py-1.5 text-sm text-slate-100 outline-none focus:border-codex-accent"
           />
           <select
@@ -173,7 +173,7 @@ export function KanbanBoard() {
             value={newDueDate}
             onChange={(e) => setNewDueDate(e.target.value)}
             className="rounded-md border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
-            aria-label="Due date"
+            aria-label="Deadline"
           />
           <select
             value={newProjectId ?? ''}
@@ -193,7 +193,7 @@ export function KanbanBoard() {
             disabled={createTask.isPending}
             className="rounded-md bg-codex-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           >
-            {createTask.isPending ? 'Adding...' : 'Add'}
+            {createTask.isPending ? 'Toevoegen…' : 'Toevoegen'}
           </button>
           <button
             type="button"
@@ -203,15 +203,18 @@ export function KanbanBoard() {
             }}
             className="text-sm text-codex-muted hover:text-slate-300"
           >
-            Cancel
+            Annuleren
           </button>
         </div>
       ) : null}
 
       {q.isLoading ? (
-        <p className="text-sm text-slate-400">Loading...</p>
+        <p className="text-sm text-slate-400">Laden…</p>
       ) : q.isError ? (
-        <EmptyState title="Tasks unavailable" description={q.error instanceof Error ? q.error.message : 'API error'} />
+        <EmptyState
+          title="Taken niet beschikbaar"
+          description={q.error instanceof Error ? q.error.message : 'API-fout'}
+        />
       ) : (
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="flex gap-3 overflow-x-auto pb-4">

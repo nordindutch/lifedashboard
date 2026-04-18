@@ -11,9 +11,9 @@ import type { Priority, TaskStatus } from '../../types';
 type Mode = 'task' | 'event';
 
 const PRIORITIES: { value: Priority; label: string; color: string }[] = [
-  { value: 1, label: 'Low', color: 'text-slate-400 border-slate-600' },
-  { value: 2, label: 'Medium', color: 'text-blue-400 border-blue-600/50' },
-  { value: 3, label: 'High', color: 'text-amber-400 border-amber-600/50' },
+  { value: 1, label: 'Laag', color: 'text-slate-400 border-slate-600' },
+  { value: 2, label: 'Gemiddeld', color: 'text-blue-400 border-blue-600/50' },
+  { value: 3, label: 'Hoog', color: 'text-amber-400 border-amber-600/50' },
   { value: 4, label: 'Urgent', color: 'text-rose-400 border-rose-600/50' },
 ];
 
@@ -68,9 +68,9 @@ export function QuickCreate() {
       return successMsg;
     }
     if (pending) {
-      return 'Creating…';
+      return 'Aanmaken…';
     }
-    return mode === 'task' ? 'Add task' : 'Add event';
+    return mode === 'task' ? 'Taak toevoegen' : 'Afspraak toevoegen';
   }, [mode, pending, successMsg]);
 
   useEffect(() => {
@@ -134,10 +134,10 @@ export function QuickCreate() {
         setPending(false);
         return;
       }
-      setSuccessMsg('✓ Task created');
+      setSuccessMsg('✓ Taak aangemaakt');
     } else {
       if (eventEndDate < eventDate) {
-        setError('End date must be on or after the start date.');
+        setError('Einddatum moet op of na de startdatum liggen.');
         setPending(false);
         return;
       }
@@ -148,7 +148,7 @@ export function QuickCreate() {
         ? Math.floor(new Date(`${eventEndDate}T23:59:59`).getTime() / 1000)
         : Math.floor(new Date(`${eventEndDate}T${endTime}:00`).getTime() / 1000);
       if (endUnix <= startUnix) {
-        setError('End must be after the start (check dates and times).');
+        setError('Einde moet na de start zijn (controleer datum en tijd).');
         setPending(false);
         return;
       }
@@ -165,7 +165,7 @@ export function QuickCreate() {
         setPending(false);
         return;
       }
-      const label = res.data.pushed_to_google ? '✓ Added to Google Calendar' : '✓ Saved locally';
+      const label = res.data.pushed_to_google ? '✓ Toegevoegd aan Google Agenda' : '✓ Lokaal opgeslagen';
       setSuccessMsg(label);
       void qc.invalidateQueries({ queryKey: ['briefing'] });
     }
@@ -199,7 +199,7 @@ export function QuickCreate() {
           className="flex items-center gap-2 rounded-full border border-codex-border bg-codex-surface/95 px-4 py-2 text-sm text-slate-300 shadow-lg backdrop-blur transition-colors hover:border-codex-accent/50 hover:text-slate-100"
         >
           <Plus size={15} className="text-codex-accent" />
-          Quick create
+          Snel toevoegen
         </button>
       </div>
 
@@ -225,12 +225,12 @@ export function QuickCreate() {
               onKeyDown={handleKeyDown}
             >
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-slate-200">Quick create</h2>
+                <h2 className="text-sm font-semibold text-slate-200">Snel toevoegen</h2>
                 <button
                   type="button"
                   onClick={closeAndReset}
                   className="rounded-lg p-1 text-slate-500 hover:text-slate-200"
-                  aria-label="Close quick create"
+                  aria-label="Sluiten"
                 >
                   <X size={16} />
                 </button>
@@ -247,7 +247,7 @@ export function QuickCreate() {
                   }`}
                 >
                   <CheckSquare size={14} />
-                  Task
+                  Taak
                 </button>
                 <button
                   type="button"
@@ -259,7 +259,7 @@ export function QuickCreate() {
                   }`}
                 >
                   <CalendarPlus size={14} />
-                  Calendar event
+                  Afspraak
                 </button>
               </div>
 
@@ -269,7 +269,7 @@ export function QuickCreate() {
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={mode === 'task' ? 'Task title…' : 'Event title…'}
+                placeholder={mode === 'task' ? 'Titel van de taak…' : 'Titel van de afspraak…'}
                 className="mb-3 w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-codex-accent"
               />
 
@@ -298,8 +298,8 @@ export function QuickCreate() {
                     className="w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-200"
                   >
                     <option value="backlog">Backlog</option>
-                    <option value="todo">To Do</option>
-                    <option value="in_progress">In Progress</option>
+                    <option value="todo">Te doen</option>
+                    <option value="in_progress">Bezig</option>
                   </select>
 
                   <select
@@ -307,7 +307,7 @@ export function QuickCreate() {
                     onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : null)}
                     className="w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-200"
                   >
-                    <option value="">No project</option>
+                    <option value="">Geen project</option>
                     {projects.map((project) => (
                       <option key={project.id} value={project.id}>
                         {project.title}
@@ -343,7 +343,7 @@ export function QuickCreate() {
                     </div>
                     <div>
                       <label htmlFor="quick-create-event-end" className="mb-1 block text-xs text-slate-500">
-                        End date
+                        Einddatum
                       </label>
                       <input
                         id="quick-create-event-end"
@@ -363,7 +363,7 @@ export function QuickCreate() {
                       onChange={(e) => setIsAllDay(e.target.checked)}
                       className="rounded border-codex-border"
                     />
-                    All day
+                    Hele dag
                   </label>
 
                   {!isAllDay ? (
@@ -391,7 +391,7 @@ export function QuickCreate() {
                     type="text"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    placeholder="Location (optional)"
+                    placeholder="Locatie (optioneel)"
                     className="w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600 outline-none focus:border-codex-accent"
                   />
                 </div>

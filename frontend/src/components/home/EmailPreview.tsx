@@ -48,20 +48,20 @@ export function EmailPreview({ emails, onSync, isSyncing = false, className }: E
   return (
     <Card className={className}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-slate-300">Inbox</h3>
+        <h3 className="text-sm font-medium text-slate-300">Postvak IN</h3>
         <button
           type="button"
           onClick={onSync}
           disabled={!onSync || isSyncing}
           className="inline-flex min-h-[36px] items-center gap-1 rounded-md border border-codex-border px-2 py-1 text-xs text-codex-muted hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Sync email"
+          aria-label="E-mail synchroniseren"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
           {isSyncing ? 'Syncing…' : 'Sync'}
         </button>
       </div>
       {list.length === 0 ? (
-        <p className="text-sm text-slate-500">No recent mail.</p>
+        <p className="text-sm text-slate-500">Geen recente mail.</p>
       ) : (
         <div className="max-h-[400px] overflow-y-auto lg:max-h-none">
           <ul className="space-y-2">
@@ -71,7 +71,7 @@ export function EmailPreview({ emails, onSync, isSyncing = false, className }: E
                 <li key={m.id} className="text-sm">
                   <div className="flex items-center justify-between gap-2">
                     <p className={`min-w-0 truncate ${m.is_unread ? 'font-medium text-slate-200' : 'text-slate-400'}`}>
-                      {m.subject ?? '(no subject)'}
+                      {m.subject ?? '(geen onderwerp)'}
                     </p>
                     <div className="flex shrink-0 items-center gap-2 text-xs text-slate-500">
                       {m.has_attachment ? <Paperclip size={12} /> : null}
@@ -81,13 +81,13 @@ export function EmailPreview({ emails, onSync, isSyncing = false, className }: E
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center text-codex-accent hover:text-indigo-300"
-                        aria-label="Open in Gmail"
+                        aria-label="Openen in Gmail"
                       >
                         <ExternalLink size={13} />
                       </a>
                     </div>
                   </div>
-                  <p className="truncate text-xs text-slate-500">{m.sender_name ?? m.sender_email ?? 'Unknown sender'}</p>
+                  <p className="truncate text-xs text-slate-500">{m.sender_name ?? m.sender_email ?? 'Onbekende afzender'}</p>
                   <p className="truncate text-slate-500">{m.snippet}</p>
                   <div className="mt-1 flex items-center gap-3">
                     <button
@@ -98,12 +98,12 @@ export function EmailPreview({ emails, onSync, isSyncing = false, className }: E
                     >
                       <Plus size={11} />
                       {state === 'creating'
-                        ? 'Creating…'
+                        ? 'Aanmaken…'
                         : state === 'created'
-                          ? 'Task created \u2713'
+                          ? 'Taak aangemaakt \u2713'
                           : state === 'error'
-                            ? 'Failed'
-                            : 'Create task'}
+                            ? 'Mislukt'
+                            : 'Taak maken'}
                     </button>
                   </div>
                 </li>

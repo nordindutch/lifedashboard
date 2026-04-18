@@ -4,10 +4,10 @@ import { useCreateProject, useDeleteProject, useProjects, useUpdateProject } fro
 import type { Project, ProjectStatus } from '../../types';
 
 const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
-  { value: 'active', label: 'Active' },
-  { value: 'on_hold', label: 'On hold' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'archived', label: 'Archived' },
+  { value: 'active', label: 'Actief' },
+  { value: 'on_hold', label: 'Gepauzeerd' },
+  { value: 'completed', label: 'Afgerond' },
+  { value: 'archived', label: 'Gearchiveerd' },
 ];
 
 const PRESET_COLOURS = ['#8b5cf6', '#6366f1', '#3b82f6', '#0ea5e9', '#10b981', '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#14b8a6'];
@@ -62,7 +62,7 @@ export function ProjectsPanel({ activeProjectId, onProjectSelect }: ProjectsPane
   };
 
   const handleDelete = async (id: number): Promise<void> => {
-    if (!window.confirm('Delete this project? Tasks will remain but lose their project link.')) {
+    if (!window.confirm('Dit project verwijderen? Taken blijven bestaan maar verliezen de projectkoppeling.')) {
       return;
     }
     await deleteProject.mutateAsync(id);
@@ -80,7 +80,7 @@ export function ProjectsPanel({ activeProjectId, onProjectSelect }: ProjectsPane
           className="flex items-center gap-2.5 text-sm font-medium text-slate-300 hover:text-slate-100"
         >
           {expanded ? <ChevronDown size={14} className="mr-2 shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
-          Projects
+          Projecten
           <span className="ml-1 rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-400">{projects.length}</span>
         </button>
         <button
@@ -88,14 +88,14 @@ export function ProjectsPanel({ activeProjectId, onProjectSelect }: ProjectsPane
           onClick={() => setCreating((c) => !c)}
           className="flex items-center gap-1 rounded-md border border-codex-border px-2 py-1 text-xs text-codex-muted transition-colors hover:border-codex-accent/50 hover:text-slate-200"
         >
-          <Plus size={12} /> New project
+          <Plus size={12} /> Nieuw project
         </button>
       </div>
 
       {expanded ? (
         <div className="border-t border-codex-border px-4 pb-3 pt-3">
           {isLoading ? (
-            <p className="text-xs text-slate-500">Loading...</p>
+            <p className="text-xs text-slate-500">Laden…</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               <button
@@ -107,7 +107,7 @@ export function ProjectsPanel({ activeProjectId, onProjectSelect }: ProjectsPane
                     : 'border-codex-border text-slate-500 hover:text-slate-300'
                 }`}
               >
-                All tasks
+                Alle taken
               </button>
 
               {projects.map((project) => (
@@ -151,7 +151,7 @@ export function ProjectsPanel({ activeProjectId, onProjectSelect }: ProjectsPane
                         ))}
                       </select>
                       <button type="button" onClick={() => void handleUpdate(project.id)} className="text-[10px] text-codex-accent hover:text-indigo-300">
-                        Save
+                        Opslaan
                       </button>
                       <button type="button" onClick={() => setEditingId(null)} className="text-[10px] text-slate-500 hover:text-slate-300">
                         X
@@ -206,7 +206,7 @@ export function ProjectsPanel({ activeProjectId, onProjectSelect }: ProjectsPane
                     setCreating(false);
                   }
                 }}
-                placeholder="Project name..."
+                placeholder="Projectnaam…"
                 className="flex-1 bg-transparent text-sm text-slate-100 outline-none placeholder:text-slate-600"
               />
               <div className="flex gap-1.5">
@@ -237,10 +237,10 @@ export function ProjectsPanel({ activeProjectId, onProjectSelect }: ProjectsPane
                 disabled={createProject.isPending || !newTitle.trim()}
                 className="rounded-md bg-codex-accent px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
               >
-                {createProject.isPending ? 'Creating...' : 'Create'}
+                {createProject.isPending ? 'Aanmaken…' : 'Aanmaken'}
               </button>
               <button type="button" onClick={() => setCreating(false)} className="text-xs text-slate-500 hover:text-slate-300">
-                Cancel
+                Annuleren
               </button>
             </div>
           ) : null}

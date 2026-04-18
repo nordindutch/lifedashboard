@@ -10,11 +10,11 @@ import { Drawer } from '../ui/Drawer';
 const STATUSES: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done', 'cancelled'];
 const STATUS_LABELS: Record<TaskStatus, string> = {
   backlog: 'Backlog',
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  in_review: 'In Review',
-  done: 'Done',
-  cancelled: 'Cancelled',
+  todo: 'Te doen',
+  in_progress: 'Bezig',
+  in_review: 'In review',
+  done: 'Klaar',
+  cancelled: 'Geannuleerd',
 };
 
 type Props = { task: Task | null; onClose: () => void };
@@ -49,7 +49,7 @@ export function TaskDrawer({ task, onClose }: Props) {
   }, [task]);
 
   const open = task !== null;
-  const drawerTitle = title.trim() || task?.title || 'Task';
+  const drawerTitle = title.trim() || task?.title || 'Taak';
   const busy = updateTask.isPending || deleteTask.isPending;
 
   const handleSave = async (): Promise<void> => {
@@ -81,7 +81,7 @@ export function TaskDrawer({ task, onClose }: Props) {
   };
 
   const handleDelete = async (): Promise<void> => {
-    if (!task || !window.confirm('Delete this task?')) {
+    if (!task || !window.confirm('Deze taak verwijderen?')) {
       return;
     }
     const res = await deleteTask.mutateAsync(task.id);
@@ -108,7 +108,7 @@ export function TaskDrawer({ task, onClose }: Props) {
                     : 'text-codex-muted hover:text-slate-300'
                 }`}
               >
-                {tab}
+                {tab === 'details' ? 'Details' : 'Notities'}
               </button>
             ))}
           </div>
@@ -119,7 +119,7 @@ export function TaskDrawer({ task, onClose }: Props) {
             <>
           <div>
             <label htmlFor="task-drawer-title" className="mb-1 block text-slate-500">
-              Title
+              Titel
             </label>
             <input
               id="task-drawer-title"
@@ -139,7 +139,7 @@ export function TaskDrawer({ task, onClose }: Props) {
               onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : null)}
               className="w-full rounded-md border border-codex-border bg-codex-bg px-2 py-2 text-slate-200"
             >
-              <option value="">- No project -</option>
+              <option value="">— Geen project —</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.title}
@@ -160,7 +160,7 @@ export function TaskDrawer({ task, onClose }: Props) {
           </div>
           <div>
             <label htmlFor="task-drawer-description" className="mb-1 block text-slate-500">
-              Description
+              Beschrijving
             </label>
             <textarea
               id="task-drawer-description"
@@ -190,7 +190,7 @@ export function TaskDrawer({ task, onClose }: Props) {
             </div>
             <div>
               <label htmlFor="task-drawer-priority" className="mb-1 block text-slate-500">
-                Priority
+                Prioriteit
               </label>
               <select
                 id="task-drawer-priority"
@@ -198,17 +198,17 @@ export function TaskDrawer({ task, onClose }: Props) {
                 onChange={(e) => setPriority(Number(e.target.value) as Priority)}
                 className="w-full rounded-md border border-codex-border bg-codex-bg px-2 py-2 text-slate-200"
               >
-                <option value={1}>1 — Highest</option>
+                <option value={1}>1 — Hoogst</option>
                 <option value={2}>2</option>
                 <option value={3}>3</option>
-                <option value={4}>4 — Lowest</option>
+                <option value={4}>4 — Laagst</option>
               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="task-drawer-due-date" className="mb-1 block text-slate-500">
-                Due date
+                Deadline
               </label>
               <input
                 id="task-drawer-due-date"
@@ -220,7 +220,7 @@ export function TaskDrawer({ task, onClose }: Props) {
             </div>
             <div>
               <label htmlFor="task-drawer-estimate" className="mb-1 block text-slate-500">
-                Estimate (min)
+                Schatting (min)
               </label>
               <input
                 id="task-drawer-estimate"
@@ -230,7 +230,7 @@ export function TaskDrawer({ task, onClose }: Props) {
                 step={15}
                 value={estimatedMins}
                 onChange={(e) => setEstimatedMins(e.target.value === '' ? '' : Number(e.target.value))}
-                placeholder="e.g. 30"
+                placeholder="bijv. 30"
                 className="w-full rounded-md border border-codex-border bg-codex-bg px-3 py-2 text-slate-200 outline-none focus:border-codex-accent"
               />
             </div>
@@ -242,7 +242,7 @@ export function TaskDrawer({ task, onClose }: Props) {
               disabled={busy}
               className="rounded-md bg-codex-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              {updateTask.isPending ? 'Saving…' : 'Save'}
+              {updateTask.isPending ? 'Opslaan…' : 'Opslaan'}
             </button>
             <button
               type="button"
@@ -250,7 +250,7 @@ export function TaskDrawer({ task, onClose }: Props) {
               disabled={busy}
               className="rounded-md border border-codex-border px-4 py-2 text-sm text-slate-200 hover:border-codex-accent/50 disabled:opacity-50"
             >
-              Cancel
+              Annuleren
             </button>
             <button
               type="button"
@@ -258,7 +258,7 @@ export function TaskDrawer({ task, onClose }: Props) {
               disabled={busy}
               className="ml-auto rounded-md border border-red-500/40 px-4 py-2 text-sm text-red-300 hover:bg-red-500/10 disabled:opacity-50"
             >
-              {deleteTask.isPending ? 'Deleting…' : 'Delete'}
+              {deleteTask.isPending ? 'Verwijderen…' : 'Verwijderen'}
             </button>
           </div>
             </>

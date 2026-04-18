@@ -16,7 +16,7 @@ export function TaskNotesList({ taskId }: Props) {
   const handleQuickCreate = async () => {
     const res = await createNote.mutateAsync({
       task_id: taskId,
-      title: 'Task note',
+      title: 'Taaknotitie',
       body: '',
       body_format: 'html',
     });
@@ -28,24 +28,24 @@ export function TaskNotesList({ taskId }: Props) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-slate-200">Task notes</p>
+        <p className="text-sm font-medium text-slate-200">Taaknotities</p>
         <button
           type="button"
           onClick={() => void handleQuickCreate()}
           className="inline-flex items-center gap-1 rounded-md border border-codex-border px-2 py-1 text-xs text-slate-300 hover:border-codex-accent/50"
         >
           <Plus size={12} />
-          New note
+          Nieuwe notitie
         </button>
       </div>
       {notes.map((note) => (
         <div key={note.id} className="rounded-md border border-codex-border bg-codex-bg px-2.5 py-2">
-          <p className="text-sm text-slate-100">{note.title ?? 'Untitled note'}</p>
-          <p className="mt-1 text-xs text-codex-muted">{note.body.replace(/<[^>]+>/g, ' ').slice(0, 90) || 'Empty note'}</p>
+          <p className="text-sm text-slate-100">{note.title ?? 'Naamloze notitie'}</p>
+          <p className="mt-1 text-xs text-codex-muted">{note.body.replace(/<[^>]+>/g, ' ').slice(0, 90) || 'Lege notitie'}</p>
         </div>
       ))}
       {notes.length === 0 && !notesQuery.isLoading ? (
-        <p className="text-xs text-codex-muted">No notes linked to this task.</p>
+        <p className="text-xs text-codex-muted">Geen notities gekoppeld aan deze taak.</p>
       ) : null}
     </div>
   );

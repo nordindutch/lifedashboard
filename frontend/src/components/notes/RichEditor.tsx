@@ -16,7 +16,7 @@ export function RichEditor({ content, onChange, placeholder, readOnly, className
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Placeholder.configure({ placeholder: placeholder ?? 'Write something...' }),
+      Placeholder.configure({ placeholder: placeholder ?? 'Schrijf iets…' }),
     ],
     content,
     editable: !readOnly,
@@ -42,31 +42,31 @@ export function RichEditor({ content, onChange, placeholder, readOnly, className
               icon: <Bold size={13} />,
               action: () => editor.chain().focus().toggleBold().run(),
               active: editor.isActive('bold'),
-              title: 'Bold',
+              title: 'Vet',
             },
             {
               icon: <Italic size={13} />,
               action: () => editor.chain().focus().toggleItalic().run(),
               active: editor.isActive('italic'),
-              title: 'Italic',
+              title: 'Cursief',
             },
             {
               icon: <Heading2 size={13} />,
               action: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
               active: editor.isActive('heading', { level: 2 }),
-              title: 'Heading',
+              title: 'Kop',
             },
             {
               icon: <List size={13} />,
               action: () => editor.chain().focus().toggleBulletList().run(),
               active: editor.isActive('bulletList'),
-              title: 'Bullet list',
+              title: 'Opsommingslijst',
             },
             {
               icon: <ListOrdered size={13} />,
               action: () => editor.chain().focus().toggleOrderedList().run(),
               active: editor.isActive('orderedList'),
-              title: 'Numbered list',
+              title: 'Genummerde lijst',
             },
             {
               icon: <Code size={13} />,
@@ -92,7 +92,7 @@ export function RichEditor({ content, onChange, placeholder, readOnly, className
           <div className="ml-auto flex gap-1">
             <button
               type="button"
-              title="Undo"
+              title="Ongedaan maken"
               onClick={() => editor.chain().focus().undo().run()}
               className="rounded p-1.5 text-codex-muted hover:bg-white/5 hover:text-slate-200"
             >
@@ -100,7 +100,7 @@ export function RichEditor({ content, onChange, placeholder, readOnly, className
             </button>
             <button
               type="button"
-              title="Redo"
+              title="Opnieuw"
               onClick={() => editor.chain().focus().redo().run()}
               className="rounded p-1.5 text-codex-muted hover:bg-white/5 hover:text-slate-200"
             >

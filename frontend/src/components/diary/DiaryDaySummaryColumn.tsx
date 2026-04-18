@@ -1,4 +1,5 @@
 import { addDays, format, parseISO } from 'date-fns';
+import { nl } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEveningPlan } from '../../hooks/useEveningPlan';
 import { EveningSummaryCard, eveningPlanHasRenderableContent } from '../home/EveningSummaryCard';
@@ -15,7 +16,7 @@ export function DiaryDaySummaryColumn({ date, hasLogs, onDateChange }: Props) {
   const atToday = date >= todayStr;
   const label = (() => {
     try {
-      return format(parseISO(`${date}T12:00:00`), 'EEEE, MMM d, yyyy');
+      return format(parseISO(`${date}T12:00:00`), 'EEEE d MMMM yyyy', { locale: nl });
     } catch {
       return date;
     }
@@ -54,24 +55,24 @@ export function DiaryDaySummaryColumn({ date, hasLogs, onDateChange }: Props) {
           onClick={goNext}
           disabled={atToday}
           className="inline-flex shrink-0 rounded-md border border-codex-border p-1.5 text-slate-400 transition-colors hover:border-codex-accent/40 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-35"
-          aria-label="Next day"
+          aria-label="Volgende dag"
         >
           <ChevronRight size={18} />
         </button>
       </div>
 
-      {q.isLoading ? <p className="text-xs text-slate-500">Loading day summary…</p> : null}
-      {q.isError ? <p className="text-xs text-rose-400">Could not load day summary.</p> : null}
+      {q.isLoading ? <p className="text-xs text-slate-500">Dag samenvatting laden…</p> : null}
+      {q.isError ? <p className="text-xs text-rose-400">Dag samenvatting laden mislukt.</p> : null}
 
       {!q.isLoading && !q.isError ? (
         showCard || hasLogs ? (
           <EveningSummaryCard plan={plan} date={date} />
         ) : (
           <div className="rounded-xl border border-codex-border bg-codex-surface/80 px-3 py-3">
-            <p className="text-xs font-medium text-slate-400">Day summary</p>
+            <p className="text-xs font-medium text-slate-400">Dag samenvatting</p>
             <p className="mt-2 text-xs leading-relaxed text-slate-500">
-              No summary for this day yet. When AI evening plans are enabled, a reflection is generated after 22:30
-              (local) and stored so you can browse it here.
+              Nog geen samenvatting voor deze dag. Als AI-avondplannen aan staan, wordt na 22:30 (lokale tijd) een
+              reflectie gemaakt en hier opgeslagen.
             </p>
           </div>
         )

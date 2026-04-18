@@ -50,16 +50,16 @@ export function DiaryCard({ logs, className }: DiaryCardProps) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <BookOpen size={14} className="text-codex-muted" />
-          <h3 className="text-sm font-medium text-slate-300">Diary</h3>
+          <h3 className="text-sm font-medium text-slate-300">Dagboek</h3>
         </div>
         <Link to="/diary" className="text-xs text-codex-accent hover:text-indigo-300">
-          All logs
+          Alle logs
         </Link>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {logs.length === 0 ? (
-          <p className="text-xs text-slate-500">No logs today yet.</p>
+          <p className="text-xs text-slate-500">Nog geen logs vandaag.</p>
         ) : (
           <ul className="space-y-2">
             {logs.map((log) => (
@@ -109,7 +109,7 @@ export function DiaryCard({ logs, className }: DiaryCardProps) {
                 void handleSubmit();
               }
             }}
-            placeholder="Quick log…"
+            placeholder="Snelle log…"
             className="min-w-0 flex-1 rounded-md border border-codex-border bg-codex-bg px-2.5 py-1.5 text-xs text-slate-100 placeholder:text-slate-600 outline-none focus:border-codex-accent"
           />
           <button
@@ -117,7 +117,7 @@ export function DiaryCard({ logs, className }: DiaryCardProps) {
             onClick={() => void handleSubmit()}
             disabled={submitting || !text.trim()}
             className="flex items-center justify-center rounded-md border border-codex-border px-2 py-1.5 text-slate-400 transition-colors hover:border-codex-accent/50 hover:text-slate-200 disabled:opacity-40"
-            aria-label="Add log"
+            aria-label="Log toevoegen"
           >
             <Plus size={14} />
           </button>

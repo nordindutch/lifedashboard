@@ -3,7 +3,7 @@ import { Card } from '../ui/Card';
 
 export function GoalTree({ goals }: { goals: Goal[] }) {
   if (goals.length === 0) {
-    return <p className="text-sm text-slate-500">No goals yet.</p>;
+    return <p className="text-sm text-slate-500">Nog geen doelen.</p>;
   }
   return (
     <ul className="space-y-2">

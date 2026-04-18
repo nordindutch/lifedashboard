@@ -100,7 +100,7 @@ export function SetupPage() {
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-codex-muted">Email</span>
+              <span className="text-codex-muted">E-mail</span>
               <input
                 type="email"
                 autoComplete="email"
@@ -111,7 +111,7 @@ export function SetupPage() {
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-codex-muted">Password (min 10 characters)</span>
+              <span className="text-codex-muted">Wachtwoord (min. 10 tekens)</span>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -123,7 +123,7 @@ export function SetupPage() {
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-codex-muted">Confirm password</span>
+              <span className="text-codex-muted">Bevestig wachtwoord</span>
               <input
                 type="password"
                 autoComplete="new-password"
@@ -139,7 +139,7 @@ export function SetupPage() {
               disabled={pending}
               className="mt-2 rounded-xl border border-codex-accent/40 bg-codex-accent/20 px-4 py-2.5 text-sm font-medium text-slate-100 transition-colors hover:bg-codex-accent/30 disabled:opacity-50"
             >
-              {pending ? 'Creating…' : 'Create account'}
+              {pending ? 'Account aanmaken…' : 'Account aanmaken'}
             </button>
           </form>
         )}

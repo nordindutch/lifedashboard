@@ -50,13 +50,13 @@ function RouterShell() {
   }
 
   if (bootstrapError) {
-    const message = bootstrapQueryError instanceof Error ? bootstrapQueryError.message : 'Request failed';
+    const message = bootstrapQueryError instanceof Error ? bootstrapQueryError.message : 'Verzoek mislukt';
     const tauriMissingBase = isTauriApp && !isApiBaseUrlConfigured;
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-codex-bg px-4 text-center">
         <p className="max-w-md text-sm text-slate-300">
-          Could not reach the server to check whether setup is required. Fix your API URL or connection, then
-          retry.
+          Kan de server niet bereiken om te controleren of installatie nodig is. Controleer je API-URL of
+          verbinding en probeer opnieuw.
         </p>
         {tauriMissingBase ? (
           <p className="max-w-lg text-xs leading-relaxed text-amber-200/90">
@@ -75,7 +75,7 @@ function RouterShell() {
           onClick={() => void refetchBootstrap()}
           className="rounded-lg border border-codex-border bg-codex-surface px-4 py-2 text-sm text-slate-200 hover:border-codex-accent/50"
         >
-          Retry
+          Opnieuw
         </button>
       </div>
     );

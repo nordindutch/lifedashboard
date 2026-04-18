@@ -57,7 +57,7 @@ export function EveningSummaryCard({ plan, date }: Props) {
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Generation failed');
+      setError(e instanceof Error ? e.message : 'Genereren mislukt');
     } finally {
       setPending(false);
     }
@@ -68,7 +68,7 @@ export function EveningSummaryCard({ plan, date }: Props) {
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
           <Moon size={14} className="text-indigo-400" />
-          <p className="text-xs font-medium text-indigo-300">Day summary</p>
+          <p className="text-xs font-medium text-indigo-300">Dag samenvatting</p>
           {plan?.score != null ? (
             <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[10px] font-medium text-indigo-300">
               {plan.score}/100
@@ -82,7 +82,7 @@ export function EveningSummaryCard({ plan, date }: Props) {
           className="flex items-center gap-1.5 rounded-md border border-indigo-500/30 px-2 py-1 text-[11px] text-indigo-400 transition-colors hover:border-indigo-400/60 hover:text-indigo-200 disabled:opacity-50"
         >
           <RefreshCw size={11} className={pending ? 'animate-spin' : ''} />
-          {pending ? 'Generating…' : content ? 'Regenerate' : 'Generate summary'}
+          {pending ? 'Bezig…' : content ? 'Opnieuw' : 'Samenvatting maken'}
         </button>
       </div>
 
@@ -93,7 +93,7 @@ export function EveningSummaryCard({ plan, date }: Props) {
         </div>
       ) : (
         <p className="mt-3 text-xs text-slate-500">
-          {pending ? 'Writing your day summary…' : 'Click "Generate summary" to reflect on your day.'}
+          {pending ? 'Dag samenvatting schrijven…' : 'Klik op «Samenvatting maken» om je dag te reflecteren.'}
         </p>
       )}
 

@@ -3,7 +3,7 @@ import { Card } from '../ui/Card';
 
 export function ProjectList({ projects }: { projects: Project[] }) {
   if (projects.length === 0) {
-    return <p className="text-sm text-slate-500">No projects.</p>;
+    return <p className="text-sm text-slate-500">Geen projecten.</p>;
   }
   return (
     <ul className="space-y-2">

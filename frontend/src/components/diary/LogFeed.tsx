@@ -10,10 +10,10 @@ interface LogFeedProps {
 
 export function LogFeed({
   logs,
-  emptyDescription = 'Capture thoughts with the quick log bar below.',
+  emptyDescription = 'Vang gedachten hieronder in de snelle logbalk.',
 }: LogFeedProps) {
   if (logs.length === 0) {
-    return <EmptyState title="No logs for this day" description={emptyDescription} />;
+    return <EmptyState title="Geen logs voor deze dag" description={emptyDescription} />;
   }
   return (
     <div className="space-y-3">

@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { nl } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
@@ -36,7 +37,7 @@ function shiftMonth(month: string, delta: number): string {
 
 function monthLabel(month: string): string {
   const dt = new Date(`${month}-01T12:00:00`);
-  return format(dt, 'MMMM yyyy');
+  return format(dt, 'MMMM yyyy', { locale: nl });
 }
 
 function BudgetCurrentBalanceField({
@@ -198,7 +199,7 @@ export function BudgetPage() {
             type="button"
             onClick={() => setMonth((m) => shiftMonth(m, -1))}
             className="rounded border border-codex-border p-1.5 text-slate-400 hover:text-slate-100"
-            aria-label="Previous month"
+            aria-label="Vorige maand"
           >
             <ChevronLeft size={14} />
           </button>
@@ -207,7 +208,7 @@ export function BudgetPage() {
             type="button"
             onClick={() => setMonth((m) => shiftMonth(m, 1))}
             className="rounded border border-codex-border p-1.5 text-slate-400 hover:text-slate-100"
-            aria-label="Next month"
+            aria-label="Volgende maand"
           >
             <ChevronRight size={14} />
           </button>
@@ -224,12 +225,12 @@ export function BudgetPage() {
       </div>
 
       {q.isLoading ? (
-        <p className="text-sm text-slate-400">Loading budget…</p>
+        <p className="text-sm text-slate-400">Budget laden…</p>
       ) : (
         <>
           {q.isError || !data || !summary ? (
             <p className="text-sm text-rose-400">
-              {q.error instanceof Error ? q.error.message : 'Budget unavailable'}
+              {q.error instanceof Error ? q.error.message : 'Budget niet beschikbaar'}
             </p>
           ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -320,7 +321,7 @@ export function BudgetPage() {
                       });
                     }
                   }}
-                  placeholder="Add income..."
+                  placeholder="Inkomen toevoegen…"
                   className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
                 />
                 <div className="flex items-center gap-2 md:contents">
@@ -453,7 +454,7 @@ export function BudgetPage() {
                   value={newExpenseName}
                   disabled={isArchive}
                   onChange={(e) => setNewExpenseName(e.target.value)}
-                  placeholder="Add expense..."
+                  placeholder="Uitgave toevoegen…"
                   className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
                 />
                 <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] md:contents">

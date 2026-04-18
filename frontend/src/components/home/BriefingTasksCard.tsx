@@ -33,19 +33,19 @@ export function BriefingTasksCard({ tasksToday, tasksOverdue, tasksActive, class
   return (
     <Card className={className}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-medium text-slate-300">Tasks</h3>
+        <h3 className="text-sm font-medium text-slate-300">Taken</h3>
         <Link to="/tasks" className="text-xs text-codex-accent hover:text-indigo-300">
-          Open board
+          Open bord
         </Link>
       </div>
 
       {!hasAny ? (
-        <p className="text-sm text-slate-500">No open tasks. Add one from the board.</p>
+        <p className="text-sm text-slate-500">Geen open taken. Voeg er een toe op het bord.</p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
           {hasOverdue ? (
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-rose-400/90">Overdue</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-rose-400/90">Achterstallig</p>
               <ul className="space-y-0.5">
                 {tasksOverdue.map((t) => (
                   <TaskRow key={t.id} task={t} />
@@ -55,7 +55,7 @@ export function BriefingTasksCard({ tasksToday, tasksOverdue, tasksActive, class
           ) : null}
           {hasToday ? (
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-codex-muted">Due today</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-codex-muted">Vandaag</p>
               <ul className="space-y-0.5">
                 {tasksToday.map((t) => (
                   <TaskRow key={t.id} task={t} />
@@ -65,7 +65,7 @@ export function BriefingTasksCard({ tasksToday, tasksOverdue, tasksActive, class
           ) : null}
           {hasActive ? (
             <div>
-              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-codex-muted">On your board</p>
+              <p className="mb-1 text-xs font-medium uppercase tracking-wide text-codex-muted">Op je bord</p>
               <ul className="space-y-0.5">
                 {tasksActive.map((t) => (
                   <TaskRow key={t.id} task={t} />

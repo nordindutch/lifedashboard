@@ -81,9 +81,9 @@ export function StatsStrip({ snapshot, recentLogs, onMoodClick }: StatsStripProp
     <div className="flex gap-2">
       <StatPill
         icon={<CheckCircle2 size={15} />}
-        label="Done today"
+        label="Vandaag klaar"
         value={planned > 0 ? `${done}/${planned}` : done}
-        sub={planned > 0 ? `${Math.round((done / planned) * 100)}% complete` : undefined}
+        sub={planned > 0 ? `${Math.round((done / planned) * 100)}% voltooid` : undefined}
         accent={done > 0 ? 'text-emerald-400' : 'text-slate-200'}
       />
       <button
@@ -94,7 +94,7 @@ export function StatsStrip({ snapshot, recentLogs, onMoodClick }: StatsStripProp
             ? 'animate-pulse cursor-pointer border-amber-500/60 bg-amber-900/20'
             : 'border-codex-border bg-codex-surface'
         }`}
-        title={shouldPulse ? `Mood check-in — ${missedCheckIn}:00` : 'Log your mood'}
+        title={shouldPulse ? `Stemming — ${missedCheckIn}:00` : 'Stemming loggen'}
       >
         <Smile size={15} className={shouldPulse ? 'shrink-0 text-amber-400' : 'shrink-0 text-codex-muted'} />
         <div className="min-w-0">
@@ -104,22 +104,22 @@ export function StatsStrip({ snapshot, recentLogs, onMoodClick }: StatsStripProp
               shouldPulse ? 'text-amber-400' : mood != null && mood >= 7 ? 'text-emerald-400' : 'text-slate-200'
             }`}
           >
-            {mood != null ? mood.toFixed(1) : shouldPulse ? 'Check in' : '—'}
+            {mood != null ? mood.toFixed(1) : shouldPulse ? 'Invullen' : '—'}
           </p>
           {shouldPulse ? (
-            <p className="mt-0.5 text-[10px] text-amber-500/80">{missedCheckIn}:00 check-in</p>
+            <p className="mt-0.5 text-[10px] text-amber-500/80">{missedCheckIn}:00</p>
           ) : mood != null ? (
-            <p className="mt-0.5 text-[10px] text-slate-600">out of 10</p>
+            <p className="mt-0.5 text-[10px] text-slate-600">van de 10</p>
           ) : (
-            <p className="mt-0.5 text-[10px] text-slate-600">No mood logs</p>
+            <p className="mt-0.5 text-[10px] text-slate-600">Geen stemmingen</p>
           )}
         </div>
       </button>
       <StatPill
         icon={<Flame size={15} />}
-        label="Diary streak"
+        label="Dagboek reeks"
         value={streak === 0 ? '—' : `${streak}d`}
-        sub={streak >= 1 ? `${streak} day${streak > 1 ? 's' : ''} in a row` : 'Log today to start'}
+        sub={streak >= 1 ? `${streak} dag${streak > 1 ? 'en' : ''} op rij` : 'Log vandaag om te starten'}
         accent={streakAccent}
       />
     </div>

@@ -102,7 +102,7 @@ export function NotesPage() {
     const sections: { id: string; title: string; notes: Note[] }[] = [];
     const noneNotes = byKey.get('none');
     if (noneNotes && noneNotes.length > 0) {
-      sections.push({ id: 'none', title: 'No project', notes: noneNotes });
+      sections.push({ id: 'none', title: 'Geen project', notes: noneNotes });
     }
     byKey.delete('none');
 
@@ -208,7 +208,7 @@ export function NotesPage() {
 
   const createNewNote = async () => {
     const result = await createNote.mutateAsync({
-      title: 'Untitled note',
+      title: 'Naamloze notitie',
       body: '',
       body_format: 'html',
       is_pinned: false,
@@ -219,7 +219,7 @@ export function NotesPage() {
   };
 
   const removeNote = async () => {
-    if (!selectedNote || !window.confirm('Delete this note?')) {
+    if (!selectedNote || !window.confirm('Deze notitie verwijderen?')) {
       return;
     }
     const result = await deleteNote.mutateAsync(selectedNote.id);
@@ -249,14 +249,14 @@ export function NotesPage() {
         <aside className="flex min-h-0 flex-col rounded-xl border border-codex-border bg-codex-surface">
           <div className="space-y-3 border-b border-codex-border p-3">
             <div className="flex items-center justify-between">
-              <h1 className="text-lg font-semibold text-slate-100">Notes</h1>
+              <h1 className="text-lg font-semibold text-slate-100">Notities</h1>
               <button
                 type="button"
                 onClick={() => void createNewNote()}
                 className="inline-flex items-center gap-1 rounded-md bg-codex-accent px-2.5 py-1.5 text-xs font-medium text-white"
               >
                 <Plus size={13} />
-                New
+                Nieuw
               </button>
             </div>
             <div className="relative">
@@ -264,7 +264,7 @@ export function NotesPage() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search notes..."
+                placeholder="Notities zoeken…"
                 className="w-full rounded-md border border-codex-border bg-codex-bg py-2 pl-8 pr-2 text-sm text-slate-200 outline-none focus:border-codex-accent"
               />
             </div>
@@ -274,7 +274,7 @@ export function NotesPage() {
                 onChange={(event) => setLabelFilterId(event.target.value ? Number(event.target.value) : null)}
                 className="w-full appearance-none rounded-md border border-codex-border bg-codex-bg py-2 pl-2 pr-10 text-xs text-slate-200"
               >
-                <option value="">All tags</option>
+                <option value="">Alle labels</option>
                 {knownLabels.map((label) => (
                   <option key={label.id} value={label.id}>
                     #{label.name}
@@ -321,10 +321,10 @@ export function NotesPage() {
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <p className="truncate text-sm font-medium text-slate-100">{note.title ?? 'Untitled note'}</p>
+                            <p className="truncate text-sm font-medium text-slate-100">{note.title ?? 'Naamloze notitie'}</p>
                             {note.is_pinned ? <Pin size={12} className="shrink-0 text-codex-accent" /> : null}
                           </div>
-                          <p className="mt-1 truncate text-xs text-codex-muted">{notePreview(note) || 'Empty note'}</p>
+                          <p className="mt-1 truncate text-xs text-codex-muted">{notePreview(note) || 'Lege notitie'}</p>
                           {note.labels.length > 0 ? (
                             <div className="mt-1.5 flex flex-wrap gap-1">
                               {note.labels.slice(0, 3).map((label) => (
@@ -345,7 +345,7 @@ export function NotesPage() {
               );
             })}
             {notes.length === 0 && !notesQuery.isLoading ? (
-              <p className="p-3 text-sm text-codex-muted">No notes found.</p>
+              <p className="p-3 text-sm text-codex-muted">Geen notities gevonden.</p>
             ) : null}
           </div>
         </aside>
@@ -361,7 +361,7 @@ export function NotesPage() {
                       setTitle(event.target.value);
                       setIsDirty(true);
                     }}
-                    placeholder="Note title"
+                    placeholder="Titel"
                     className="min-w-0 flex-1 rounded-md border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-100 outline-none focus:border-codex-accent"
                   />
                   <button
@@ -373,7 +373,7 @@ export function NotesPage() {
                     className={`rounded-md border px-2 py-2 ${
                       isPinned ? 'border-codex-accent text-codex-accent' : 'border-codex-border text-codex-muted'
                     }`}
-                    title="Pin note"
+                    title="Notitie vastzetten"
                   >
                     {isPinned ? <Pin size={14} /> : <PinOff size={14} />}
                   </button>
@@ -381,7 +381,7 @@ export function NotesPage() {
                     type="button"
                     onClick={() => void removeNote()}
                     className="rounded-md border border-rose-500/40 px-2 py-2 text-rose-300 hover:bg-rose-500/10"
-                    title="Delete note"
+                    title="Notitie verwijderen"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -417,7 +417,7 @@ export function NotesPage() {
                         addLabel(labelInput);
                       }
                     }}
-                    placeholder="+ Add tag"
+                    placeholder="+ Label toevoegen"
                     className="min-w-[120px] rounded-md border border-codex-border bg-codex-bg px-2 py-1 text-xs text-slate-200 outline-none focus:border-codex-accent"
                   />
                 </div>
@@ -432,7 +432,7 @@ export function NotesPage() {
                       }}
                       className="w-full appearance-none rounded-md border border-codex-border bg-codex-bg py-2 pl-2 pr-10 text-sm text-slate-200"
                     >
-                      <option value="">No project</option>
+                      <option value="">Geen project</option>
                       {projects.map((project) => (
                         <option key={project.id} value={project.id}>
                           {project.title}
@@ -450,7 +450,7 @@ export function NotesPage() {
                       }}
                       className="w-full appearance-none rounded-md border border-codex-border bg-codex-bg py-2 pl-2 pr-10 text-sm text-slate-200"
                     >
-                      <option value="">No task</option>
+                      <option value="">Geen taak</option>
                       {openTasks.map((task) => (
                         <option key={task.id} value={task.id}>
                           {task.title}
@@ -473,7 +473,7 @@ export function NotesPage() {
             </>
           ) : (
             <div className="flex min-h-[12rem] items-center justify-center py-12 text-sm text-codex-muted">
-              Select a note or create a new one.
+              Selecteer een notitie of maak een nieuwe.
             </div>
           )}
         </section>

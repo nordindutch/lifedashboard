@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { nl } from 'date-fns/locale';
 import { Clock3 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { syncCalendar, syncGmail } from '../../api/settings';
@@ -128,8 +129,8 @@ export function DailyBriefing() {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6">
         <EmptyState
-          title="Briefing unavailable"
-          description={q.error instanceof Error ? q.error.message : 'Check API and credentials.'}
+          title="Briefing niet beschikbaar"
+          description={q.error instanceof Error ? q.error.message : 'Controleer API en gegevens.'}
         />
       </div>
     );
@@ -138,14 +139,14 @@ export function DailyBriefing() {
   if (!b) {
     return (
       <div className="mx-auto max-w-screen-2xl p-4 md:p-6">
-        <EmptyState title="No briefing data" />
+        <EmptyState title="Geen briefinggegevens" />
       </div>
     );
   }
 
   const dateLabel = (() => {
     try {
-      return format(new Date(b.date + 'T12:00:00'), 'EEEE, MMMM d, yyyy');
+      return format(new Date(b.date + 'T12:00:00'), 'EEEE d MMMM yyyy', { locale: nl });
     } catch {
       return b.date;
     }
@@ -178,12 +179,12 @@ export function DailyBriefing() {
           <div className="flex items-start gap-3">
             <span
               className="mt-2 h-2 w-2 shrink-0 rounded-full bg-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.45)]"
-              title="Today"
+              title="Vandaag"
               aria-hidden
             />
             <div>
-              <p className="text-xs font-medium uppercase tracking-widest text-codex-muted">Home</p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-100 md:text-3xl">Overview</h1>
+              <p className="text-xs font-medium uppercase tracking-widest text-codex-muted">Start</p>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-100 md:text-3xl">Overzicht</h1>
               <div className="mt-1 flex items-center gap-3 text-sm text-codex-muted">
                 <span>{dateLabel}</span>
                 <span className="inline-flex items-center gap-1.5">
@@ -200,13 +201,13 @@ export function DailyBriefing() {
         <div className="flex flex-col gap-4 lg:min-h-0">
           <section aria-labelledby="home-weather">
             <h2 id="home-weather" className="sr-only">
-              Weather
+              Weer
             </h2>
             <WeatherCard weather={b.weather} />
           </section>
           <section aria-labelledby="home-ai" className="flex flex-1 flex-col lg:min-h-0">
             <h2 id="home-ai" className="sr-only">
-              AI plan
+              AI-plan
             </h2>
             <AiPlanCard plan={b.ai_plan} className="min-h-0 flex flex-1 flex-col" />
           </section>
@@ -214,7 +215,7 @@ export function DailyBriefing() {
 
         <section aria-labelledby="home-calendar" className="flex flex-col lg:min-h-0">
           <h2 id="home-calendar" className="sr-only">
-            Calendar
+            Agenda
           </h2>
           <CalendarStrip
             events={b.events}
@@ -226,7 +227,7 @@ export function DailyBriefing() {
 
         <section aria-labelledby="home-inbox" className="flex flex-col lg:min-h-0">
           <h2 id="home-inbox" className="sr-only">
-            Inbox
+            Postvak
           </h2>
           <EmailPreview
             emails={b.emails}
@@ -239,7 +240,7 @@ export function DailyBriefing() {
         <div className="flex flex-col gap-3 lg:min-h-0">
           <section aria-labelledby="home-stats">
             <h2 id="home-stats" className="sr-only">
-              Today&apos;s stats
+              Statistieken van vandaag
             </h2>
             <StatsStrip snapshot={b.snapshot} recentLogs={b.recent_logs} onMoodClick={openMoodModal} />
           </section>
@@ -247,7 +248,7 @@ export function DailyBriefing() {
           {shouldShowDaySummary ? (
             <section aria-labelledby="home-evening">
               <h2 id="home-evening" className="sr-only">
-                Day summary
+                Dag samenvatting
               </h2>
               <EveningSummaryCard plan={b.evening_plan} date={b.date} />
             </section>
@@ -255,14 +256,14 @@ export function DailyBriefing() {
 
           <section aria-labelledby="home-diary" className="flex flex-1 flex-col lg:min-h-0">
             <h2 id="home-diary" className="sr-only">
-              Diary
+              Dagboek
             </h2>
             <DiaryCard logs={b.recent_logs} className="min-h-0 flex-1 flex flex-col" />
           </section>
 
           <section aria-labelledby="home-tasks" className="shrink-0">
             <h2 id="home-tasks" className="sr-only">
-              Tasks
+              Taken
             </h2>
             <BriefingTasksCard
               tasksToday={b.tasks_today}

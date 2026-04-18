@@ -36,7 +36,7 @@ export function MoodModal() {
 
   const handleSubmit = async (): Promise<void> => {
     if (score === null) {
-      setError('Pick a mood score first.');
+      setError('Kies eerst een stemming.');
       return;
     }
     setPending(true);
@@ -57,7 +57,7 @@ export function MoodModal() {
   };
 
   return (
-    <Modal open={open} title="How are you feeling?" onClose={handleClose}>
+    <Modal open={open} title="Hoe voel je je?" onClose={handleClose}>
       <div className="space-y-5">
         <div className="flex justify-between gap-1">
           {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
@@ -77,7 +77,7 @@ export function MoodModal() {
 
         <div>
           <label htmlFor="mood-modal-note" className="mb-1 block text-xs text-codex-muted">
-            Note (optional)
+            Notitie (optioneel)
           </label>
           <input
             id="mood-modal-note"
@@ -89,7 +89,7 @@ export function MoodModal() {
                 void handleSubmit();
               }
             }}
-            placeholder="What's influencing your mood?"
+            placeholder="Wat beïnvloedt je stemming?"
             className="w-full rounded-lg border border-codex-border bg-codex-bg px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-codex-accent"
           />
         </div>
@@ -98,7 +98,7 @@ export function MoodModal() {
 
         <div className="flex items-center justify-between gap-2">
           <button type="button" onClick={handleClose} className="text-sm text-codex-muted hover:text-slate-300">
-            Skip
+            Overslaan
           </button>
           <button
             type="button"
@@ -106,7 +106,7 @@ export function MoodModal() {
             disabled={pending || score === null}
             className="rounded-lg bg-amber-500 px-5 py-2 text-sm font-medium text-black transition-colors hover:bg-amber-400 disabled:opacity-50"
           >
-            {pending ? 'Logging…' : 'Log mood'}
+            {pending ? 'Opslaan…' : 'Stemming loggen'}
           </button>
         </div>
       </div>

@@ -45,7 +45,7 @@ export function AiPlanCard({ plan, className }: Props) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Brain size={14} className="text-indigo-400" />
-          <h3 className="text-sm font-medium text-slate-300">Day plan</h3>
+          <h3 className="text-sm font-medium text-slate-300">Dagplan</h3>
           {plan?.score != null ? (
             <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-medium text-indigo-300">
               {plan.score}/100
@@ -59,7 +59,7 @@ export function AiPlanCard({ plan, className }: Props) {
           className="flex items-center gap-1.5 rounded-md border border-codex-border px-2 py-1 text-xs text-codex-muted hover:text-slate-200 disabled:opacity-50 transition-colors"
         >
           <RefreshCw size={12} className={generate.isPending ? 'animate-spin' : ''} />
-          {generate.isPending ? 'Planning…' : plan ? 'Regenerate' : 'Generate plan'}
+          {generate.isPending ? 'Plannen…' : plan ? 'Opnieuw' : 'Plan maken'}
         </button>
       </div>
 
@@ -110,15 +110,15 @@ export function AiPlanCard({ plan, className }: Props) {
       ) : (
         <p className="text-xs text-slate-500">
           {plan
-            ? 'No schedule blocks in this plan.'
-            : 'Click "Generate plan" to build a block schedule for today.'}
+            ? 'Geen tijdsblokken in dit plan.'
+            : 'Klik op «Plan maken» voor een blokschema voor vandaag.'}
         </p>
       )}
 
       {/* Error */}
       {generate.isError ? (
         <p className="text-xs text-rose-400">
-          {generate.error instanceof Error ? generate.error.message : 'Generation failed. Check your API key.'}
+          {generate.error instanceof Error ? generate.error.message : 'Genereren mislukt. Controleer je API-sleutel.'}
         </p>
       ) : null}
 
