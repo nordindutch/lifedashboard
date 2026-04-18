@@ -5,6 +5,23 @@ import App from './App';
 import { scheduleMoodNotifications } from './lib/moodNotifications';
 import './index.css';
 
+const isCapacitor =
+  typeof window !== 'undefined' &&
+  typeof (window as { Capacitor?: unknown }).Capacitor !== 'undefined';
+
+if (isCapacitor) {
+  void (async () => {
+    try {
+      const { StatusBar, Style } = await import('@capacitor/status-bar');
+      await StatusBar.setStyle({ style: Style.Dark });
+      await StatusBar.setBackgroundColor({ color: '#0a0a0f' });
+      await StatusBar.setOverlaysWebView({ overlay: false });
+    } catch {
+      // non-critical
+    }
+  })();
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
