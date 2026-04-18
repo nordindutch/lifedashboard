@@ -9,18 +9,10 @@ const isCapacitor =
 const isNative = isTauri || isCapacitor;
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '';
 
-async function openInSystemBrowser(url: string): Promise<void> {
-  if (isTauri) {
-    const { open } = await import('@tauri-apps/plugin-shell');
-    await open(url);
-    return;
-  }
-  if (isCapacitor) {
-    const { Browser } = await import('@capacitor/browser');
-    await Browser.open({ url });
-    return;
-  }
-  window.location.href = url;
+/** Capacitor only — Google blocks OAuth inside embedded WebViews; must use the system browser. */
+async function openOAuthInSystemBrowser(url: string): Promise<void> {
+  const { Browser } = await import('@capacitor/browser');
+  await Browser.open({ url });
 }
 
 function buildLoginUrl(): string {
@@ -74,10 +66,11 @@ export function LoginPage() {
   const handleLogin = async (): Promise<void> => {
     setError(null);
     const url = buildLoginUrl();
-    if (isNative) {
-      await openInSystemBrowser(url);
+    if (isCapacitor) {
+      await openOAuthInSystemBrowser(url);
       setWaiting(true);
     } else {
+      // Web + Tauri: same webview/window (Tauri used to rely on this; shell.open broke that).
       window.location.href = url;
     }
   };
@@ -105,7 +98,7 @@ export function LoginPage() {
         ) : waiting ? (
           <div className="flex flex-col items-center gap-3">
             <div className="h-5 w-5 animate-spin rounded-full border-2 border-codex-border border-t-codex-accent" />
-            <p className="text-sm text-codex-muted">Complete sign-in in your browser…</p>
+            <p className="text-sm text-codex-muted">Complete sign-in in Chrome…</p>
             <button
               type="button"
               onClick={() => setWaiting(false)}
