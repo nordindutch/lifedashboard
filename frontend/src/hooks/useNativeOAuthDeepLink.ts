@@ -18,6 +18,31 @@ const isCapacitor =
 
 const AUTH_ME_KEY = ['auth', 'me'] as const;
 
+/** Rust emits `Vec<Url>`; event JSON may be strings or `{ href }` depending on serde. */
+function urlsFromDeepLinkPayload(payload: unknown): string[] {
+  if (payload == null) {
+    return [];
+  }
+  if (typeof payload === 'string') {
+    return [payload];
+  }
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+  const out: string[] = [];
+  for (const item of payload) {
+    if (typeof item === 'string') {
+      out.push(item);
+    } else if (item && typeof item === 'object' && 'href' in item) {
+      const h = (item as { href?: unknown }).href;
+      if (typeof h === 'string') {
+        out.push(h);
+      }
+    }
+  }
+  return out;
+}
+
 /** Extract session token from custom-scheme OAuth return URLs (parsers differ by WebView). */
 export function parseLoginSuccessToken(rawUrl: string): string | null {
   const trimmed = rawUrl.trim();
@@ -91,12 +116,12 @@ export function useNativeOAuthDeepLink(): void {
           const { getCurrent, onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
           const initial = await getCurrent();
           if (initial) {
-            for (const raw of initial) {
+            for (const raw of urlsFromDeepLinkPayload(initial)) {
               handleUrl(raw);
             }
           }
-          unlisten = await onOpenUrl((urls: string[]) => {
-            for (const raw of urls) {
+          unlisten = await onOpenUrl((payload: unknown) => {
+            for (const raw of urlsFromDeepLinkPayload(payload)) {
               handleUrl(raw);
             }
           });

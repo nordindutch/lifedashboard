@@ -1,5 +1,7 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { claimPendingNativeSession } from '../api/auth';
 import { TitleBar } from '../components/layout/TitleBar';
 import { useAuth } from '../hooks/useAuth';
 
@@ -51,7 +53,10 @@ function buildLoginUrl(): string {
   return path;
 }
 
+const AUTH_ME_KEY = ['auth', 'me'] as const;
+
 export function LoginPage() {
+  const queryClient = useQueryClient();
   const { data: user, isLoading } = useAuth();
   const navigate = useNavigate();
   const [waiting, setWaiting] = useState(false);
@@ -66,6 +71,43 @@ export function LoginPage() {
     const err = params.get('error') ?? params.get('reason');
     if (err) setError(`Login failed: ${err.replace(/_/g, ' ')}`);
   }, []);
+
+  // Fallback when com.codex.life:// never reaches the native shell (Tauri/Android): backend stores
+  // a one-time token; we poll until Google OAuth completes and claim succeeds.
+  useEffect(() => {
+    if (!waiting || !isNative) {
+      return;
+    }
+    let cancelled = false;
+    const tryClaim = async (): Promise<void> => {
+      if (cancelled) {
+        return;
+      }
+      const res = await claimPendingNativeSession();
+      if (!res.success || !res.data?.token) {
+        return;
+      }
+      localStorage.setItem('codex_session', res.data.token);
+      await queryClient.cancelQueries({ queryKey: AUTH_ME_KEY });
+      await queryClient.refetchQueries({ queryKey: AUTH_ME_KEY });
+      if (queryClient.getQueryData(AUTH_ME_KEY)) {
+        setWaiting(false);
+        navigate('/', { replace: true });
+      }
+    };
+    void tryClaim();
+    const id = window.setInterval(() => void tryClaim(), 2000);
+    const timeout = window.setTimeout(() => {
+      window.clearInterval(id);
+      setWaiting(false);
+      setError((prev) => prev ?? 'Sign-in timed out. Close the browser tab and try again.');
+    }, 5 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      window.clearTimeout(timeout);
+    };
+  }, [waiting, isNative, queryClient, navigate]);
 
   const handleLogin = async (): Promise<void> => {
     setError(null);

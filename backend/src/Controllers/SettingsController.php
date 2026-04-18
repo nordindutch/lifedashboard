@@ -308,6 +308,16 @@ final class SettingsController
                 // unreliably or “before” the OAuth page finishes. Serve HTML and navigate via JS
                 // after a short delay so the document commits, then open the app (same idea as the
                 // interstitial below, but without the “continue in browser” options).
+                //
+                // Also store a one-time claim row so the native client can poll POST /api/auth/tauri/claim
+                // when the custom scheme never reaches the app (common on Windows / some browsers).
+                $pendingExpiry = time() + 300;
+                $db->prepare(
+                    "INSERT INTO settings (key, value, value_type, description, updated_at)
+                     VALUES ('tauri_pending_token', :value, 'string', 'One-time native OAuth session claim', unixepoch())
+                     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()",
+                )->execute(['value' => $sessionToken . '|' . $pendingExpiry]);
+
                 $appUrl = 'com.codex.life://login-success?token=' . rawurlencode($sessionToken);
                 $appUrlJs = json_encode($appUrl, JSON_THROW_ON_ERROR);
                 $encodedAppUrl = htmlspecialchars($appUrl, ENT_QUOTES, 'UTF-8');

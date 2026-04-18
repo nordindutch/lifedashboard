@@ -15,3 +15,8 @@ export async function getMe(): Promise<ApiResponse<AuthUser>> {
 export async function logout(): Promise<ApiResponse<{ logged_out: boolean }>> {
   return parseApiResponse(apiClient.post('/api/auth/logout', {}));
 }
+
+/** When native OAuth finishes in the browser, backend stores a short-lived token; poll until claimed. */
+export async function claimPendingNativeSession(): Promise<ApiResponse<{ token: string }>> {
+  return parseApiResponse(apiClient.post('/api/auth/tauri/claim', {}));
+}
