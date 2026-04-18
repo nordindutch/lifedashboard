@@ -20,6 +20,35 @@ final class BudgetController
         'Overig',
     ];
 
+    private function sqliteTableExists(PDO $db, string $table): bool
+    {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table)) {
+            return false;
+        }
+        $stmt = $db->prepare('SELECT 1 FROM sqlite_master WHERE type = ? AND name = ? LIMIT 1');
+        $stmt->execute(['table', $table]);
+
+        return $stmt->fetchColumn() !== false;
+    }
+
+    private function sqliteTableHasColumn(PDO $db, string $table, string $column): bool
+    {
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $table) || !preg_match('/^[a-zA-Z0-9_]+$/', $column)) {
+            return false;
+        }
+        $stmt = $db->query('PRAGMA table_info(' . $table . ')');
+        if ($stmt === false) {
+            return false;
+        }
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $col) {
+            if (($col['name'] ?? '') === $column) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public function getMonth(Request $request): void
     {
         $month = $this->monthFromRequest($request);
@@ -275,6 +304,14 @@ final class BudgetController
         unset($request);
         try {
             $db = Database::getInstance();
+            if (!$this->sqliteTableExists($db, 'budget_accounts')) {
+                Response::success([
+                    'items' => [],
+                    'total' => 0.0,
+                ]);
+
+                return;
+            }
             $rows = $db->query(
                 'SELECT id, name, kind, balance, sort_order, created_at, updated_at
                  FROM budget_accounts ORDER BY sort_order ASC, id ASC',
@@ -390,11 +427,24 @@ final class BudgetController
         unset($request);
         try {
             $db = Database::getInstance();
-            $rows = $db->query(
-                'SELECT id, name, amount, paid_amount, deadline, paid, notes, sort_order, created_at, updated_at
+            if (!$this->sqliteTableExists($db, 'budget_debts')) {
+                Response::success([
+                    'items' => [],
+                    'outstanding' => 0.0,
+                ]);
+
+                return;
+            }
+            $hasPaidAmount = $this->sqliteTableHasColumn($db, 'budget_debts', 'paid_amount');
+            $selectCols = 'id, name, amount';
+            if ($hasPaidAmount) {
+                $selectCols .= ', paid_amount';
+            }
+            $selectCols .= ', deadline, paid, notes, sort_order, created_at, updated_at';
+            $sql = 'SELECT ' . $selectCols . '
                  FROM budget_debts
-                 ORDER BY paid ASC, sort_order ASC, (deadline IS NULL) ASC, deadline ASC, id ASC',
-            )->fetchAll(PDO::FETCH_ASSOC);
+                 ORDER BY paid ASC, sort_order ASC, (deadline IS NULL) ASC, deadline ASC, id ASC';
+            $rows = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
 
             $items = array_map([$this, 'mapDebtRow'], $rows);
             $outstanding = 0.0;
@@ -497,7 +547,13 @@ final class BudgetController
     private function mapDebtRow(array $row): array
     {
         $amount = round((float) $row['amount'], 2);
-        $paidAmount = isset($row['paid_amount']) ? round((float) $row['paid_amount'], 2) : 0.0;
+        $paidFlag = ((int) ($row['paid'] ?? 0)) === 1;
+        if (array_key_exists('paid_amount', $row) && $row['paid_amount'] !== null) {
+            $paidAmount = round((float) $row['paid_amount'], 2);
+        } else {
+            // Legacy rows before migration 006: derive from paid flag.
+            $paidAmount = $paidFlag ? $amount : 0.0;
+        }
         if ($paidAmount > $amount) {
             $paidAmount = $amount;
         }
@@ -513,7 +569,7 @@ final class BudgetController
             'paid_amount' => $paidAmount,
             'remaining' => $remaining,
             'deadline' => $row['deadline'] !== null ? (int) $row['deadline'] : null,
-            'paid' => ((int) $row['paid']) === 1,
+            'paid' => $paidFlag,
             'notes' => $row['notes'] !== null ? (string) $row['notes'] : null,
             'sort_order' => (int) $row['sort_order'],
             'created_at' => (int) $row['created_at'],
