@@ -26,12 +26,11 @@ services:
       - "80"
     volumes:
       - sqlite_data:/var/www/html/database
-    environment:
-      CODEX_API_KEY:        ${CODEX_API_KEY}
-      FRONTEND_URL:         ${FRONTEND_URL}
-      ANTHROPIC_API_KEY:    ${ANTHROPIC_API_KEY:-}
-      GOOGLE_CLIENT_ID:     ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+    # Load secrets from this file into the container. Do not use ${VAR} here — Compose
+    # substitutes those from the *host* .env / shell only; it does not read .env.production,
+    # so Google OAuth (and others) would stay empty unless you sourced the file manually.
+    env_file:
+      - .env.production
 
 volumes:
   caddy_data:
