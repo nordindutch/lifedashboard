@@ -11,7 +11,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <TitleBar />
       <div className="flex min-h-0 flex-1 flex-row items-stretch">
         <Sidebar />
-        <main className="min-h-0 min-w-0 flex-1 pb-24 md:pb-6">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 max-md:pb-[calc(8rem+env(safe-area-inset-bottom,0px))] md:pb-6">
+          {children}
+        </main>
       </div>
       <BottomNav />
       <QuickCreate />

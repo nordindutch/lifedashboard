@@ -114,10 +114,6 @@ export function LoginPage() {
           </form>
         )}
 
-        <p className="text-xs text-codex-muted/60">
-          New installs open account setup first; this page is only after a user already exists.
-        </p>
-
         <p className="text-xs text-codex-muted/60">Personal access only</p>
       </div>
     </div>

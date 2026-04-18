@@ -63,7 +63,14 @@ if (is_readable($backendRoot . '/.env')) {
 }
 
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-$allowedOrigins = ['http://localhost:5173', 'http://localhost:5273', 'http://localhost:8180'];
+$allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5273',
+    'http://localhost:8180',
+    // Tauri desktop WebView (packaged app loads from asset/custom origin, not the API host)
+    'https://tauri.localhost',
+    'http://tauri.localhost',
+];
 $prodUrl = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? '');
 if ($prodUrl !== '') {
     $allowedOrigins[] = rtrim($prodUrl, '/');

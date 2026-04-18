@@ -13,7 +13,11 @@ import { NotesPage } from './pages/NotesPage';
 import { ProductivityPage } from './pages/ProductivityPage';
 import { SetupPage } from './pages/SetupPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { isApiBaseUrlConfigured } from './api/client';
 import { useUiStore } from './stores/uiStore';
+
+const isTauriApp =
+  typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -47,12 +51,24 @@ function RouterShell() {
 
   if (bootstrapError) {
     const message = bootstrapQueryError instanceof Error ? bootstrapQueryError.message : 'Request failed';
+    const tauriMissingBase = isTauriApp && !isApiBaseUrlConfigured;
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-codex-bg px-4 text-center">
         <p className="max-w-md text-sm text-slate-300">
           Could not reach the server to check whether setup is required. Fix your API URL or connection, then
           retry.
         </p>
+        {tauriMissingBase ? (
+          <p className="max-w-lg text-xs leading-relaxed text-amber-200/90">
+            Tauri builds must embed your API origin at build time. Set{' '}
+            <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">VITE_API_BASE_URL=https://your-domain</code>{' '}
+            in <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">frontend/.env.tauri.local</code> (or{' '}
+            <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">.env.production.local</code>), then run{' '}
+            <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">npm run build:tauri</code> and{' '}
+            <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">cargo tauri build</code> again. No trailing
+            slash on the URL.
+          </p>
+        ) : null}
         <p className="text-xs text-codex-muted">{message}</p>
         <button
           type="button"

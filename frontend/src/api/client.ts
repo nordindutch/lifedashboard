@@ -10,8 +10,11 @@ const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 // In dev mode (cargo tauri dev), the Vite proxy handles /api → PHP.
 const baseURL =
   import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.length > 0
-    ? import.meta.env.VITE_API_BASE_URL
+    ? String(import.meta.env.VITE_API_BASE_URL).replace(/\/$/, '')
     : '';
+
+/** False in Tauri/Capacitor release builds when VITE_API_BASE_URL was not set at build time — API calls will fail. */
+export const isApiBaseUrlConfigured = baseURL.length > 0;
 
 export const apiClient = axios.create({
   baseURL,
