@@ -32,11 +32,11 @@ export function SetupPage() {
     e.preventDefault();
     setError(null);
     if (password !== password2) {
-      setError('Passwords do not match');
+      setError('Wachtwoorden komen niet overeen');
       return;
     }
     if (password.length < 10) {
-      setError('Password must be at least 10 characters');
+      setError('Wachtwoord moet minimaal 10 tekens zijn');
       return;
     }
     setPending(true);
@@ -57,7 +57,7 @@ export function SetupPage() {
       queryClient.setQueryData(AUTH_BOOTSTRAP_KEY, { needs_setup: false });
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Setup failed');
+      setError(err instanceof Error ? err.message : 'Installatie mislukt');
     } finally {
       setPending(false);
     }
@@ -68,10 +68,10 @@ export function SetupPage() {
       <TitleBar />
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-8 px-4 py-8">
         <div className="flex flex-col items-center gap-2 text-center">
-          <h1 className="text-xl font-semibold text-slate-100">Welcome to Project Codex</h1>
+          <h1 className="text-xl font-semibold text-slate-100">Welkom bij Project Codex</h1>
           <p className="max-w-md text-sm text-codex-muted">
-            Create the single account for this instance. Use a strong password; you can connect Google
-            later in Settings for calendar and mail sync only.
+            Maak het ene account voor deze installatie. Gebruik een sterk wachtwoord; je kunt Google later
+            koppelen onder Instellingen voor agenda- en mail-sync.
           </p>
         </div>
 
@@ -82,14 +82,14 @@ export function SetupPage() {
         ) : null}
 
         {isLoading ? (
-          <p className="text-sm text-codex-muted">Loading…</p>
+          <p className="text-sm text-codex-muted">Laden…</p>
         ) : (
           <form
             onSubmit={(e) => void handleSubmit(e)}
             className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-codex-border bg-codex-surface/60 p-6"
           >
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-codex-muted">Your name</span>
+              <span className="text-codex-muted">Je naam</span>
               <input
                 type="text"
                 autoComplete="name"

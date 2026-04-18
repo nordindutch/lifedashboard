@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAccounts, useDeleteAccount, useUpsertAccount } from '../../hooks/useBudget';
+import { formatAmountInputDisplay, parseAmountInput } from '../../lib/amountInput';
 import { ACCOUNT_KINDS, type Account, type AccountKind } from '../../types';
 
 function formatEuro(n: number): string {
@@ -28,8 +29,8 @@ export function AccountsPanel() {
   };
 
   const handleAdd = async () => {
-    const balance = Number(newBalance);
-    if (newName.trim() === '' || Number.isNaN(balance)) {
+    const balance = parseAmountInput(newBalance);
+    if (newName.trim() === '' || balance === null) {
       return;
     }
     await save({ name: newName, kind: newKind, balance });
@@ -41,8 +42,8 @@ export function AccountsPanel() {
   return (
     <section className="rounded-xl border border-codex-border bg-codex-surface p-4">
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-medium text-slate-200">Accounts</h2>
-        <span className="text-sm font-medium text-slate-300">Total: {formatEuro(total)}</span>
+        <h2 className="text-sm font-medium text-slate-200">Rekeningen</h2>
+        <span className="text-sm font-medium text-slate-300">Totaal: {formatEuro(total)}</span>
       </div>
 
       <div className="space-y-1.5">
@@ -67,7 +68,7 @@ export function AccountsPanel() {
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="Account name"
+          placeholder="Naam"
           className="min-w-0 flex-1 rounded-md border border-codex-border bg-codex-bg px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-codex-accent"
         />
         <select
@@ -84,16 +85,23 @@ export function AccountsPanel() {
         <input
           value={newBalance}
           onChange={(e) => setNewBalance(e.target.value)}
-          placeholder="0.00"
+          onBlur={() => {
+            const n = parseAmountInput(newBalance);
+            if (n !== null) {
+              setNewBalance(formatAmountInputDisplay(n));
+            }
+          }}
+          placeholder="0,00"
           inputMode="decimal"
-          className="w-24 rounded-md border border-codex-border bg-codex-bg px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-codex-accent"
+          autoComplete="off"
+          className="w-28 rounded-md border border-codex-border bg-codex-bg px-2.5 py-1.5 text-sm text-slate-100 placeholder:text-slate-600 outline-none focus:border-codex-accent"
         />
         <button
           type="button"
           onClick={() => void handleAdd()}
           className="flex items-center gap-1 rounded-md border border-codex-border bg-codex-bg px-2.5 py-1.5 text-sm text-slate-200 hover:border-codex-accent"
         >
-          <Plus size={14} /> Add
+          <Plus size={14} /> Toevoegen
         </button>
       </div>
     </section>
@@ -110,7 +118,15 @@ function AccountRow({
   onDelete: () => void;
 }) {
   const [name, setName] = useState(account.name);
-  const [balance, setBalance] = useState(String(account.balance));
+  const [balance, setBalance] = useState(formatAmountInputDisplay(account.balance));
+
+  useEffect(() => {
+    setName(account.name);
+    setBalance(formatAmountInputDisplay(account.balance));
+  }, [account.id, account.name, account.balance]);
+
+  const balanceNum = parseAmountInput(balance);
+  const balanceLooksNegative = balanceNum !== null && balanceNum < 0;
 
   return (
     <div className="flex items-center gap-2">
@@ -135,19 +151,27 @@ function AccountRow({
         value={balance}
         onChange={(e) => setBalance(e.target.value)}
         onBlur={() => {
-          const n = Number(balance);
-          if (!Number.isNaN(n) && n !== account.balance) {
+          const n = parseAmountInput(balance);
+          if (n === null) {
+            setBalance(formatAmountInputDisplay(account.balance));
+            return;
+          }
+          setBalance(formatAmountInputDisplay(n));
+          if (n !== account.balance) {
             onSave({ balance: n });
           }
         }}
         inputMode="decimal"
-        className="w-24 rounded-md border border-transparent bg-transparent px-2 py-1 text-right text-sm text-slate-100 hover:border-codex-border focus:border-codex-accent focus:outline-none"
+        autoComplete="off"
+        className={`w-28 rounded-md border border-transparent bg-transparent px-2 py-1 text-right text-sm hover:border-codex-border focus:border-codex-accent focus:outline-none ${
+          balanceLooksNegative ? 'text-rose-400' : 'text-slate-100'
+        }`}
       />
       <button
         type="button"
         onClick={onDelete}
         className="rounded-md p-1.5 text-slate-500 hover:bg-rose-500/10 hover:text-rose-400"
-        title="Delete account"
+        title="Rekening verwijderen"
       >
         <Trash2 size={14} />
       </button>

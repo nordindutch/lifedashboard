@@ -40,19 +40,88 @@ final class BudgetController
         $db = Database::getInstance();
         $monthId = $this->ensureMonth($db, $month);
 
+        $load = $db->prepare('SELECT * FROM budget_months WHERE id = ? LIMIT 1');
+        $load->execute([$monthId]);
+        /** @var array<string, mixed>|false $existing */
+        $existing = $load->fetch(PDO::FETCH_ASSOC);
+        if ($existing === false) {
+            Response::error('server_error', 'Month row missing', 500);
+
+            return;
+        }
+
+        $minimumBalance = array_key_exists('minimum_balance', $body)
+            ? (float) $body['minimum_balance']
+            : (float) ($existing['minimum_balance'] ?? -2400.0);
+        $notes = array_key_exists('notes', $body)
+            ? ($body['notes'] !== null ? (string) $body['notes'] : null)
+            : (isset($existing['notes']) && $existing['notes'] !== null ? (string) $existing['notes'] : null);
+
+        $balanceAccountId = null;
+        if (array_key_exists('current_balance_account_id', $body)) {
+            $raw = $body['current_balance_account_id'];
+            if ($raw === null || $raw === '') {
+                $balanceAccountId = null;
+            } else {
+                $aid = (int) $raw;
+                if ($aid < 1) {
+                    Response::error('validation_error', 'Invalid current_balance_account_id', 422, 'current_balance_account_id');
+
+                    return;
+                }
+                $accStmt = $db->prepare('SELECT id, kind, balance FROM budget_accounts WHERE id = ? LIMIT 1');
+                $accStmt->execute([$aid]);
+                /** @var array<string, mixed>|false $acc */
+                $acc = $accStmt->fetch(PDO::FETCH_ASSOC);
+                if ($acc === false) {
+                    Response::error('validation_error', 'Account not found', 422, 'current_balance_account_id');
+
+                    return;
+                }
+                if (($acc['kind'] ?? '') !== 'checking') {
+                    Response::error('validation_error', 'Alleen een betaalrekening kan gekoppeld worden', 422, 'current_balance_account_id');
+
+                    return;
+                }
+                $balanceAccountId = $aid;
+            }
+        } else {
+            $eid = $existing['current_balance_account_id'] ?? null;
+            $balanceAccountId = $eid !== null && $eid !== '' ? (int) $eid : null;
+        }
+
+        if ($balanceAccountId !== null) {
+            $accStmt = $db->prepare('SELECT balance FROM budget_accounts WHERE id = ? AND kind = ? LIMIT 1');
+            $accStmt->execute([$balanceAccountId, 'checking']);
+            /** @var array<string, mixed>|false $accRow */
+            $accRow = $accStmt->fetch(PDO::FETCH_ASSOC);
+            if ($accRow === false) {
+                Response::error('validation_error', 'Betaalrekening niet gevonden', 422, 'current_balance_account_id');
+
+                return;
+            }
+            $currentBalance = round((float) ($accRow['balance'] ?? 0), 2);
+        } else {
+            $currentBalance = array_key_exists('current_balance', $body)
+                ? (float) $body['current_balance']
+                : (float) ($existing['current_balance'] ?? 0.0);
+        }
+
         $stmt = $db->prepare(
             'UPDATE budget_months
              SET current_balance = :current_balance,
                  minimum_balance = :minimum_balance,
                  notes = :notes,
+                 current_balance_account_id = :current_balance_account_id,
                  updated_at = unixepoch()
              WHERE id = :id',
         );
         $stmt->execute([
             'id' => $monthId,
-            'current_balance' => isset($body['current_balance']) ? (float) $body['current_balance'] : 0.0,
-            'minimum_balance' => isset($body['minimum_balance']) ? (float) $body['minimum_balance'] : -2400.0,
-            'notes' => array_key_exists('notes', $body) ? ($body['notes'] !== null ? (string) $body['notes'] : null) : null,
+            'current_balance' => $currentBalance,
+            'minimum_balance' => $minimumBalance,
+            'notes' => $notes,
+            'current_balance_account_id' => $balanceAccountId,
         ]);
 
         Response::success($this->buildPayload($month));
@@ -204,22 +273,30 @@ final class BudgetController
     public function listAccounts(Request $request): void
     {
         unset($request);
-        $db = Database::getInstance();
-        $rows = $db->query(
-            'SELECT id, name, kind, balance, sort_order, created_at, updated_at
-             FROM budget_accounts ORDER BY sort_order ASC, id ASC',
-        )->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $db = Database::getInstance();
+            $rows = $db->query(
+                'SELECT id, name, kind, balance, sort_order, created_at, updated_at
+                 FROM budget_accounts ORDER BY sort_order ASC, id ASC',
+            )->fetchAll(PDO::FETCH_ASSOC);
 
-        $items = array_map([$this, 'mapAccountRow'], $rows);
-        $total = 0.0;
-        foreach ($items as $row) {
-            $total += (float) $row['balance'];
+            $items = array_map([$this, 'mapAccountRow'], $rows);
+            $total = 0.0;
+            foreach ($items as $row) {
+                $total += (float) $row['balance'];
+            }
+
+            Response::success([
+                'items' => $items,
+                'total' => round($total, 2),
+            ]);
+        } catch (\Throwable) {
+            Response::error(
+                'server_error',
+                'Could not load accounts. If this is a new install, run database migrations (budget_accounts table).',
+                500,
+            );
         }
-
-        Response::success([
-            'items' => $items,
-            'total' => round($total, 2),
-        ]);
     }
 
     public function upsertAccount(Request $request): void
@@ -243,20 +320,33 @@ final class BudgetController
             return;
         }
 
-        $db = Database::getInstance();
-        if ($id > 0) {
-            $db->prepare(
-                'UPDATE budget_accounts SET name = ?, kind = ?, balance = ?, sort_order = ?
-                 WHERE id = ?',
-            )->execute([$name, $kind, $balance, $sortOrder, $id]);
-        } else {
-            $db->prepare(
-                'INSERT INTO budget_accounts (name, kind, balance, sort_order)
-                 VALUES (?, ?, ?, ?)',
-            )->execute([$name, $kind, $balance, $sortOrder]);
-        }
+        try {
+            $db = Database::getInstance();
+            if ($id > 0) {
+                $db->prepare(
+                    'UPDATE budget_accounts SET name = ?, kind = ?, balance = ?, sort_order = ?
+                     WHERE id = ?',
+                )->execute([$name, $kind, $balance, $sortOrder, $id]);
+                if ($kind !== 'checking') {
+                    $db->prepare(
+                        'UPDATE budget_months SET current_balance_account_id = NULL WHERE current_balance_account_id = ?',
+                    )->execute([$id]);
+                }
+            } else {
+                $db->prepare(
+                    'INSERT INTO budget_accounts (name, kind, balance, sort_order)
+                     VALUES (?, ?, ?, ?)',
+                )->execute([$name, $kind, $balance, $sortOrder]);
+            }
 
-        $this->listAccounts($request);
+            $this->listAccounts($request);
+        } catch (\Throwable) {
+            Response::error(
+                'server_error',
+                'Could not save account. Run database migrations if budget_accounts is missing.',
+                500,
+            );
+        }
     }
 
     public function deleteAccount(Request $request): void
@@ -267,8 +357,14 @@ final class BudgetController
 
             return;
         }
-        Database::getInstance()->prepare('DELETE FROM budget_accounts WHERE id = ?')->execute([$id]);
-        $this->listAccounts($request);
+        try {
+            $db = Database::getInstance();
+            $db->prepare('UPDATE budget_months SET current_balance_account_id = NULL WHERE current_balance_account_id = ?')->execute([$id]);
+            $db->prepare('DELETE FROM budget_accounts WHERE id = ?')->execute([$id]);
+            $this->listAccounts($request);
+        } catch (\Throwable) {
+            Response::error('server_error', 'Could not delete account', 500);
+        }
     }
 
     /**
@@ -292,24 +388,33 @@ final class BudgetController
     public function listDebts(Request $request): void
     {
         unset($request);
-        $db = Database::getInstance();
-        $rows = $db->query(
-            'SELECT id, name, amount, deadline, paid, notes, sort_order, created_at, updated_at
-             FROM budget_debts ORDER BY paid ASC, sort_order ASC, deadline ASC NULLS LAST, id ASC',
-        )->fetchAll(PDO::FETCH_ASSOC);
+        try {
+            $db = Database::getInstance();
+            $rows = $db->query(
+                'SELECT id, name, amount, paid_amount, deadline, paid, notes, sort_order, created_at, updated_at
+                 FROM budget_debts
+                 ORDER BY paid ASC, sort_order ASC, (deadline IS NULL) ASC, deadline ASC, id ASC',
+            )->fetchAll(PDO::FETCH_ASSOC);
 
-        $items = array_map([$this, 'mapDebtRow'], $rows);
-        $outstanding = 0.0;
-        foreach ($items as $row) {
-            if (!$row['paid']) {
-                $outstanding += (float) $row['amount'];
+            $items = array_map([$this, 'mapDebtRow'], $rows);
+            $outstanding = 0.0;
+            foreach ($items as $row) {
+                if (!$row['paid']) {
+                    $outstanding += (float) $row['remaining'];
+                }
             }
-        }
 
-        Response::success([
-            'items' => $items,
-            'outstanding' => round($outstanding, 2),
-        ]);
+            Response::success([
+                'items' => $items,
+                'outstanding' => round($outstanding, 2),
+            ]);
+        } catch (\Throwable) {
+            Response::error(
+                'server_error',
+                'Could not load debts. If this is a new install, run database migrations (budget_debts table).',
+                500,
+            );
+        }
     }
 
     public function upsertDebt(Request $request): void
@@ -320,7 +425,21 @@ final class BudgetController
         $amount = (float) ($body['amount'] ?? 0);
         $deadline = isset($body['deadline']) && $body['deadline'] !== null && $body['deadline'] !== ''
             ? (int) $body['deadline'] : null;
+        $paidAmount = isset($body['paid_amount']) ? (float) $body['paid_amount'] : 0.0;
+        if ($paidAmount < 0.0) {
+            $paidAmount = 0.0;
+        }
+        if ($paidAmount > $amount) {
+            $paidAmount = $amount;
+        }
         $paid = !empty($body['paid']) ? 1 : 0;
+        if ($paid === 1 && $paidAmount < $amount) {
+            $paidAmount = $amount;
+        }
+        if ($paidAmount >= $amount && $amount > 0.0) {
+            $paid = 1;
+            $paidAmount = $amount;
+        }
         $notes = isset($body['notes']) ? (string) $body['notes'] : null;
         $sortOrder = (int) ($body['sort_order'] ?? 0);
 
@@ -330,20 +449,28 @@ final class BudgetController
             return;
         }
 
-        $db = Database::getInstance();
-        if ($id > 0) {
-            $db->prepare(
-                'UPDATE budget_debts SET name = ?, amount = ?, deadline = ?, paid = ?,
-                 notes = ?, sort_order = ? WHERE id = ?',
-            )->execute([$name, $amount, $deadline, $paid, $notes, $sortOrder, $id]);
-        } else {
-            $db->prepare(
-                'INSERT INTO budget_debts (name, amount, deadline, paid, notes, sort_order)
-                 VALUES (?, ?, ?, ?, ?, ?)',
-            )->execute([$name, $amount, $deadline, $paid, $notes, $sortOrder]);
-        }
+        try {
+            $db = Database::getInstance();
+            if ($id > 0) {
+                $db->prepare(
+                    'UPDATE budget_debts SET name = ?, amount = ?, paid_amount = ?, deadline = ?, paid = ?,
+                     notes = ?, sort_order = ? WHERE id = ?',
+                )->execute([$name, $amount, $paidAmount, $deadline, $paid, $notes, $sortOrder, $id]);
+            } else {
+                $db->prepare(
+                    'INSERT INTO budget_debts (name, amount, paid_amount, deadline, paid, notes, sort_order)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)',
+                )->execute([$name, $amount, $paidAmount, $deadline, $paid, $notes, $sortOrder]);
+            }
 
-        $this->listDebts($request);
+            $this->listDebts($request);
+        } catch (\Throwable) {
+            Response::error(
+                'server_error',
+                'Could not save debt. Run database migrations if budget_debts is missing.',
+                500,
+            );
+        }
     }
 
     public function deleteDebt(Request $request): void
@@ -354,8 +481,12 @@ final class BudgetController
 
             return;
         }
-        Database::getInstance()->prepare('DELETE FROM budget_debts WHERE id = ?')->execute([$id]);
-        $this->listDebts($request);
+        try {
+            Database::getInstance()->prepare('DELETE FROM budget_debts WHERE id = ?')->execute([$id]);
+            $this->listDebts($request);
+        } catch (\Throwable) {
+            Response::error('server_error', 'Could not delete debt', 500);
+        }
     }
 
     /**
@@ -365,10 +496,22 @@ final class BudgetController
      */
     private function mapDebtRow(array $row): array
     {
+        $amount = round((float) $row['amount'], 2);
+        $paidAmount = isset($row['paid_amount']) ? round((float) $row['paid_amount'], 2) : 0.0;
+        if ($paidAmount > $amount) {
+            $paidAmount = $amount;
+        }
+        if ($paidAmount < 0.0) {
+            $paidAmount = 0.0;
+        }
+        $remaining = max(0.0, round($amount - $paidAmount, 2));
+
         return [
             'id' => (int) $row['id'],
             'name' => (string) $row['name'],
-            'amount' => round((float) $row['amount'], 2),
+            'amount' => $amount,
+            'paid_amount' => $paidAmount,
+            'remaining' => $remaining,
             'deadline' => $row['deadline'] !== null ? (int) $row['deadline'] : null,
             'paid' => ((int) $row['paid']) === 1,
             'notes' => $row['notes'] !== null ? (string) $row['notes'] : null,
@@ -463,10 +606,26 @@ final class BudgetController
         $monthStmt->execute([$monthId]);
         /** @var array<string, mixed> $monthRow */
         $monthRow = $monthStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        $cbaRaw = $monthRow['current_balance_account_id'] ?? null;
+        $balanceAccountId = $cbaRaw !== null && $cbaRaw !== '' ? (int) $cbaRaw : null;
+        $storedBalance = (float) ($monthRow['current_balance'] ?? 0);
+        $effectiveBalance = $storedBalance;
+        if ($balanceAccountId !== null) {
+            $linkStmt = $db->prepare('SELECT balance, kind FROM budget_accounts WHERE id = ? LIMIT 1');
+            $linkStmt->execute([$balanceAccountId]);
+            /** @var array<string, mixed>|false $linkRow */
+            $linkRow = $linkStmt->fetch(PDO::FETCH_ASSOC);
+            if ($linkRow !== false && ($linkRow['kind'] ?? '') === 'checking') {
+                $effectiveBalance = round((float) ($linkRow['balance'] ?? 0), 2);
+            } else {
+                $balanceAccountId = null;
+            }
+        }
         $monthData = [
             'id' => (int) ($monthRow['id'] ?? 0),
             'month' => (string) ($monthRow['month'] ?? $month),
-            'current_balance' => (float) ($monthRow['current_balance'] ?? 0),
+            'current_balance' => $effectiveBalance,
+            'current_balance_account_id' => $balanceAccountId,
             'minimum_balance' => (float) ($monthRow['minimum_balance'] ?? -2400),
             'notes' => isset($monthRow['notes']) ? ($monthRow['notes'] !== null ? (string) $monthRow['notes'] : null) : null,
             'created_at' => (int) ($monthRow['created_at'] ?? time()),
@@ -556,7 +715,7 @@ final class BudgetController
                 'paid' => round($paid, 2),
                 'pending_income' => round($pendingIncome, 2),
                 'pending_expenses' => round($pendingExpenses, 2),
-                'projected_balance' => round(((float) $monthData['current_balance']) + $pendingIncome - $pendingExpenses, 2),
+                'projected_balance' => round($effectiveBalance + $pendingIncome - $pendingExpenses, 2),
                 'by_category' => $byCategory,
             ],
         ];

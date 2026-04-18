@@ -20,22 +20,26 @@ export default defineConfig(({ mode }) => {
     mode === 'tauri' ||
     process.env.TAURI_ENV_DEBUG !== undefined ||
     process.env.TAURI_ENV_PLATFORM !== undefined;
+  const isAndroid = mode === 'android';
+
+  const resolveAlias: Record<string, string> = {};
+  if (!isTauri) {
+    resolveAlias['@tauri-apps/plugin-notification'] = path.resolve(
+      __dirname,
+      'src/stubs/tauri-plugin-notification.ts',
+    );
+    resolveAlias['@tauri-apps/api/window'] = path.resolve(__dirname, 'src/stubs/tauri-api-window.ts');
+  }
+  if (!isAndroid) {
+    resolveAlias['@capacitor/status-bar'] = path.resolve(
+      __dirname,
+      'src/stubs/capacitor-status-bar.ts',
+    );
+  }
 
   return {
     plugins: [react()],
-    ...(!isTauri
-      ? {
-        resolve: {
-          alias: {
-            '@tauri-apps/plugin-notification': path.resolve(
-              __dirname,
-              'src/stubs/tauri-plugin-notification.ts',
-            ),
-            '@tauri-apps/api/window': path.resolve(__dirname, 'src/stubs/tauri-api-window.ts'),
-          },
-        },
-      }
-      : {}),
+    ...(Object.keys(resolveAlias).length > 0 ? { resolve: { alias: resolveAlias } } : {}),
 
     server: {
       port: 5173,

@@ -88,16 +88,34 @@ export function useAccounts() {
 export function useUpsertAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: Parameters<typeof budgetApi.upsertAccount>[0]) => budgetApi.upsertAccount(body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['budget-accounts'] }),
+    mutationFn: async (body: Parameters<typeof budgetApi.upsertAccount>[0]) => {
+      const res = await budgetApi.upsertAccount(body);
+      if (!res.success) {
+        throw new Error(res.error.message);
+      }
+      return res.data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(['budget-accounts'], data);
+      void qc.invalidateQueries({ queryKey: ['budget'] });
+    },
   });
 }
 
 export function useDeleteAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => budgetApi.deleteAccount(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['budget-accounts'] }),
+    mutationFn: async (id: number) => {
+      const res = await budgetApi.deleteAccount(id);
+      if (!res.success) {
+        throw new Error(res.error.message);
+      }
+      return res.data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(['budget-accounts'], data);
+      void qc.invalidateQueries({ queryKey: ['budget'] });
+    },
   });
 }
 
@@ -117,15 +135,31 @@ export function useDebts() {
 export function useUpsertDebt() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: Parameters<typeof budgetApi.upsertDebt>[0]) => budgetApi.upsertDebt(body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['budget-debts'] }),
+    mutationFn: async (body: Parameters<typeof budgetApi.upsertDebt>[0]) => {
+      const res = await budgetApi.upsertDebt(body);
+      if (!res.success) {
+        throw new Error(res.error.message);
+      }
+      return res.data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(['budget-debts'], data);
+    },
   });
 }
 
 export function useDeleteDebt() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => budgetApi.deleteDebt(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['budget-debts'] }),
+    mutationFn: async (id: number) => {
+      const res = await budgetApi.deleteDebt(id);
+      if (!res.success) {
+        throw new Error(res.error.message);
+      }
+      return res.data;
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(['budget-debts'], data);
+    },
   });
 }

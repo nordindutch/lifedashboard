@@ -17,6 +17,7 @@ export const updateBudgetMonth = (
     current_balance?: number;
     minimum_balance?: number;
     notes?: string | null;
+    current_balance_account_id?: number | null;
   },
 ) => parseApiResponse<BudgetMonthPayload>(apiClient.put(`/api/budget/${month}`, body));
 
@@ -72,6 +73,7 @@ export const upsertDebt = (body: {
   id?: number;
   name: string;
   amount: number;
+  paid_amount?: number;
   deadline: number | null;
   paid: boolean;
   notes?: string | null;

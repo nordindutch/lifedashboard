@@ -65,7 +65,7 @@ export function TitleBar() {
           type="button"
           onClick={handleMinimize}
           className="flex h-7 w-7 items-center justify-center rounded text-codex-muted transition-colors hover:bg-white/10 hover:text-slate-200"
-          aria-label="Minimise"
+          aria-label="Minimaliseren"
         >
           <Minus size={13} />
         </button>
@@ -74,7 +74,7 @@ export function TitleBar() {
           type="button"
           onClick={handleMaximize}
           className="flex h-7 w-7 items-center justify-center rounded text-codex-muted transition-colors hover:bg-white/10 hover:text-slate-200"
-          aria-label={maximized ? 'Restore' : 'Maximise'}
+          aria-label={maximized ? 'Herstellen' : 'Maximaliseren'}
         >
           {maximized ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
         </button>
@@ -83,7 +83,7 @@ export function TitleBar() {
           type="button"
           onClick={handleClose}
           className="flex h-7 w-7 items-center justify-center rounded text-codex-muted transition-colors hover:bg-rose-500/80 hover:text-white"
-          aria-label="Close"
+          aria-label="Sluiten"
         >
           <X size={13} />
         </button>

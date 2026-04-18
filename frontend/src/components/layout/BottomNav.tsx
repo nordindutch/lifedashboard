@@ -4,12 +4,12 @@ import { tabToPath } from '../../lib/routes';
 import { useUiStore, type AppTab } from '../../stores/uiStore';
 
 const tabs: { id: AppTab; label: string; icon: typeof Home }[] = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'tasks', label: 'Tasks', icon: LayoutGrid },
-  { id: 'notes', label: 'Notes', icon: StickyNote },
-  { id: 'diary', label: 'Diary', icon: Calendar },
+  { id: 'home', label: 'Start', icon: Home },
+  { id: 'tasks', label: 'Taken', icon: LayoutGrid },
+  { id: 'notes', label: 'Notities', icon: StickyNote },
+  { id: 'diary', label: 'Dagboek', icon: Calendar },
   { id: 'budget', label: 'Budget', icon: PiggyBank },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'settings', label: 'Instellingen', icon: Settings },
 ];
 
 export function BottomNav() {
@@ -20,7 +20,7 @@ export function BottomNav() {
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 min-h-[var(--codex-bottom-nav-height)] border-t border-codex-border bg-codex-bg/95 backdrop-blur md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-      aria-label="Primary"
+      aria-label="Hoofdnavigatie"
     >
       <ul className="mx-auto flex max-w-lg items-stretch justify-around gap-1 px-2 py-2">
         {tabs.map((t) => {

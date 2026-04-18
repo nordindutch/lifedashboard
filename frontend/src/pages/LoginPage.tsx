@@ -29,7 +29,7 @@ export function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const err = params.get('error') ?? params.get('reason');
-    if (err) setError(`Session issue: ${err.replace(/_/g, ' ')}`);
+    if (err) setError(`Sessieprobleem: ${err.replace(/_/g, ' ')}`);
   }, []);
 
   const handleSubmit = async (e: FormEvent): Promise<void> => {
@@ -50,7 +50,7 @@ export function LoginPage() {
       await queryClient.invalidateQueries({ queryKey: AUTH_BOOTSTRAP_KEY });
       navigate('/', { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Sign-in failed');
+      setError(err instanceof Error ? err.message : 'Inloggen mislukt');
     } finally {
       setPending(false);
     }
@@ -65,7 +65,7 @@ export function LoginPage() {
             <span className="text-2xl font-bold text-codex-accent">C</span>
           </div>
           <h1 className="text-2xl font-semibold text-slate-100">Project Codex</h1>
-          <p className="text-sm text-codex-muted">Your personal Life OS</p>
+          <p className="text-sm text-codex-muted">Jouw persoonlijke Life OS</p>
         </div>
 
         {error ? (
@@ -75,14 +75,14 @@ export function LoginPage() {
         ) : null}
 
         {isLoading ? (
-          <p className="text-sm text-codex-muted">Checking session…</p>
+          <p className="text-sm text-codex-muted">Sessie controleren…</p>
         ) : (
           <form
             onSubmit={(e) => void handleSubmit(e)}
             className="flex w-full max-w-sm flex-col gap-4 rounded-xl border border-codex-border bg-codex-surface/60 p-6"
           >
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-codex-muted">Email</span>
+              <span className="text-codex-muted">E-mail</span>
               <input
                 type="email"
                 autoComplete="email"
@@ -93,7 +93,7 @@ export function LoginPage() {
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="text-codex-muted">Password</span>
+              <span className="text-codex-muted">Wachtwoord</span>
               <input
                 type="password"
                 autoComplete="current-password"
@@ -109,12 +109,12 @@ export function LoginPage() {
               disabled={pending}
               className="mt-2 rounded-xl border border-codex-accent/40 bg-codex-accent/20 px-4 py-2.5 text-sm font-medium text-slate-100 transition-colors hover:bg-codex-accent/30 disabled:opacity-50"
             >
-              {pending ? 'Signing in…' : 'Sign in'}
+              {pending ? 'Bezig met inloggen…' : 'Inloggen'}
             </button>
           </form>
         )}
 
-        <p className="text-xs text-codex-muted/60">Personal access only</p>
+        <p className="text-xs text-codex-muted/60">Alleen persoonlijk gebruik</p>
       </div>
     </div>
   );

@@ -125,4 +125,60 @@ if ($accountsTableCheck === false) {
     $pdo->exec($sql);
 }
 
+$debtsTableCheck = $pdo->query(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'budget_debts'",
+)->fetchColumn();
+if ($debtsTableCheck !== false) {
+    $debtCols = $pdo->query('PRAGMA table_info(budget_debts)')->fetchAll(PDO::FETCH_ASSOC);
+    $hasPaidAmount = false;
+    foreach ($debtCols as $col) {
+        if (($col['name'] ?? '') === 'paid_amount') {
+            $hasPaidAmount = true;
+            break;
+        }
+    }
+    if (!$hasPaidAmount) {
+        $debtPaidMigrationPath = __DIR__ . '/migrations/006_debt_paid_amount.sql';
+        if (!is_readable($debtPaidMigrationPath)) {
+            fwrite(STDERR, "Debt paid_amount migration file not found: {$debtPaidMigrationPath}\n");
+            exit(1);
+        }
+        $debtPaidSql = file_get_contents($debtPaidMigrationPath);
+        if ($debtPaidSql === false) {
+            fwrite(STDERR, "Could not read debt paid_amount migration file.\n");
+            exit(1);
+        }
+        $pdo->exec($debtPaidSql);
+        $pdo->exec('UPDATE budget_debts SET paid_amount = amount WHERE paid = 1');
+    }
+}
+
+$budgetMonthsTable = $pdo->query(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'budget_months'",
+)->fetchColumn();
+$hasBalanceAccountId = true;
+if ($budgetMonthsTable !== false) {
+    $budgetMonthsCols = $pdo->query('PRAGMA table_info(budget_months)')->fetchAll(PDO::FETCH_ASSOC);
+    $hasBalanceAccountId = false;
+    foreach ($budgetMonthsCols as $col) {
+        if (($col['name'] ?? '') === 'current_balance_account_id') {
+            $hasBalanceAccountId = true;
+            break;
+        }
+    }
+}
+if (!$hasBalanceAccountId) {
+    $balanceAccountMigrationPath = __DIR__ . '/migrations/007_budget_month_balance_account.sql';
+    if (!is_readable($balanceAccountMigrationPath)) {
+        fwrite(STDERR, "Budget month balance account migration not found: {$balanceAccountMigrationPath}\n");
+        exit(1);
+    }
+    $balanceAccountSql = file_get_contents($balanceAccountMigrationPath);
+    if ($balanceAccountSql === false) {
+        fwrite(STDERR, "Could not read budget month balance account migration file.\n");
+        exit(1);
+    }
+    $pdo->exec($balanceAccountSql);
+}
+
 echo "Migration OK: {$dbPath}\n";

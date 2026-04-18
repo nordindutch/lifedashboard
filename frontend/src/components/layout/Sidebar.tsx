@@ -5,12 +5,12 @@ import { tabToPath } from '../../lib/routes';
 import { useUiStore, type AppTab } from '../../stores/uiStore';
 
 const tabs: { id: AppTab; label: string; icon: typeof Home }[] = [
-  { id: 'home', label: 'Home', icon: Home },
-  { id: 'tasks', label: 'Tasks', icon: LayoutGrid },
-  { id: 'notes', label: 'Notes', icon: StickyNote },
-  { id: 'diary', label: 'Diary', icon: Calendar },
+  { id: 'home', label: 'Start', icon: Home },
+  { id: 'tasks', label: 'Taken', icon: LayoutGrid },
+  { id: 'notes', label: 'Notities', icon: StickyNote },
+  { id: 'diary', label: 'Dagboek', icon: Calendar },
   { id: 'budget', label: 'Budget', icon: PiggyBank },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'settings', label: 'Instellingen', icon: Settings },
 ];
 
 export function Sidebar() {
@@ -33,7 +33,7 @@ export function Sidebar() {
           type="button"
           onClick={toggle}
           className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-slate-200"
-          aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+          aria-label={expanded ? 'Zijbalk inklappen' : 'Zijbalk uitklappen'}
         >
           {expanded ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
         </button>
@@ -73,11 +73,11 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => logoutMutation.mutate()}
-            title="Sign out"
+            title="Uitloggen"
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-white/5 hover:text-rose-400 ${expanded ? '' : 'justify-center'}`}
           >
             <LogOut className="h-4 w-4 shrink-0" />
-            {expanded ? <span>Sign out</span> : null}
+            {expanded ? <span>Uitloggen</span> : null}
           </button>
         </div>
       ) : null}

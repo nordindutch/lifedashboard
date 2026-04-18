@@ -1,10 +1,11 @@
 import { format } from 'date-fns';
 import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { AccountsPanel } from '../components/budget/AccountsPanel';
 import { DebtsPanel } from '../components/budget/DebtsPanel';
 import {
+  useAccounts,
   useBudget,
   useCopyFromPrevious,
   useDeleteExpense,
@@ -13,7 +14,8 @@ import {
   useUpsertExpense,
   useUpsertIncome,
 } from '../hooks/useBudget';
-import { BUDGET_CATEGORIES, CATEGORY_COLORS, type BudgetCategory } from '../types';
+import { formatAmountInputDisplay, parseAmountInput } from '../lib/amountInput';
+import { BUDGET_CATEGORIES, CATEGORY_COLORS, type BudgetCategory, type BudgetMonth } from '../types';
 
 function currentMonthKey(): string {
   const d = new Date();
@@ -35,6 +37,94 @@ function shiftMonth(month: string, delta: number): string {
 function monthLabel(month: string): string {
   const dt = new Date(`${month}-01T12:00:00`);
   return format(dt, 'MMMM yyyy');
+}
+
+function BudgetCurrentBalanceField({
+  monthData,
+  isArchive,
+  updateMonth,
+}: {
+  monthData: BudgetMonth;
+  isArchive: boolean;
+  updateMonth: ReturnType<typeof useUpdateBudgetMonth>;
+}) {
+  const accountsQ = useAccounts();
+  const checking = useMemo(
+    () => (accountsQ.data?.items ?? []).filter((a) => a.kind === 'checking'),
+    [accountsQ.data?.items],
+  );
+  const [manualInput, setManualInput] = useState(() => formatAmountInputDisplay(monthData.current_balance));
+
+  useEffect(() => {
+    if ((monthData.current_balance_account_id ?? null) == null) {
+      setManualInput(formatAmountInputDisplay(monthData.current_balance));
+    }
+  }, [monthData.month, monthData.current_balance, monthData.current_balance_account_id]);
+
+  const linked = (monthData.current_balance_account_id ?? null) != null;
+
+  return (
+    <>
+      <span className="text-codex-muted">Huidig saldo</span>
+      <div className="flex flex-col items-end gap-1">
+        <select
+          value={monthData.current_balance_account_id != null ? String(monthData.current_balance_account_id) : ''}
+          disabled={isArchive}
+          onChange={(e) => {
+            const v = e.target.value;
+            void updateMonth.mutateAsync({
+              current_balance_account_id: v === '' ? null : Number(v),
+            });
+          }}
+          className="w-full max-w-[16rem] rounded border border-codex-border bg-codex-bg px-2 py-1 text-right text-sm text-slate-200"
+          aria-label="Bron voor huidig saldo"
+        >
+          <option value="">Handmatig invoeren</option>
+          {checking.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </select>
+        {linked ? (
+          <span
+            className={`w-full max-w-[16rem] rounded border border-codex-border/60 bg-codex-bg/40 px-2 py-1 text-right text-sm ${
+              monthData.current_balance < 0 ? 'text-rose-400' : 'text-emerald-400'
+            }`}
+          >
+            {formatEuro(monthData.current_balance)}
+          </span>
+        ) : (
+          <input
+            value={manualInput}
+            onChange={(e) => setManualInput(e.target.value)}
+            onBlur={() => {
+              const n = parseAmountInput(manualInput);
+              if (n === null) {
+                setManualInput(formatAmountInputDisplay(monthData.current_balance));
+                return;
+              }
+              setManualInput(formatAmountInputDisplay(n));
+              if (n !== monthData.current_balance) {
+                void updateMonth.mutateAsync({ current_balance: n });
+              }
+            }}
+            disabled={isArchive}
+            inputMode="decimal"
+            autoComplete="off"
+            className={`w-full max-w-[16rem] rounded border border-codex-border bg-codex-bg px-2 py-1 text-right text-sm ${
+              monthData.current_balance < 0 ? 'text-rose-400' : 'text-emerald-400'
+            }`}
+          />
+        )}
+        {linked ? (
+          <span className="max-w-[16rem] text-right text-[10px] text-codex-muted">
+            Volgt saldo van de gekoppelde betaalrekening.
+          </span>
+        ) : null}
+      </div>
+    </>
+  );
 }
 
 export function BudgetPage() {
@@ -414,17 +504,7 @@ export function BudgetPage() {
           <section className="rounded-xl border border-codex-border bg-codex-surface p-4">
             <h2 className="mb-3 text-sm font-medium text-slate-300">Samenvatting</h2>
             <div className="mb-3 grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-              <span className="text-codex-muted">Huidig saldo</span>
-              <input
-                type="number"
-                step="0.01"
-                defaultValue={data.month.current_balance.toFixed(2)}
-                disabled={isArchive}
-                onBlur={(e) => void updateMonth.mutateAsync({ current_balance: Number(e.target.value) })}
-                className={`rounded border border-codex-border bg-codex-bg px-2 py-1 text-right ${
-                  data.month.current_balance < 0 ? 'text-rose-400' : 'text-emerald-400'
-                }`}
-              />
+              <BudgetCurrentBalanceField monthData={data.month} isArchive={isArchive} updateMonth={updateMonth} />
               <span className="text-codex-muted">Te ontvangen</span>
               <span className="text-emerald-400">{formatEuro(summary.pending_income)}</span>
               <span className="text-codex-muted">Te betalen</span>

@@ -60,11 +60,49 @@ export function unwrapApiError(err: unknown): ApiError['error'] {
   return { code: 'unknown', message: err instanceof Error ? err.message : 'Request failed' };
 }
 
+/** Axios may leave JSON as a string if Content-Type is not application/json. */
+function normalizeEnvelope(raw: unknown): unknown {
+  if (raw === null || raw === undefined) {
+    return raw;
+  }
+  if (typeof raw === 'string') {
+    const t = raw.trim();
+    if (t === '') {
+      return null;
+    }
+    if (
+      (t.startsWith('{') && t.endsWith('}')) ||
+      (t.startsWith('[') && t.endsWith(']')) ||
+      t.startsWith('{') ||
+      t.startsWith('[')
+    ) {
+      try {
+        return JSON.parse(t) as unknown;
+      } catch {
+        return raw;
+      }
+    }
+    return raw;
+  }
+  return raw;
+}
+
 export async function parseApiResponse<T>(promise: Promise<{ data: unknown }>): Promise<ApiResponse<T>> {
   try {
-    const { data } = await promise;
-    if (data && typeof data === 'object' && 'success' in data) {
+    const { data: raw } = await promise;
+    const data = normalizeEnvelope(raw);
+    if (data && typeof data === 'object' && !Array.isArray(data) && 'success' in data) {
       return data as ApiResponse<T>;
+    }
+    if (typeof raw === 'string' && raw.trimStart().startsWith('<')) {
+      return {
+        success: false,
+        error: {
+          code: 'invalid_response',
+          message:
+            'Server returned HTML instead of JSON. Check the API URL, PHP errors, and that database migrations have run.',
+        },
+      };
     }
     return { success: false, error: { code: 'invalid_response', message: 'Invalid API response' } };
   } catch (e: unknown) {

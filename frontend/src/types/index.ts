@@ -219,6 +219,8 @@ export interface BudgetMonth {
   id: number;
   month: string;
   current_balance: number;
+  /** When set, `current_balance` follows this betaalrekening’s balance. */
+  current_balance_account_id?: number | null;
   minimum_balance: number;
   notes: string | null;
   created_at: UnixTimestamp;
@@ -265,11 +267,11 @@ export interface BudgetMonthPayload {
 export type AccountKind = 'checking' | 'savings' | 'cash' | 'investment' | 'other';
 
 export const ACCOUNT_KINDS: { value: AccountKind; label: string }[] = [
-  { value: 'checking', label: 'Checking' },
-  { value: 'savings', label: 'Savings' },
-  { value: 'cash', label: 'Cash' },
-  { value: 'investment', label: 'Investment' },
-  { value: 'other', label: 'Other' },
+  { value: 'checking', label: 'Betaalrekening' },
+  { value: 'savings', label: 'Spaarrekening' },
+  { value: 'cash', label: 'Contant' },
+  { value: 'investment', label: 'Beleggen' },
+  { value: 'other', label: 'Overig' },
 ];
 
 export interface Account {
@@ -290,7 +292,12 @@ export interface AccountsPayload {
 export interface Debt {
   id: number;
   name: string;
+  /** Original / total debt amount */
   amount: number;
+  /** Cumulative amount paid (including partial payments) */
+  paid_amount: number;
+  /** Outstanding balance: amount - paid_amount (server-computed) */
+  remaining: number;
   deadline: UnixTimestamp | null;
   paid: boolean;
   notes: string | null;
