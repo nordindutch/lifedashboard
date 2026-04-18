@@ -49,6 +49,65 @@ final class BudgetController
         return false;
     }
 
+    /** @var list<string> */
+    private const BUDGET_MIGRATION_FILES = [
+        '005_accounts_debts.sql',
+        '006_debt_paid_amount.sql',
+        '007_budget_month_balance_account.sql',
+    ];
+
+    /**
+     * Apply migrations 005–007 when missing (same logic as database/migrate.php).
+     * Production SQLite often lives only in the Docker volume; CLI migrate may never touch it.
+     */
+    private function ensureBudgetAccountsDebtsSchema(PDO $db): void
+    {
+        if (!$this->sqliteTableExists($db, 'budget_accounts') || !$this->sqliteTableExists($db, 'budget_debts')) {
+            $this->runBudgetMigrationFile($db, '005_accounts_debts.sql');
+        }
+        if ($this->sqliteTableExists($db, 'budget_debts') && !$this->sqliteTableHasColumn($db, 'budget_debts', 'paid_amount')) {
+            $this->runBudgetMigrationFile($db, '006_debt_paid_amount.sql');
+            $db->exec('UPDATE budget_debts SET paid_amount = amount WHERE paid = 1');
+        }
+        if ($this->sqliteTableExists($db, 'budget_months')
+            && !$this->sqliteTableHasColumn($db, 'budget_months', 'current_balance_account_id')) {
+            $this->runBudgetMigrationFile($db, '007_budget_month_balance_account.sql');
+        }
+    }
+
+    private function runBudgetMigrationFile(PDO $db, string $filename): void
+    {
+        if (!in_array($filename, self::BUDGET_MIGRATION_FILES, true)) {
+            throw new \InvalidArgumentException('Invalid migration filename');
+        }
+        $path = dirname(__DIR__, 2) . '/database/migrations/' . $filename;
+        if (!is_readable($path)) {
+            throw new \RuntimeException('Migration file not readable: ' . $filename);
+        }
+        $sql = file_get_contents($path);
+        if ($sql === false || trim($sql) === '') {
+            throw new \RuntimeException('Migration file empty: ' . $filename);
+        }
+        $db->exec($sql);
+    }
+
+    private function requireBudgetSchema(PDO $db): bool
+    {
+        try {
+            $this->ensureBudgetAccountsDebtsSchema($db);
+            return true;
+        } catch (\Throwable $e) {
+            error_log('Budget schema ensure failed: ' . $e->getMessage());
+            Response::error(
+                'server_error',
+                'Budget database schema could not be initialized.',
+                500,
+            );
+
+            return false;
+        }
+    }
+
     public function getMonth(Request $request): void
     {
         $month = $this->monthFromRequest($request);
@@ -56,7 +115,13 @@ final class BudgetController
             return;
         }
 
-        Response::success($this->buildPayload($month));
+        try {
+            Response::success($this->buildPayload($month));
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() !== 'budget_schema') {
+                throw $e;
+            }
+        }
     }
 
     public function updateMonth(Request $request): void
@@ -67,6 +132,9 @@ final class BudgetController
         }
         $body = $request->getBody();
         $db = Database::getInstance();
+        if (!$this->requireBudgetSchema($db)) {
+            return;
+        }
         $monthId = $this->ensureMonth($db, $month);
 
         $load = $db->prepare('SELECT * FROM budget_months WHERE id = ? LIMIT 1');
@@ -180,7 +248,13 @@ final class BudgetController
             ]);
         }
 
-        Response::success($this->buildPayload($month));
+        try {
+            Response::success($this->buildPayload($month));
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() !== 'budget_schema') {
+                throw $e;
+            }
+        }
     }
 
     public function upsertIncome(Request $request): void
@@ -228,7 +302,13 @@ final class BudgetController
             ]);
         }
 
-        Response::success($this->buildPayload($month));
+        try {
+            Response::success($this->buildPayload($month));
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() !== 'budget_schema') {
+                throw $e;
+            }
+        }
     }
 
     public function upsertExpense(Request $request): void
@@ -283,7 +363,13 @@ final class BudgetController
             ]);
         }
 
-        Response::success($this->buildPayload($month));
+        try {
+            Response::success($this->buildPayload($month));
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() !== 'budget_schema') {
+                throw $e;
+            }
+        }
     }
 
     public function deleteIncome(Request $request): void
@@ -303,7 +389,13 @@ final class BudgetController
         $stmt = $db->prepare('DELETE FROM budget_income WHERE id = :id AND month_id = :month_id');
         $stmt->execute(['id' => $id, 'month_id' => $monthId]);
 
-        Response::success($this->buildPayload($month));
+        try {
+            Response::success($this->buildPayload($month));
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() !== 'budget_schema') {
+                throw $e;
+            }
+        }
     }
 
     public function deleteExpense(Request $request): void
@@ -323,7 +415,13 @@ final class BudgetController
         $stmt = $db->prepare('DELETE FROM budget_expenses WHERE id = :id AND month_id = :month_id');
         $stmt->execute(['id' => $id, 'month_id' => $monthId]);
 
-        Response::success($this->buildPayload($month));
+        try {
+            Response::success($this->buildPayload($month));
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() !== 'budget_schema') {
+                throw $e;
+            }
+        }
     }
 
     public function listAccounts(Request $request): void
@@ -331,12 +429,7 @@ final class BudgetController
         unset($request);
         try {
             $db = Database::getInstance();
-            if (!$this->sqliteTableExists($db, 'budget_accounts')) {
-                Response::success([
-                    'items' => [],
-                    'total' => 0.0,
-                ]);
-
+            if (!$this->requireBudgetSchema($db)) {
                 return;
             }
             $rows = $db->query(
@@ -386,13 +479,7 @@ final class BudgetController
 
         try {
             $db = Database::getInstance();
-            if (!$this->sqliteTableExists($db, 'budget_accounts')) {
-                Response::error(
-                    'server_error',
-                    'Could not save account. Run database migrations if budget_accounts is missing.',
-                    500,
-                );
-
+            if (!$this->requireBudgetSchema($db)) {
                 return;
             }
             $hasBalanceAccountCol = $this->sqliteTableHasColumn($db, 'budget_months', 'current_balance_account_id');
@@ -433,6 +520,9 @@ final class BudgetController
         }
         try {
             $db = Database::getInstance();
+            if (!$this->requireBudgetSchema($db)) {
+                return;
+            }
             if ($this->sqliteTableHasColumn($db, 'budget_months', 'current_balance_account_id')) {
                 $db->prepare('UPDATE budget_months SET current_balance_account_id = NULL WHERE current_balance_account_id = ?')->execute([$id]);
             }
@@ -466,12 +556,7 @@ final class BudgetController
         unset($request);
         try {
             $db = Database::getInstance();
-            if (!$this->sqliteTableExists($db, 'budget_debts')) {
-                Response::success([
-                    'items' => [],
-                    'outstanding' => 0.0,
-                ]);
-
+            if (!$this->requireBudgetSchema($db)) {
                 return;
             }
             $hasPaidAmount = $this->sqliteTableHasColumn($db, 'budget_debts', 'paid_amount');
@@ -540,13 +625,7 @@ final class BudgetController
 
         try {
             $db = Database::getInstance();
-            if (!$this->sqliteTableExists($db, 'budget_debts')) {
-                Response::error(
-                    'server_error',
-                    'Could not save debt. Run database migrations if budget_debts is missing.',
-                    500,
-                );
-
+            if (!$this->requireBudgetSchema($db)) {
                 return;
             }
             $hasPaidAmount = $this->sqliteTableHasColumn($db, 'budget_debts', 'paid_amount');
@@ -593,7 +672,11 @@ final class BudgetController
             return;
         }
         try {
-            Database::getInstance()->prepare('DELETE FROM budget_debts WHERE id = ?')->execute([$id]);
+            $db = Database::getInstance();
+            if (!$this->requireBudgetSchema($db)) {
+                return;
+            }
+            $db->prepare('DELETE FROM budget_debts WHERE id = ?')->execute([$id]);
             $this->listDebts($request);
         } catch (\Throwable) {
             Response::error('server_error', 'Could not delete debt', 500);
@@ -672,7 +755,13 @@ final class BudgetController
             }
         }
 
-        Response::success($this->buildPayload($month));
+        try {
+            Response::success($this->buildPayload($month));
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() !== 'budget_schema') {
+                throw $e;
+            }
+        }
     }
 
     private function monthFromRequest(Request $request): ?string
@@ -717,6 +806,9 @@ final class BudgetController
     private function buildPayload(string $month): array
     {
         $db = Database::getInstance();
+        if (!$this->requireBudgetSchema($db)) {
+            throw new \RuntimeException('budget_schema');
+        }
         $monthId = $this->ensureMonth($db, $month);
 
         $monthStmt = $db->prepare('SELECT * FROM budget_months WHERE id = ? LIMIT 1');
