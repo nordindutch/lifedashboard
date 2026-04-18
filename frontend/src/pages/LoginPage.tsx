@@ -46,61 +46,8 @@ export function LoginPage() {
     if (err) setError(`Login failed: ${err.replace(/_/g, ' ')}`);
   }, []);
 
-  useEffect(() => {
-    if (!isNative) return;
-
-    const handleDeepLink = (url: string): void => {
-      try {
-        const parsed = new URL(url);
-        if (parsed.host !== 'login-success' && parsed.pathname !== '//login-success') return;
-        const token = parsed.searchParams.get('token');
-        if (!token) return;
-
-        localStorage.setItem('codex_session', token);
-        if (isCapacitor) {
-          void import('@capacitor/browser').then(({ Browser }) => {
-            void Browser.close();
-          });
-        }
-
-        void refetch().then(() => navigate('/', { replace: true }));
-      } catch {
-        /* ignore parse errors */
-      }
-    };
-
-    let unlistenCap: (() => void) | null = null;
-    let unlistenTauri: (() => void) | null = null;
-
-    void (async () => {
-      if (isCapacitor) {
-        try {
-          const { App } = await import('@capacitor/app');
-          const handler = await App.addListener('appUrlOpen', (data: { url: string }) => {
-            handleDeepLink(data.url);
-          });
-          unlistenCap = () => void handler.remove();
-        } catch {
-          /* non-critical */
-        }
-      }
-      if (isTauri) {
-        try {
-          const { onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
-          unlistenTauri = await onOpenUrl((urls: string[]) => {
-            for (const u of urls) handleDeepLink(u);
-          });
-        } catch {
-          /* Tauri deep-link plugin not installed — fall back to polling */
-        }
-      }
-    })();
-
-    return () => {
-      unlistenCap?.();
-      unlistenTauri?.();
-    };
-  }, [navigate, refetch]);
+  // OAuth deep links are handled in `useNativeOAuthDeepLink` (RouterShell) so they are not
+  // missed during the initial auth loading spinner. Tauri polling below covers deep-link failures.
 
   useEffect(() => {
     if (!waiting || !isTauri) return;

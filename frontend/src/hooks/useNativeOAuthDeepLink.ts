@@ -1,58 +1,106 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 /*
- * Bug 2 — Android OAuth return: `appUrlOpen` must be registered as soon as the app
- * mounts. The listener previously lived only on `LoginPage`, which is not mounted
- * while `useAuth` is still loading (spinner) or if routing skips `/login`, so the OS
- * could deliver `com.codex.life://login-success?...` before any handler existed and
- * the session token was lost. Registering here (inside `RouterShell`, always mounted)
- * covers cold start + OAuth return reliably.
+ * Android / iOS OAuth return: session token arrives via `com.codex.life://login-success?token=...`.
+ * Registered from RouterShell so it runs even while the auth query is still loading.
+ *
+ * Important: cancel any in-flight /api/auth/me from the first load before storing the token.
+ * Otherwise the slower anonymous request can finish last and overwrite the user with null.
  */
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
 const isCapacitor =
   typeof window !== 'undefined' && typeof (window as { Capacitor?: unknown }).Capacitor !== 'undefined';
 
+const AUTH_ME_KEY = ['auth', 'me'] as const;
+
+/** Extract session token from custom-scheme OAuth return URLs (parsers differ by WebView). */
+export function parseLoginSuccessToken(rawUrl: string): string | null {
+  const trimmed = rawUrl.trim();
+  if (trimmed === '' || !trimmed.includes('login-success')) {
+    return null;
+  }
+  try {
+    const u = new URL(trimmed);
+    const fromParams = u.searchParams.get('token');
+    if (fromParams) {
+      return fromParams;
+    }
+  } catch {
+    /* fall through to regex */
+  }
+  const m = trimmed.match(/[?&]token=([^&]+)/);
+  const rawToken = m?.[1];
+  return rawToken !== undefined ? decodeURIComponent(rawToken) : null;
+}
+
+async function applySessionFromOAuthDeepLink(
+  queryClient: QueryClient,
+  navigate: (to: string, opts?: { replace?: boolean }) => void,
+  token: string,
+): Promise<void> {
+  localStorage.setItem('codex_session', token);
+
+  await queryClient.cancelQueries({ queryKey: AUTH_ME_KEY });
+
+  await queryClient.refetchQueries({ queryKey: AUTH_ME_KEY });
+
+  const user = queryClient.getQueryData(AUTH_ME_KEY);
+  if (user) {
+    if (isCapacitor) {
+      try {
+        const { Browser } = await import('@capacitor/browser');
+        await Browser.close();
+      } catch {
+        /* non-critical */
+      }
+    }
+    navigate('/', { replace: true });
+  }
+}
+
 export function useNativeOAuthDeepLink(): void {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (!isTauri && !isCapacitor) return;
+    if (!isTauri && !isCapacitor) {
+      return;
+    }
     let unlisten: (() => void) | null = null;
+    let cancelled = false;
+
+    const handleUrl = (rawUrl: string): void => {
+      if (cancelled) {
+        return;
+      }
+      const token = parseLoginSuccessToken(rawUrl);
+      if (!token) {
+        return;
+      }
+      void applySessionFromOAuthDeepLink(queryClient, navigate, token);
+    };
+
     void (async () => {
       try {
         if (isTauri) {
           const { onOpenUrl } = await import('@tauri-apps/plugin-deep-link');
           unlisten = await onOpenUrl((urls: string[]) => {
             for (const raw of urls) {
-              const url = new URL(raw);
-              if (url.host === 'login-success') {
-                const token = url.searchParams.get('token');
-                if (token) {
-                  localStorage.setItem('codex_session', token);
-                  void queryClient.invalidateQueries({ queryKey: ['auth', 'me'] }).then(() => {
-                    navigate('/', { replace: true });
-                  });
-                }
-              }
+              handleUrl(raw);
             }
           });
         } else {
           const { App } = await import('@capacitor/app');
-          const handler = await App.addListener('appUrlOpen', (data: { url: string }) => {
-            const url = new URL(data.url);
-            if (url.host === 'login-success') {
-              const token = url.searchParams.get('token');
-              if (token) {
-                localStorage.setItem('codex_session', token);
-                void queryClient.invalidateQueries({ queryKey: ['auth', 'me'] }).then(() => {
-                  navigate('/', { replace: true });
-                });
-              }
-            }
+          const launch = await App.getLaunchUrl();
+          if (launch?.url) {
+            handleUrl(launch.url);
+          }
+          const handler = await App.addListener('appUrlOpen', (event: { url: string }) => {
+            handleUrl(event.url);
           });
           unlisten = () => void handler.remove();
         }
@@ -60,6 +108,10 @@ export function useNativeOAuthDeepLink(): void {
         /* non-critical */
       }
     })();
-    return () => unlisten?.();
+
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, [navigate, queryClient]);
 }
