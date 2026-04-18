@@ -304,8 +304,61 @@ final class SettingsController
 
         if ($sessionIssued) {
             if ($isAppLogin && $sessionToken !== '') {
-                // Capacitor: redirect straight to custom scheme deep link.
-                header('Location: com.codex.life://login-success?token=' . rawurlencode($sessionToken), true, 302);
+                // App + Tauri: do not use HTTP 302 to a custom scheme — many browsers hand off
+                // unreliably or “before” the OAuth page finishes. Serve HTML and navigate via JS
+                // after a short delay so the document commits, then open the app (same idea as the
+                // interstitial below, but without the “continue in browser” options).
+                $appUrl = 'com.codex.life://login-success?token=' . rawurlencode($sessionToken);
+                $appUrlJs = json_encode($appUrl, JSON_THROW_ON_ERROR);
+                $encodedAppUrl = htmlspecialchars($appUrl, ENT_QUOTES, 'UTF-8');
+
+                http_response_code(200);
+                header('Content-Type: text/html; charset=utf-8');
+                echo <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Return to Project Codex</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117; color: #e2e8f0;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .card {
+      background: #1e2130; border: 1px solid #2d3148; border-radius: 16px;
+      padding: 2rem; max-width: 380px; width: 100%; text-align: center;
+      display: flex; flex-direction: column; gap: 1rem;
+    }
+    h1 { font-size: 1.1rem; font-weight: 600; color: #f1f5f9; }
+    p  { font-size: 0.875rem; color: #94a3b8; line-height: 1.5; }
+    a  { color: #818cf8; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Opening Project Codex…</h1>
+    <p>If the app does not open, tap the link below.</p>
+    <a href="{$encodedAppUrl}">Open in app</a>
+  </div>
+  <script>
+    (function () {
+      var url = {$appUrlJs};
+      function go() {
+        window.location.href = url;
+      }
+      // Let the OAuth redirect fully settle in the browser before custom-scheme handoff.
+      setTimeout(go, 450);
+    })();
+  </script>
+  <noscript><p><a href="{$encodedAppUrl}">Open in app</a></p></noscript>
+</body>
+</html>
+HTML;
                 exit;
             }
 
