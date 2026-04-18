@@ -25,6 +25,9 @@ services:
     expose:
       - "80"
     volumes:
+      # App image does not COPY backend — PHP must see public/index.php + src/ on disk.
+      - ./backend:/var/www/html:ro
+      # Writable SQLite file (overlays backend/database/ from the bind mount).
       - sqlite_data:/var/www/html/database
     # Load secrets from this file into the container. Do not use ${VAR} here — Compose
     # substitutes those from the *host* .env / shell only; it does not read .env.production,
