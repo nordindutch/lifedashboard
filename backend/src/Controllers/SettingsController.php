@@ -484,7 +484,9 @@ final class SettingsController
     private function fetchSettingsMap(): array
     {
         $db = Database::getInstance();
-        $stmt = $db->prepare("SELECT key, value, value_type FROM settings WHERE key != 'weather_cache' ORDER BY key ASC");
+        $stmt = $db->prepare(
+            "SELECT key, value, value_type FROM settings WHERE key NOT IN ('weather_cache', 'google_oauth_state') ORDER BY key ASC",
+        );
         $stmt->execute();
         /** @var array<int, array{key: string, value: string|null, value_type: string}> $rows */
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -532,6 +534,30 @@ final class SettingsController
         return $decoded;
     }
 
+    /**
+     * Public origin for this request (reverse-proxy aware). Used for OAuth redirect_uri and
+     * post-OAuth return URL. Do not use Referer: Google sends accounts.google.com.
+     */
+    private function inferPublicOrigin(Request $request): string
+    {
+        $xfHost = $request->getHeader('x-forwarded-host');
+        if ($xfHost !== null && $xfHost !== '') {
+            $host = trim(explode(',', $xfHost)[0]);
+        } else {
+            $host = $request->getHeader('host') ?? ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        }
+
+        $scheme = 'http';
+        $proto = $request->getHeader('x-forwarded-proto');
+        if ($proto !== null && $proto !== '') {
+            $scheme = trim(explode(',', $proto)[0]);
+        } elseif (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+            $scheme = 'https';
+        }
+
+        return $scheme . '://' . $host;
+    }
+
     private function buildGoogleRedirectUri(Request $request): string
     {
         $explicit = $request->getQueryString('redirect_uri');
@@ -539,16 +565,7 @@ final class SettingsController
             return $explicit;
         }
 
-        $host = $request->getHeader('host') ?? ($_SERVER['HTTP_HOST'] ?? 'localhost');
-        $scheme = 'http';
-        $proto = $request->getHeader('x-forwarded-proto');
-        if ($proto !== null && $proto !== '') {
-            $scheme = $proto;
-        } elseif (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
-            $scheme = 'https';
-        }
-
-        return $scheme . '://' . $host . '/api/auth/google/callback';
+        return $this->inferPublicOrigin($request) . '/api/auth/google/callback';
     }
 
     private function frontendSettingsUrl(Request $request): string
@@ -558,26 +575,7 @@ final class SettingsController
             return rtrim($envUrl, '/') . '/settings';
         }
 
-        $origin = $request->getHeader('origin') ?? $request->getHeader('referer') ?? '';
-        if ($origin !== '') {
-            $parsed = parse_url($origin);
-            if (is_array($parsed) && isset($parsed['scheme'], $parsed['host'])) {
-                $base = $parsed['scheme'] . '://' . $parsed['host'];
-                if (isset($parsed['port'])) {
-                    $base .= ':' . $parsed['port'];
-                }
-                return $base . '/settings';
-            }
-        }
-
-        $host = $request->getHeader('host') ?? ($_SERVER['HTTP_HOST'] ?? 'localhost');
-        $hostOnly = $host;
-        if (str_contains($hostOnly, ':')) {
-            [$name] = explode(':', $hostOnly, 2);
-            $hostOnly = $name;
-        }
-        // Dev default uses Vite on 5273; in other environments user can still navigate manually.
-        return 'http://' . $hostOnly . ':5273/settings';
+        return $this->inferPublicOrigin($request) . '/settings';
     }
 
     /**

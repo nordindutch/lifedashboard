@@ -86,72 +86,99 @@ final class BudgetController
             ? ($body['notes'] !== null ? (string) $body['notes'] : null)
             : (isset($existing['notes']) && $existing['notes'] !== null ? (string) $existing['notes'] : null);
 
+        $hasBalanceAccountCol = $this->sqliteTableHasColumn($db, 'budget_months', 'current_balance_account_id');
+
         $balanceAccountId = null;
-        if (array_key_exists('current_balance_account_id', $body)) {
-            $raw = $body['current_balance_account_id'];
-            if ($raw === null || $raw === '') {
-                $balanceAccountId = null;
+        $currentBalance = (float) ($existing['current_balance'] ?? 0.0);
+
+        if ($hasBalanceAccountCol) {
+            if (array_key_exists('current_balance_account_id', $body)) {
+                $raw = $body['current_balance_account_id'];
+                if ($raw === null || $raw === '') {
+                    $balanceAccountId = null;
+                } else {
+                    $aid = (int) $raw;
+                    if ($aid < 1) {
+                        Response::error('validation_error', 'Invalid current_balance_account_id', 422, 'current_balance_account_id');
+
+                        return;
+                    }
+                    $accStmt = $db->prepare('SELECT id, kind, balance FROM budget_accounts WHERE id = ? LIMIT 1');
+                    $accStmt->execute([$aid]);
+                    /** @var array<string, mixed>|false $acc */
+                    $acc = $accStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($acc === false) {
+                        Response::error('validation_error', 'Account not found', 422, 'current_balance_account_id');
+
+                        return;
+                    }
+                    if (($acc['kind'] ?? '') !== 'checking') {
+                        Response::error('validation_error', 'Alleen een betaalrekening kan gekoppeld worden', 422, 'current_balance_account_id');
+
+                        return;
+                    }
+                    $balanceAccountId = $aid;
+                }
             } else {
-                $aid = (int) $raw;
-                if ($aid < 1) {
-                    Response::error('validation_error', 'Invalid current_balance_account_id', 422, 'current_balance_account_id');
-
-                    return;
-                }
-                $accStmt = $db->prepare('SELECT id, kind, balance FROM budget_accounts WHERE id = ? LIMIT 1');
-                $accStmt->execute([$aid]);
-                /** @var array<string, mixed>|false $acc */
-                $acc = $accStmt->fetch(PDO::FETCH_ASSOC);
-                if ($acc === false) {
-                    Response::error('validation_error', 'Account not found', 422, 'current_balance_account_id');
-
-                    return;
-                }
-                if (($acc['kind'] ?? '') !== 'checking') {
-                    Response::error('validation_error', 'Alleen een betaalrekening kan gekoppeld worden', 422, 'current_balance_account_id');
-
-                    return;
-                }
-                $balanceAccountId = $aid;
+                $eid = $existing['current_balance_account_id'] ?? null;
+                $balanceAccountId = $eid !== null && $eid !== '' ? (int) $eid : null;
             }
-        } else {
-            $eid = $existing['current_balance_account_id'] ?? null;
-            $balanceAccountId = $eid !== null && $eid !== '' ? (int) $eid : null;
-        }
 
-        if ($balanceAccountId !== null) {
-            $accStmt = $db->prepare('SELECT balance FROM budget_accounts WHERE id = ? AND kind = ? LIMIT 1');
-            $accStmt->execute([$balanceAccountId, 'checking']);
-            /** @var array<string, mixed>|false $accRow */
-            $accRow = $accStmt->fetch(PDO::FETCH_ASSOC);
-            if ($accRow === false) {
-                Response::error('validation_error', 'Betaalrekening niet gevonden', 422, 'current_balance_account_id');
+            if ($balanceAccountId !== null) {
+                $accStmt = $db->prepare('SELECT balance FROM budget_accounts WHERE id = ? AND kind = ? LIMIT 1');
+                $accStmt->execute([$balanceAccountId, 'checking']);
+                /** @var array<string, mixed>|false $accRow */
+                $accRow = $accStmt->fetch(PDO::FETCH_ASSOC);
+                if ($accRow === false) {
+                    Response::error('validation_error', 'Betaalrekening niet gevonden', 422, 'current_balance_account_id');
 
-                return;
+                    return;
+                }
+                $currentBalance = round((float) ($accRow['balance'] ?? 0), 2);
+            } else {
+                $currentBalance = array_key_exists('current_balance', $body)
+                    ? (float) $body['current_balance']
+                    : (float) ($existing['current_balance'] ?? 0.0);
             }
-            $currentBalance = round((float) ($accRow['balance'] ?? 0), 2);
         } else {
             $currentBalance = array_key_exists('current_balance', $body)
                 ? (float) $body['current_balance']
                 : (float) ($existing['current_balance'] ?? 0.0);
         }
 
-        $stmt = $db->prepare(
-            'UPDATE budget_months
-             SET current_balance = :current_balance,
-                 minimum_balance = :minimum_balance,
-                 notes = :notes,
-                 current_balance_account_id = :current_balance_account_id,
-                 updated_at = unixepoch()
-             WHERE id = :id',
-        );
-        $stmt->execute([
-            'id' => $monthId,
-            'current_balance' => $currentBalance,
-            'minimum_balance' => $minimumBalance,
-            'notes' => $notes,
-            'current_balance_account_id' => $balanceAccountId,
-        ]);
+        if ($hasBalanceAccountCol) {
+            $stmt = $db->prepare(
+                'UPDATE budget_months
+                 SET current_balance = :current_balance,
+                     minimum_balance = :minimum_balance,
+                     notes = :notes,
+                     current_balance_account_id = :current_balance_account_id,
+                     updated_at = unixepoch()
+                 WHERE id = :id',
+            );
+            $stmt->execute([
+                'id' => $monthId,
+                'current_balance' => $currentBalance,
+                'minimum_balance' => $minimumBalance,
+                'notes' => $notes,
+                'current_balance_account_id' => $balanceAccountId,
+            ]);
+        } else {
+            $stmt = $db->prepare(
+                'UPDATE budget_months
+                 SET current_balance = :current_balance,
+                     minimum_balance = :minimum_balance,
+                     notes = :notes,
+                     updated_at = unixepoch()
+                 WHERE id = :id',
+            );
+            $stmt->execute([
+                'id' => $monthId,
+                'current_balance' => $currentBalance,
+                'minimum_balance' => $minimumBalance,
+                'notes' => $notes,
+            ]);
+        }
 
         Response::success($this->buildPayload($month));
     }
@@ -359,12 +386,22 @@ final class BudgetController
 
         try {
             $db = Database::getInstance();
+            if (!$this->sqliteTableExists($db, 'budget_accounts')) {
+                Response::error(
+                    'server_error',
+                    'Could not save account. Run database migrations if budget_accounts is missing.',
+                    500,
+                );
+
+                return;
+            }
+            $hasBalanceAccountCol = $this->sqliteTableHasColumn($db, 'budget_months', 'current_balance_account_id');
             if ($id > 0) {
                 $db->prepare(
                     'UPDATE budget_accounts SET name = ?, kind = ?, balance = ?, sort_order = ?
                      WHERE id = ?',
                 )->execute([$name, $kind, $balance, $sortOrder, $id]);
-                if ($kind !== 'checking') {
+                if ($kind !== 'checking' && $hasBalanceAccountCol) {
                     $db->prepare(
                         'UPDATE budget_months SET current_balance_account_id = NULL WHERE current_balance_account_id = ?',
                     )->execute([$id]);
@@ -396,7 +433,9 @@ final class BudgetController
         }
         try {
             $db = Database::getInstance();
-            $db->prepare('UPDATE budget_months SET current_balance_account_id = NULL WHERE current_balance_account_id = ?')->execute([$id]);
+            if ($this->sqliteTableHasColumn($db, 'budget_months', 'current_balance_account_id')) {
+                $db->prepare('UPDATE budget_months SET current_balance_account_id = NULL WHERE current_balance_account_id = ?')->execute([$id]);
+            }
             $db->prepare('DELETE FROM budget_accounts WHERE id = ?')->execute([$id]);
             $this->listAccounts($request);
         } catch (\Throwable) {
@@ -501,16 +540,38 @@ final class BudgetController
 
         try {
             $db = Database::getInstance();
+            if (!$this->sqliteTableExists($db, 'budget_debts')) {
+                Response::error(
+                    'server_error',
+                    'Could not save debt. Run database migrations if budget_debts is missing.',
+                    500,
+                );
+
+                return;
+            }
+            $hasPaidAmount = $this->sqliteTableHasColumn($db, 'budget_debts', 'paid_amount');
             if ($id > 0) {
-                $db->prepare(
-                    'UPDATE budget_debts SET name = ?, amount = ?, paid_amount = ?, deadline = ?, paid = ?,
-                     notes = ?, sort_order = ? WHERE id = ?',
-                )->execute([$name, $amount, $paidAmount, $deadline, $paid, $notes, $sortOrder, $id]);
-            } else {
+                if ($hasPaidAmount) {
+                    $db->prepare(
+                        'UPDATE budget_debts SET name = ?, amount = ?, paid_amount = ?, deadline = ?, paid = ?,
+                         notes = ?, sort_order = ? WHERE id = ?',
+                    )->execute([$name, $amount, $paidAmount, $deadline, $paid, $notes, $sortOrder, $id]);
+                } else {
+                    $db->prepare(
+                        'UPDATE budget_debts SET name = ?, amount = ?, deadline = ?, paid = ?,
+                         notes = ?, sort_order = ? WHERE id = ?',
+                    )->execute([$name, $amount, $deadline, $paid, $notes, $sortOrder, $id]);
+                }
+            } elseif ($hasPaidAmount) {
                 $db->prepare(
                     'INSERT INTO budget_debts (name, amount, paid_amount, deadline, paid, notes, sort_order)
                      VALUES (?, ?, ?, ?, ?, ?, ?)',
                 )->execute([$name, $amount, $paidAmount, $deadline, $paid, $notes, $sortOrder]);
+            } else {
+                $db->prepare(
+                    'INSERT INTO budget_debts (name, amount, deadline, paid, notes, sort_order)
+                     VALUES (?, ?, ?, ?, ?, ?)',
+                )->execute([$name, $amount, $deadline, $paid, $notes, $sortOrder]);
             }
 
             $this->listDebts($request);
