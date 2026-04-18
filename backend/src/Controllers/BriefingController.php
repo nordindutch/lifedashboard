@@ -186,13 +186,34 @@ final class BriefingController
     {
         $date = $request->getQueryString('date');
         if ($date === null || $date === '') {
-            $date = date('Y-m-d');
+            // Must match settings timezone — plain date() uses the PHP default (often UTC) and
+            // yields the wrong calendar day around local midnight vs UTC.
+            $date = $this->todayYmdInAppTimezone();
         }
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
             return null;
         }
 
         return $date;
+    }
+
+    /** Calendar "today" (YYYY-MM-DD) in `settings.timezone`, not the server clock zone. */
+    private function todayYmdInAppTimezone(): string
+    {
+        $tzName = 'UTC';
+        try {
+            $stmt = Database::getInstance()->prepare("SELECT value FROM settings WHERE key = 'timezone' LIMIT 1");
+            $stmt->execute();
+            $tzName = trim((string) ($stmt->fetchColumn() ?: ''));
+        } catch (\Throwable) {
+            $tzName = 'UTC';
+        }
+        if ($tzName === '') {
+            $tzName = 'UTC';
+        }
+        $tz = $this->safeTimezone($tzName);
+
+        return (new \DateTimeImmutable('now', $tz))->format('Y-m-d');
     }
 
     /**

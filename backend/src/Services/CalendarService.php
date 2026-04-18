@@ -327,14 +327,26 @@ final class CalendarService
             return null;
         }
         if ($allDay && preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
-            $dt = $raw . ($isStart ? ' 00:00:00' : ' 23:59:59');
-            $ts = strtotime($dt);
-            return $ts === false ? null : $ts;
+            // Google "date" fields are calendar days in the user's zone; do not use strtotime()
+            // without a zone (that used the PHP default, often UTC). Align with settings.timezone.
+            $tz = self::resolveTimezone(null);
+            if ($isStart) {
+                $dt = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $raw . ' 00:00:00', $tz);
+            } else {
+                // End date is exclusive: midnight at end.date is the first instant *after* the event.
+                $dt = \DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $raw . ' 00:00:00', $tz);
+            }
+            if (!$dt instanceof \DateTimeImmutable) {
+                return null;
+            }
+
+            return $dt->getTimestamp();
         }
         $ts = strtotime($raw);
         if ($ts === false) {
             return null;
         }
+
         return $ts;
     }
 }
