@@ -25,7 +25,13 @@ function RouterShell() {
   const location = useLocation();
   const setActiveTab = useUiStore((s) => s.setActiveTab);
   const { data: user, isLoading: authLoading } = useAuth();
-  const { data: bootstrap, isLoading: bootstrapLoading } = useBootstrap();
+  const {
+    data: bootstrap,
+    isLoading: bootstrapLoading,
+    isError: bootstrapError,
+    refetch: refetchBootstrap,
+    error: bootstrapQueryError,
+  } = useBootstrap();
 
   useEffect(() => {
     setActiveTab(pathToTab(location.pathname));
@@ -35,6 +41,26 @@ function RouterShell() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-codex-bg">
         <div className="h-6 w-6 animate-spin rounded-full border-2 border-codex-border border-t-codex-accent" />
+      </div>
+    );
+  }
+
+  if (bootstrapError) {
+    const message = bootstrapQueryError instanceof Error ? bootstrapQueryError.message : 'Request failed';
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-codex-bg px-4 text-center">
+        <p className="max-w-md text-sm text-slate-300">
+          Could not reach the server to check whether setup is required. Fix your API URL or connection, then
+          retry.
+        </p>
+        <p className="text-xs text-codex-muted">{message}</p>
+        <button
+          type="button"
+          onClick={() => void refetchBootstrap()}
+          className="rounded-lg border border-codex-border bg-codex-surface px-4 py-2 text-sm text-slate-200 hover:border-codex-accent/50"
+        >
+          Retry
+        </button>
       </div>
     );
   }

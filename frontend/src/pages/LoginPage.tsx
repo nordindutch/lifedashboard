@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { login } from '../api/auth';
 import { TitleBar } from '../components/layout/TitleBar';
 import { useAuth } from '../hooks/useAuth';
@@ -115,10 +115,7 @@ export function LoginPage() {
         )}
 
         <p className="text-xs text-codex-muted/60">
-          First time?{' '}
-          <Link to="/setup" className="text-codex-accent hover:underline">
-            Create your account
-          </Link>
+          New installs open account setup first; this page is only after a user already exists.
         </p>
 
         <p className="text-xs text-codex-muted/60">Personal access only</p>

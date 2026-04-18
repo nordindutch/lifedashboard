@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { setupAccount } from '../api/auth';
 import { TitleBar } from '../components/layout/TitleBar';
 import { useAuth } from '../hooks/useAuth';
@@ -144,12 +144,6 @@ export function SetupPage() {
           </form>
         )}
 
-        <p className="text-xs text-codex-muted/60">
-          Already set up?{' '}
-          <Link to="/login" className="text-codex-accent hover:underline">
-            Sign in
-          </Link>
-        </p>
       </div>
     </div>
   );

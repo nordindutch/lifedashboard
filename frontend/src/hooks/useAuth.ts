@@ -7,10 +7,11 @@ export function useBootstrap() {
     queryFn: async () => {
       const res = await getBootstrap();
       if (!res.success) {
-        return { needs_setup: false };
+        throw new Error(res.error.message);
       }
       return res.data;
     },
+    retry: 2,
     staleTime: 60_000,
   });
 }
