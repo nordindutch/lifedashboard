@@ -1,10 +1,12 @@
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { AccountsPanel } from '../components/budget/AccountsPanel';
 import { DebtsPanel } from '../components/budget/DebtsPanel';
+import { CrudRow } from '../components/ui/CrudRow';
+import { EditableField } from '../components/ui/EditableField';
 import {
   useAccounts,
   useBudget,
@@ -215,7 +217,7 @@ export function BudgetPage() {
         </div>
         <button
           type="button"
-          onClick={() => void copyPrev.mutateAsync()}
+          onClick={() => void copyPrev.mutateAsync(undefined)}
           disabled={isArchive || copyPrev.isPending}
           className="inline-flex items-center gap-1.5 rounded-md border border-codex-border px-3 py-1.5 text-sm text-slate-300 hover:border-codex-accent/60 hover:text-slate-100 disabled:opacity-50"
         >
@@ -238,9 +240,12 @@ export function BudgetPage() {
             <h2 className="mb-3 text-sm font-medium text-slate-300">Inkomen</h2>
             <div className="space-y-2">
               {data.income.map((row) => (
-                <div
+                <CrudRow
                   key={row.id}
                   className="group flex flex-col gap-2 rounded-lg border border-codex-border/40 p-2 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,120px)_auto] md:items-center md:gap-2 md:rounded-none md:border-0 md:p-0"
+                  onDelete={isArchive ? undefined : () => void deleteIncome.mutateAsync(row.id)}
+                  deleteTitle="Verwijderen"
+                  deleteButtonClassName="shrink-0 rounded p-1 text-slate-500 opacity-100 transition hover:text-rose-300 disabled:opacity-20 md:opacity-0 md:group-hover:opacity-100"
                 >
                   <div className="flex min-w-0 items-center gap-2 md:contents">
                     <input
@@ -258,49 +263,41 @@ export function BudgetPage() {
                       }
                       className="shrink-0"
                     />
-                    <input
-                      type="text"
-                      defaultValue={row.name}
-                      disabled={isArchive}
-                      onBlur={(e) =>
+                    <EditableField
+                      value={row.name}
+                      onSave={(v) =>
                         void saveIncome({
                           id: row.id,
-                          name: e.target.value,
+                          name: v,
                           amount: row.amount,
                           received: row.received,
                           sort_order: row.sort_order,
                         })
                       }
-                      className="min-w-0 flex-1 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200 md:min-w-0"
+                      disabled={isArchive}
+                      className="min-w-0 flex-1 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200 md:min-w-0 md:border-0 md:bg-transparent"
                     />
                   </div>
-                  <div className="flex min-w-0 items-center justify-end gap-2 md:contents">
-                    <input
-                      type="number"
-                      step="0.01"
-                      defaultValue={row.amount.toFixed(2)}
-                      disabled={isArchive}
-                      onBlur={(e) =>
-                        void saveIncome({
-                          id: row.id,
-                          name: row.name,
-                          amount: Number(e.target.value),
-                          received: row.received,
-                          sort_order: row.sort_order,
-                        })
-                      }
-                      className="min-w-0 w-full max-w-[11rem] rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200 md:max-w-none"
-                    />
-                    <button
-                      type="button"
-                      disabled={isArchive}
-                      onClick={() => void deleteIncome.mutateAsync(row.id)}
-                      className="shrink-0 rounded p-1 text-slate-500 opacity-100 transition hover:text-rose-300 disabled:opacity-20 md:opacity-0 md:group-hover:opacity-100"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
+                  <EditableField
+                    value={row.amount.toFixed(2)}
+                    onSave={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      void saveIncome({
+                        id: row.id,
+                        name: row.name,
+                        amount: n,
+                        received: row.received,
+                        sort_order: row.sort_order,
+                      });
+                    }}
+                    type="number"
+                    step="0.01"
+                    disabled={isArchive}
+                    align="right"
+                    className="min-w-0 w-full max-w-[11rem] rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200 md:max-w-none md:border-0 md:bg-transparent"
+                  />
+                </CrudRow>
               ))}
               <div className="flex min-w-0 flex-col gap-2 pt-2 md:grid md:grid-cols-[minmax(0,1fr)_120px_auto] md:gap-2">
                 <input
@@ -360,9 +357,12 @@ export function BudgetPage() {
             <h2 className="mb-3 text-sm font-medium text-slate-300">Uitgaven</h2>
             <div className="space-y-2">
               {data.expenses.map((row) => (
-                <div
+                <CrudRow
                   key={row.id}
                   className="group flex flex-col gap-2 rounded-lg border border-codex-border/40 p-2 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,150px)_minmax(0,120px)_auto] md:items-center md:gap-2 md:rounded-none md:border-0 md:p-0"
+                  onDelete={isArchive ? undefined : () => void deleteExpense.mutateAsync(row.id)}
+                  deleteTitle="Verwijderen"
+                  deleteButtonClassName="justify-self-end rounded p-1 text-slate-500 opacity-100 transition hover:text-rose-300 disabled:opacity-20 sm:justify-self-auto md:opacity-0 md:group-hover:opacity-100"
                 >
                   <div className="flex min-w-0 items-center gap-2 md:contents">
                     <input
@@ -381,72 +381,64 @@ export function BudgetPage() {
                       }
                       className="shrink-0"
                     />
-                    <input
-                      type="text"
-                      defaultValue={row.name}
-                      disabled={isArchive}
-                      onBlur={(e) =>
+                    <EditableField
+                      value={row.name}
+                      onSave={(v) =>
                         void saveExpense({
                           id: row.id,
-                          name: e.target.value,
+                          name: v,
                           amount: row.amount,
                           category: row.category,
                           paid: row.paid,
                           sort_order: row.sort_order,
                         })
                       }
-                      className="min-w-0 flex-1 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200 md:min-w-0"
+                      disabled={isArchive}
+                      className="min-w-0 flex-1 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200 md:min-w-0 md:border-0 md:bg-transparent"
                     />
                   </div>
-                  <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] md:contents">
-                    <select
-                      defaultValue={row.category}
-                      disabled={isArchive}
-                      onChange={(e) =>
-                        void saveExpense({
-                          id: row.id,
-                          name: row.name,
-                          amount: row.amount,
-                          category: e.target.value as BudgetCategory,
-                          paid: row.paid,
-                          sort_order: row.sort_order,
-                        })
-                      }
-                      className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-xs text-slate-200"
-                    >
-                      {BUDGET_CATEGORIES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      step="0.01"
-                      defaultValue={row.amount.toFixed(2)}
-                      disabled={isArchive}
-                      onBlur={(e) =>
-                        void saveExpense({
-                          id: row.id,
-                          name: row.name,
-                          amount: Number(e.target.value),
-                          category: row.category,
-                          paid: row.paid,
-                          sort_order: row.sort_order,
-                        })
-                      }
-                      className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
-                    />
-                    <button
-                      type="button"
-                      disabled={isArchive}
-                      onClick={() => void deleteExpense.mutateAsync(row.id)}
-                      className="justify-self-end rounded p-1 text-slate-500 opacity-100 transition hover:text-rose-300 disabled:opacity-20 sm:justify-self-auto md:opacity-0 md:group-hover:opacity-100"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
+                  <select
+                    value={row.category}
+                    disabled={isArchive}
+                    onChange={(e) =>
+                      void saveExpense({
+                        id: row.id,
+                        name: row.name,
+                        amount: row.amount,
+                        category: e.target.value as BudgetCategory,
+                        paid: row.paid,
+                        sort_order: row.sort_order,
+                      })
+                    }
+                    className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-xs text-slate-200"
+                  >
+                    {BUDGET_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
+                  <EditableField
+                    value={row.amount.toFixed(2)}
+                    onSave={(v) => {
+                      const n = Number(v);
+                      if (!Number.isFinite(n)) return;
+                      void saveExpense({
+                        id: row.id,
+                        name: row.name,
+                        amount: n,
+                        category: row.category,
+                        paid: row.paid,
+                        sort_order: row.sort_order,
+                      });
+                    }}
+                    type="number"
+                    step="0.01"
+                    disabled={isArchive}
+                    align="right"
+                    className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200 md:border-0 md:bg-transparent"
+                  />
+                </CrudRow>
               ))}
               <div className="flex min-w-0 flex-col gap-2 pt-2 md:grid md:grid-cols-[minmax(0,1fr)_150px_120px_auto] md:gap-2">
                 <input

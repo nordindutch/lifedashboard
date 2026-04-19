@@ -1,6 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import * as projectsApi from '../api/projects';
 import type { Project } from '../types';
+import { useResourceMutation } from './useResourceMutation';
 
 export function useProjects(filters?: { goal_id?: number; status?: string }) {
   return useQuery({
@@ -17,31 +18,24 @@ export function useProjects(filters?: { goal_id?: number; status?: string }) {
 }
 
 export function useCreateProject() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (body: Parameters<typeof projectsApi.createProject>[0]) => projectsApi.createProject(body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
-  });
+  return useResourceMutation<Parameters<typeof projectsApi.createProject>[0], Project>(
+    ['projects'],
+    (body) => projectsApi.createProject(body),
+  );
 }
 
 export function useUpdateProject() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, body }: { id: number; body: Partial<Project> }) => projectsApi.updateProject(id, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      qc.invalidateQueries({ queryKey: ['tasks'] });
-    },
-  });
+  return useResourceMutation<{ id: number; body: Partial<Project> }, Project>(
+    ['projects'],
+    ({ id, body }) => projectsApi.updateProject(id, body),
+    [['tasks']],
+  );
 }
 
 export function useDeleteProject() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => projectsApi.deleteProject(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['projects'] });
-      qc.invalidateQueries({ queryKey: ['tasks'] });
-    },
-  });
+  return useResourceMutation<number, { deleted: boolean }>(
+    ['projects'],
+    (id) => projectsApi.deleteProject(id),
+    [['tasks']],
+  );
 }

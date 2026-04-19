@@ -1,6 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import * as notesApi from '../api/notes';
 import type { NoteBody, NoteFilters } from '../api/notes';
+import type { Note } from '../types';
+import { useResourceMutation } from './useResourceMutation';
 
 export function useNotes(filters?: NoteFilters) {
   return useQuery({
@@ -15,31 +17,16 @@ export function useNotes(filters?: NoteFilters) {
   });
 }
 
-function useInvalidateNotes() {
-  const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: ['notes'] });
-}
-
 export function useCreateNote() {
-  const invalidate = useInvalidateNotes();
-  return useMutation({
-    mutationFn: (body: NoteBody) => notesApi.createNote(body),
-    onSuccess: invalidate,
-  });
+  return useResourceMutation<NoteBody, Note>(['notes'], (body) => notesApi.createNote(body));
 }
 
 export function useUpdateNote() {
-  const invalidate = useInvalidateNotes();
-  return useMutation({
-    mutationFn: ({ id, body }: { id: number; body: NoteBody }) => notesApi.updateNote(id, body),
-    onSuccess: invalidate,
-  });
+  return useResourceMutation<{ id: number; body: NoteBody }, Note>(['notes'], ({ id, body }) =>
+    notesApi.updateNote(id, body),
+  );
 }
 
 export function useDeleteNote() {
-  const invalidate = useInvalidateNotes();
-  return useMutation({
-    mutationFn: (id: number) => notesApi.deleteNote(id),
-    onSuccess: invalidate,
-  });
+  return useResourceMutation<number, { deleted: boolean }>(['notes'], (id) => notesApi.deleteNote(id));
 }

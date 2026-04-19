@@ -45,34 +45,6 @@ final class Middleware
         return false;
     }
 
-    /**
-     * Simple fixed-window rate limit placeholder (per-IP). Extend with Redis/file store later.
-     *
-     * @param array<string, list<float>> $staticStore Mutated between requests only in long-running SAPIs; for PHP-FPM use external store in production.
-     */
-    public static function rateLimit(Request $request, int $maxPerMinute = 120, ?array &$staticStore = null): bool
-    {
-        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-        $now = microtime(true);
-        if ($staticStore === null) {
-            $staticStore = [];
-        }
-        if (!isset($staticStore[$ip])) {
-            $staticStore[$ip] = [];
-        }
-        $windowStart = $now - 60.0;
-        $staticStore[$ip] = array_values(array_filter(
-            $staticStore[$ip],
-            static fn (float $t): bool => $t >= $windowStart,
-        ));
-        if (count($staticStore[$ip]) >= $maxPerMinute) {
-            Response::error('rate_limited', 'Too many requests', 429);
-            return false;
-        }
-        $staticStore[$ip][] = $now;
-        return true;
-    }
-
     public static function sessionAuth(Request $request): ?int
     {
         $token = $_COOKIE['codex_session'] ?? '';
@@ -89,7 +61,7 @@ final class Middleware
         $db->prepare('DELETE FROM sessions WHERE expires_at < ?')->execute([time()]);
 
         $stmt = $db->prepare(
-            'SELECT s.user_id FROM sessions s
+            'SELECT s.user_id, s.expires_at FROM sessions s
              WHERE s.token = ? AND s.expires_at > ?
              LIMIT 1',
         );
@@ -101,9 +73,13 @@ final class Middleware
             return null;
         }
 
+        // Slide expiry at most once per hour to avoid needless DB writes
+        $currentExpiry = (int) $row['expires_at'];
         $newExpiry = time() + 30 * 86400;
-        $db->prepare('UPDATE sessions SET expires_at = ? WHERE token = ?')
-            ->execute([$newExpiry, $token]);
+        if ($newExpiry - $currentExpiry > 3600) {
+            $db->prepare('UPDATE sessions SET expires_at = ? WHERE token = ?')
+                ->execute([$newExpiry, $token]);
+        }
 
         return (int) $row['user_id'];
     }

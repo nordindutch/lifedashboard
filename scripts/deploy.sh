@@ -30,6 +30,9 @@ $COMPOSE up -d --build php caddy
 echo "→ Waiting for PHP container to be ready..."
 sleep 3
 
+echo "→ Backfilling migration tracker (safe to re-run)..."
+$COMPOSE exec -T php php /var/www/html/database/mark_existing_migrations.php
+
 echo "→ Running database migrations..."
 $COMPOSE exec -T php php /var/www/html/database/migrate.php
 

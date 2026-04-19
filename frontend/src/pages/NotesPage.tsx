@@ -196,10 +196,8 @@ export function NotesPage() {
           label_ids: labelIds,
           label_names: labelNames,
         },
-      }).then((result) => {
-        if (result.success) {
-          setIsDirty(false);
-        }
+      }).then(() => {
+        setIsDirty(false);
       });
     }, 800);
 
@@ -207,15 +205,13 @@ export function NotesPage() {
   }, [body, isDirty, isPinned, labels, projectId, selectedId, taskId, title, updateNote]);
 
   const createNewNote = async () => {
-    const result = await createNote.mutateAsync({
+    const note = await createNote.mutateAsync({
       title: 'Naamloze notitie',
       body: '',
       body_format: 'html',
       is_pinned: false,
     });
-    if (result.success) {
-      setSelectedId(result.data.id);
-    }
+    setSelectedId(note.id);
   };
 
   const removeNote = async () => {
@@ -223,7 +219,7 @@ export function NotesPage() {
       return;
     }
     const result = await deleteNote.mutateAsync(selectedNote.id);
-    if (result.success) {
+    if (result.deleted) {
       setSelectedId(null);
     }
   };

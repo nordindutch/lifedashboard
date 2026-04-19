@@ -15,8 +15,10 @@ spl_autoload_register(static function (string $class): void {
     }
 });
 
+use Codex\Controllers\AccountController;
 use Codex\Controllers\BriefingController;
 use Codex\Controllers\BudgetController;
+use Codex\Controllers\DebtController;
 use Codex\Controllers\AuthController;
 use Codex\Controllers\AiController;
 use Codex\Controllers\DiaryController;
@@ -67,39 +69,20 @@ $allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5273',
     'http://localhost:8180',
-    // Tauri desktop WebView (packaged app loads from asset/custom origin, not the API host)
-    'https://tauri.localhost',
-    'http://tauri.localhost',
 ];
 $prodUrl = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? '');
-if ($prodUrl !== '') {
+if (is_string($prodUrl) && $prodUrl !== '') {
     $allowedOrigins[] = rtrim($prodUrl, '/');
 }
 
-// Same host as this API (reverse-proxied prod). Axios GETs use Content-Type: application/json,
-// which triggers a CORS preflight; the browser sends Origin: https://your-domain — it must match.
-$xfProto = isset($_SERVER['HTTP_X_FORWARDED_PROTO']) ? trim(explode(',', (string) $_SERVER['HTTP_X_FORWARDED_PROTO'])[0]) : '';
-$xfHost = isset($_SERVER['HTTP_X_FORWARDED_HOST']) ? trim(explode(',', (string) $_SERVER['HTTP_X_FORWARDED_HOST'])[0]) : '';
-$hostHeader = $xfHost !== '' ? $xfHost : (string) ($_SERVER['HTTP_HOST'] ?? '');
-if ($hostHeader !== '') {
-    $scheme = $xfProto !== '' ? $xfProto : ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http');
-    $hostname = $hostHeader;
-    if ($scheme === 'https' && str_ends_with($hostname, ':443')) {
-        $hostname = substr($hostname, 0, -4);
-    } elseif ($scheme === 'http' && str_ends_with($hostname, ':80')) {
-        $hostname = substr($hostname, 0, -3);
-    }
-    $siteOrigin = $scheme . '://' . $hostname;
-    if (!in_array($siteOrigin, $allowedOrigins, true)) {
-        $allowedOrigins[] = $siteOrigin;
-    }
+$allowOrigin = in_array($origin, $allowedOrigins, true) ? $origin : '';
+if ($allowOrigin !== '') {
+    header('Access-Control-Allow-Origin: ' . $allowOrigin);
+    header('Vary: Origin');
+    header('Access-Control-Allow-Credentials: true');
 }
-
-$allowOrigin = in_array($origin, $allowedOrigins, true) ? $origin : ($allowedOrigins[0] ?? '*');
-header('Access-Control-Allow-Origin: ' . $allowOrigin);
-header('Access-Control-Allow-Credentials: true');
 header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, X-Codex-Key, Authorization, X-Codex-Session');
+header('Access-Control-Allow-Headers: Content-Type, X-Codex-Session, Authorization');
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method === 'OPTIONS') {
@@ -175,6 +158,8 @@ $notesController = static function () use (&$noteController): NoteController {
 
 $briefingController = new BriefingController();
 $budgetController = new BudgetController();
+$accountController = new AccountController();
+$debtController = new DebtController();
 $authController = new AuthController();
 $settingsController = new SettingsController();
 $aiController = null;
@@ -208,13 +193,13 @@ $router->get('/api/settings/weather-test', [$settingsController, 'weatherTest'])
 $router->get('/api/settings', [$settingsController, 'index']);
 $router->put('/api/settings', [$settingsController, 'update']);
 
-$router->get('/api/budget/accounts', [$budgetController, 'listAccounts']);
-$router->post('/api/budget/accounts', [$budgetController, 'upsertAccount']);
-$router->delete('/api/budget/accounts/:id', [$budgetController, 'deleteAccount']);
+$router->get('/api/budget/accounts', [$accountController, 'index']);
+$router->post('/api/budget/accounts', [$accountController, 'upsert']);
+$router->delete('/api/budget/accounts/:id', [$accountController, 'destroy']);
 
-$router->get('/api/budget/debts', [$budgetController, 'listDebts']);
-$router->post('/api/budget/debts', [$budgetController, 'upsertDebt']);
-$router->delete('/api/budget/debts/:id', [$budgetController, 'deleteDebt']);
+$router->get('/api/budget/debts', [$debtController, 'index']);
+$router->post('/api/budget/debts', [$debtController, 'upsert']);
+$router->delete('/api/budget/debts/:id', [$debtController, 'destroy']);
 
 $router->get('/api/budget/:month', [$budgetController, 'getMonth']);
 $router->put('/api/budget/:month', [$budgetController, 'updateMonth']);

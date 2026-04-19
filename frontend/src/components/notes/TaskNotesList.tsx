@@ -14,15 +14,13 @@ export function TaskNotesList({ taskId }: Props) {
   const notes = notesQuery.data?.items ?? [];
 
   const handleQuickCreate = async () => {
-    const res = await createNote.mutateAsync({
+    await createNote.mutateAsync({
       task_id: taskId,
       title: 'Taaknotitie',
       body: '',
       body_format: 'html',
     });
-    if (res.success) {
-      navigate('/notes');
-    }
+    navigate('/notes');
   };
 
   return (

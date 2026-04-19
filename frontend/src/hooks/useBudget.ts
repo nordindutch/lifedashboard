@@ -1,5 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import * as budgetApi from '../api/budget';
+import type { AccountsPayload, BudgetMonthPayload, DebtsPayload } from '../types';
+import { useResourceMutation } from './useResourceMutation';
 
 export function useBudget(month: string) {
   return useQuery({
@@ -15,61 +17,46 @@ export function useBudget(month: string) {
   });
 }
 
-function useSetBudget(month: string) {
-  const qc = useQueryClient();
-  return (data: Awaited<ReturnType<typeof budgetApi.getBudgetMonth>>) => {
-    if (data.success) {
-      qc.setQueryData(['budget', month], data.data);
-    }
-  };
-}
-
 export function useUpsertIncome(month: string) {
-  const set = useSetBudget(month);
-  return useMutation({
-    mutationFn: (body: Parameters<typeof budgetApi.upsertIncome>[1]) => budgetApi.upsertIncome(month, body),
-    onSuccess: set,
-  });
+  return useResourceMutation<Parameters<typeof budgetApi.upsertIncome>[1], BudgetMonthPayload>(
+    ['budget', month],
+    (body) => budgetApi.upsertIncome(month, body),
+  );
 }
 
 export function useUpsertExpense(month: string) {
-  const set = useSetBudget(month);
-  return useMutation({
-    mutationFn: (body: Parameters<typeof budgetApi.upsertExpense>[1]) => budgetApi.upsertExpense(month, body),
-    onSuccess: set,
-  });
+  return useResourceMutation<Parameters<typeof budgetApi.upsertExpense>[1], BudgetMonthPayload>(
+    ['budget', month],
+    (body) => budgetApi.upsertExpense(month, body),
+  );
 }
 
 export function useDeleteIncome(month: string) {
-  const set = useSetBudget(month);
-  return useMutation({
-    mutationFn: (id: number) => budgetApi.deleteIncome(month, id),
-    onSuccess: set,
-  });
+  return useResourceMutation<number, BudgetMonthPayload>(
+    ['budget', month],
+    (id) => budgetApi.deleteIncome(month, id),
+  );
 }
 
 export function useDeleteExpense(month: string) {
-  const set = useSetBudget(month);
-  return useMutation({
-    mutationFn: (id: number) => budgetApi.deleteExpense(month, id),
-    onSuccess: set,
-  });
+  return useResourceMutation<number, BudgetMonthPayload>(
+    ['budget', month],
+    (id) => budgetApi.deleteExpense(month, id),
+  );
 }
 
 export function useCopyFromPrevious(month: string) {
-  const set = useSetBudget(month);
-  return useMutation({
-    mutationFn: () => budgetApi.copyFromPrevious(month),
-    onSuccess: set,
-  });
+  return useResourceMutation<undefined, BudgetMonthPayload>(
+    ['budget', month],
+    (_?: undefined) => budgetApi.copyFromPrevious(month),
+  );
 }
 
 export function useUpdateBudgetMonth(month: string) {
-  const set = useSetBudget(month);
-  return useMutation({
-    mutationFn: (body: Parameters<typeof budgetApi.updateBudgetMonth>[1]) => budgetApi.updateBudgetMonth(month, body),
-    onSuccess: set,
-  });
+  return useResourceMutation<Parameters<typeof budgetApi.updateBudgetMonth>[1], BudgetMonthPayload>(
+    ['budget', month],
+    (body) => budgetApi.updateBudgetMonth(month, body),
+  );
 }
 
 export function useAccounts() {
@@ -85,39 +72,15 @@ export function useAccounts() {
   });
 }
 
-export function useUpsertAccount() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: Parameters<typeof budgetApi.upsertAccount>[0]) => {
-      const res = await budgetApi.upsertAccount(body);
-      if (!res.success) {
-        throw new Error(res.error.message);
-      }
-      return res.data;
-    },
-    onSuccess: (data) => {
-      qc.setQueryData(['budget-accounts'], data);
-      void qc.invalidateQueries({ queryKey: ['budget'] });
-    },
-  });
-}
+export const useUpsertAccount = () =>
+  useResourceMutation<Parameters<typeof budgetApi.upsertAccount>[0], AccountsPayload>(
+    ['budget-accounts'],
+    budgetApi.upsertAccount,
+    [['budget']],
+  );
 
-export function useDeleteAccount() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: number) => {
-      const res = await budgetApi.deleteAccount(id);
-      if (!res.success) {
-        throw new Error(res.error.message);
-      }
-      return res.data;
-    },
-    onSuccess: (data) => {
-      qc.setQueryData(['budget-accounts'], data);
-      void qc.invalidateQueries({ queryKey: ['budget'] });
-    },
-  });
-}
+export const useDeleteAccount = () =>
+  useResourceMutation<number, AccountsPayload>(['budget-accounts'], budgetApi.deleteAccount, [['budget']]);
 
 export function useDebts() {
   return useQuery({
@@ -132,34 +95,8 @@ export function useDebts() {
   });
 }
 
-export function useUpsertDebt() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (body: Parameters<typeof budgetApi.upsertDebt>[0]) => {
-      const res = await budgetApi.upsertDebt(body);
-      if (!res.success) {
-        throw new Error(res.error.message);
-      }
-      return res.data;
-    },
-    onSuccess: (data) => {
-      qc.setQueryData(['budget-debts'], data);
-    },
-  });
-}
+export const useUpsertDebt = () =>
+  useResourceMutation<Parameters<typeof budgetApi.upsertDebt>[0], DebtsPayload>(['budget-debts'], budgetApi.upsertDebt);
 
-export function useDeleteDebt() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: number) => {
-      const res = await budgetApi.deleteDebt(id);
-      if (!res.success) {
-        throw new Error(res.error.message);
-      }
-      return res.data;
-    },
-    onSuccess: (data) => {
-      qc.setQueryData(['budget-debts'], data);
-    },
-  });
-}
+export const useDeleteDebt = () =>
+  useResourceMutation<number, DebtsPayload>(['budget-debts'], budgetApi.deleteDebt);

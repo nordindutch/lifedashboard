@@ -160,11 +160,15 @@ final class AuthController
                 ->execute([$token]);
         }
 
+        $secureLogout = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+        if (!$secureLogout && isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+            $secureLogout = strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https';
+        }
         setcookie('codex_session', '', [
             'expires' => time() - 3600,
             'path' => '/',
             'httponly' => true,
-            'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+            'secure' => $secureLogout,
             'samesite' => 'Lax',
         ]);
 
@@ -183,14 +187,17 @@ final class AuthController
             ->execute([$userId, $token, $expiresAt]);
         $db->prepare('UPDATE users SET last_login_at = unixepoch() WHERE id = ?')->execute([$userId]);
 
+        // Caddy terminates TLS and sets X-Forwarded-Proto
         $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
-        $sameSite = $secure ? 'None' : 'Lax';
+        if (!$secure && isset($_SERVER['HTTP_X_FORWARDED_PROTO'])) {
+            $secure = strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https';
+        }
         setcookie('codex_session', $token, [
             'expires' => $expiresAt,
             'path' => '/',
             'httponly' => true,
             'secure' => $secure,
-            'samesite' => $sameSite,
+            'samesite' => 'Lax', // same-origin only; prevents CSRF from other sites
         ]);
 
         return ['token' => $token, 'expires_at' => $expiresAt];

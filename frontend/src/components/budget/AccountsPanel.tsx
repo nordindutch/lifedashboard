@@ -1,5 +1,7 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { CrudRow } from '../ui/CrudRow';
+import { EditableField } from '../ui/EditableField';
 import { useAccounts, useDeleteAccount, useUpsertAccount } from '../../hooks/useBudget';
 import { formatAmountInputDisplay, parseAmountInput } from '../../lib/amountInput';
 import { ACCOUNT_KINDS, type Account, type AccountKind } from '../../types';
@@ -117,24 +119,21 @@ function AccountRow({
   onSave: (patch: { name?: string; kind?: AccountKind; balance?: number }) => void;
   onDelete: () => void;
 }) {
-  const [name, setName] = useState(account.name);
-  const [balance, setBalance] = useState(formatAmountInputDisplay(account.balance));
+  const [balanceDisplay, setBalanceDisplay] = useState(formatAmountInputDisplay(account.balance));
 
   useEffect(() => {
-    setName(account.name);
-    setBalance(formatAmountInputDisplay(account.balance));
-  }, [account.id, account.name, account.balance]);
+    setBalanceDisplay(formatAmountInputDisplay(account.balance));
+  }, [account.id, account.balance]);
 
-  const balanceNum = parseAmountInput(balance);
+  const balanceNum = parseAmountInput(balanceDisplay);
   const balanceLooksNegative = balanceNum !== null && balanceNum < 0;
 
   return (
-    <div className="flex items-center gap-2">
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onBlur={() => name.trim() !== account.name && onSave({ name: name.trim() })}
-        className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm text-slate-100 hover:border-codex-border focus:border-codex-accent focus:outline-none"
+    <CrudRow onDelete={onDelete} deleteTitle="Rekening verwijderen">
+      <EditableField
+        value={account.name}
+        onSave={(name) => onSave({ name })}
+        className="flex-1"
       />
       <select
         value={account.kind}
@@ -147,34 +146,22 @@ function AccountRow({
           </option>
         ))}
       </select>
-      <input
-        value={balance}
-        onChange={(e) => setBalance(e.target.value)}
-        onBlur={() => {
-          const n = parseAmountInput(balance);
+      <EditableField
+        value={balanceDisplay}
+        onSave={(v) => {
+          const n = parseAmountInput(v);
           if (n === null) {
-            setBalance(formatAmountInputDisplay(account.balance));
+            setBalanceDisplay(formatAmountInputDisplay(account.balance));
             return;
           }
-          setBalance(formatAmountInputDisplay(n));
           if (n !== account.balance) {
             onSave({ balance: n });
           }
         }}
         inputMode="decimal"
-        autoComplete="off"
-        className={`w-28 rounded-md border border-transparent bg-transparent px-2 py-1 text-right text-sm hover:border-codex-border focus:border-codex-accent focus:outline-none ${
-          balanceLooksNegative ? 'text-rose-400' : 'text-slate-100'
-        }`}
+        align="right"
+        className={`w-28 ${balanceLooksNegative ? 'text-rose-400' : 'text-slate-100'}`}
       />
-      <button
-        type="button"
-        onClick={onDelete}
-        className="rounded-md p-1.5 text-slate-500 hover:bg-rose-500/10 hover:text-rose-400"
-        title="Rekening verwijderen"
-      >
-        <Trash2 size={14} />
-      </button>
-    </div>
+    </CrudRow>
   );
 }

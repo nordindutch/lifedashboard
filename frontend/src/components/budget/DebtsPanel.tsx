@@ -1,5 +1,7 @@
-import { Calendar, Plus, Trash2 } from 'lucide-react';
+import { Calendar, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { CrudRow } from '../ui/CrudRow';
+import { EditableField } from '../ui/EditableField';
 import { useDebts, useDeleteDebt, useUpsertDebt } from '../../hooks/useBudget';
 import { formatAmountInputDisplay, parseAmountInput } from '../../lib/amountInput';
 import type { Debt } from '../../types';
@@ -186,14 +188,12 @@ function DebtRow({
   }) => void;
   onDelete: () => void;
 }) {
-  const [name, setName] = useState(debt.name);
   const [amount, setAmount] = useState(formatAmountInputDisplay(debt.amount));
   const [deadlineStr, setDeadlineStr] = useState(tsToDateInput(debt.deadline));
   const [notes, setNotes] = useState(debt.notes ?? '');
   const [partialPay, setPartialPay] = useState('');
 
   useEffect(() => {
-    setName(debt.name);
     setAmount(formatAmountInputDisplay(debt.amount));
     setDeadlineStr(tsToDateInput(debt.deadline));
     setNotes(debt.notes ?? '');
@@ -229,20 +229,13 @@ function DebtRow({
           />
           Afgelost
         </label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={() => name.trim() !== debt.name && onSave({ name: name.trim() })}
-          className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-sm text-slate-100 hover:border-codex-border focus:border-codex-accent focus:outline-none"
-        />
-        <button
-          type="button"
-          onClick={onDelete}
-          className="rounded-md p-1.5 text-slate-500 hover:bg-rose-500/10 hover:text-rose-400"
-          title="Schuld verwijderen"
-        >
-          <Trash2 size={14} />
-        </button>
+        <CrudRow onDelete={onDelete} deleteTitle="Schuld verwijderen" className="min-w-0 flex-1">
+          <EditableField
+            value={debt.name}
+            onSave={(v) => onSave({ name: v })}
+            className="min-w-0 flex-1"
+          />
+        </CrudRow>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
