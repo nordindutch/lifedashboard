@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Copy, Plus } from 'lucide-react';
+import { BarChart3, ChevronLeft, ChevronRight, Copy, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { AccountsPanel } from '../components/budget/AccountsPanel';
@@ -19,6 +19,7 @@ import {
   useUpsertIncome,
 } from '../hooks/useBudget';
 import { formatAmountInputDisplay, parseAmountInput } from '../lib/amountInput';
+import { useUiStore } from '../stores/uiStore';
 import { BUDGET_CATEGORIES, CATEGORY_COLORS, type BudgetCategory, type BudgetMonth } from '../types';
 
 function currentMonthKey(): string {
@@ -133,6 +134,8 @@ function BudgetCurrentBalanceField({
 
 export function BudgetPage() {
   const [month, setMonth] = useState(currentMonthKey);
+  const budgetAnalyticsVisible = useUiStore((s) => s.budgetAnalyticsVisible);
+  const toggleBudgetAnalyticsVisible = useUiStore((s) => s.toggleBudgetAnalyticsVisible);
   const q = useBudget(month);
   const upsertIncome = useUpsertIncome(month);
   const upsertExpense = useUpsertExpense(month);
@@ -216,18 +219,43 @@ export function BudgetPage() {
             <ChevronRight size={14} />
           </button>
         </div>
-        <button
-          type="button"
-          onClick={() => void copyPrev.mutateAsync(undefined)}
-          disabled={isArchive || copyPrev.isPending}
-          className="inline-flex items-center gap-1.5 rounded-md border border-codex-border px-3 py-1.5 text-sm text-slate-300 hover:border-codex-accent/60 hover:text-slate-100 disabled:opacity-50"
-        >
-          <Copy size={14} />
-          Copy from previous
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => toggleBudgetAnalyticsVisible()}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm ${
+              budgetAnalyticsVisible
+                ? 'border-codex-accent/50 bg-codex-accent/10 text-slate-100'
+                : 'border-codex-border text-slate-400 hover:border-codex-accent/40 hover:text-slate-200'
+            }`}
+            aria-pressed={budgetAnalyticsVisible}
+            aria-label={budgetAnalyticsVisible ? 'Verberg analyse en grafieken' : 'Toon analyse en grafieken'}
+            title={budgetAnalyticsVisible ? 'Verberg analyse' : 'Toon analyse'}
+          >
+            <BarChart3 size={14} />
+            {budgetAnalyticsVisible ? 'Analyse aan' : 'Analyse uit'}
+          </button>
+          <button
+            type="button"
+            onClick={() => void copyPrev.mutateAsync(undefined)}
+            disabled={isArchive || copyPrev.isPending}
+            className="inline-flex items-center gap-1.5 rounded-md border border-codex-border px-3 py-1.5 text-sm text-slate-300 hover:border-codex-accent/60 hover:text-slate-100 disabled:opacity-50"
+          >
+            <Copy size={14} />
+            Copy from previous
+          </button>
+        </div>
       </div>
 
-      <BudgetAnalyticsSection />
+      {budgetAnalyticsVisible ? <BudgetAnalyticsSection /> : (
+        <button
+          type="button"
+          onClick={() => toggleBudgetAnalyticsVisible()}
+          className="mb-6 w-full rounded-lg border border-dashed border-codex-border bg-codex-surface/40 px-4 py-3 text-left text-sm text-codex-muted transition hover:border-codex-accent/40 hover:text-slate-300"
+        >
+          Analyse en grafieken zijn verborgen. <span className="text-codex-accent">Klik om te tonen.</span>
+        </button>
+      )}
 
       {q.isLoading ? (
         <p className="text-sm text-slate-400">Budget laden…</p>
