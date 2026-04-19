@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth, useLogout } from '../../hooks/useAuth';
 import { tabToPath } from '../../lib/routes';
 import { useUiStore, type AppTab } from '../../stores/uiStore';
+import { QuickCreateSidebarTrigger } from './QuickCreate';
 
 const tabs: { id: AppTab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'Start', icon: Home },
@@ -23,7 +24,7 @@ export function Sidebar() {
 
   return (
     <aside
-      className={`hidden h-full min-h-0 shrink-0 self-stretch border-r border-codex-border bg-codex-surface md:flex md:flex-col ${
+      className={`hidden shrink-0 border-r border-codex-border bg-codex-surface md:sticky md:top-0 md:z-30 md:flex md:h-screen md:min-h-0 md:max-h-full md:flex-col md:overflow-y-auto ${
         expanded ? 'w-60' : 'w-16'
       }`}
     >
@@ -58,6 +59,9 @@ export function Sidebar() {
           );
         })}
       </nav>
+      <div className="px-2 pb-2">
+        <QuickCreateSidebarTrigger />
+      </div>
       {user ? (
         <div className="mt-auto border-t border-codex-border p-2">
           <div className={`flex items-center gap-3 px-3 py-2 ${expanded ? '' : 'justify-center'}`}>

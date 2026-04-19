@@ -7,11 +7,31 @@
     /* Mobile bottom tab bar — keep in sync with `BottomNav` visual height */
     --codex-bottom-nav-height: 4.5rem;
   }
+
+  /* Subtle scrollbars (Firefox + WebKit) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(113, 113, 122, 0.35) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgba(113, 113, 122, 0.35);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgba(113, 113, 122, 0.55);
+  }
 }
 
 /*
- * Scroll surface: `#root` scrolls. html/body use a real height % chain so `h-full` works
- * inside the app (desktop sidebar + main fill the viewport).
+ * Viewport-locked shell: #root fills the screen; only <main> scrolls. Sidebar stays
+ * sticky and full column height (100dvh chain minus TitleBar on Tauri).
  */
 html {
   height: 100%;
@@ -22,20 +42,20 @@ body {
   padding: 0;
   height: 100%;
   overflow: hidden;
+  background-color: #0a0a0f;
 }
 
 /* Safe area: Capacitor Android / iOS; env() is 0 on web/desktop */
 #root {
   height: 100%;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
   margin: 0;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   padding-left: env(safe-area-inset-left, 0px);
   padding-right: env(safe-area-inset-right, 0px);
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   background-color: #0a0a0f;
 }
 

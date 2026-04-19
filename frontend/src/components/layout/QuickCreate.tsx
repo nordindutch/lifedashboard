@@ -38,6 +38,26 @@ function addHour(time: string): string {
   return `${String(next).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+/** Opens the quick-create modal; styled for the desktop sidebar (icon-only when collapsed). */
+export function QuickCreateSidebarTrigger() {
+  const openQuickCreate = useUiStore((s) => s.openQuickCreate);
+  const expanded = useUiStore((s) => s.sidebarExpanded);
+
+  return (
+    <button
+      type="button"
+      onClick={openQuickCreate}
+      title="Snel toevoegen"
+      className={`flex w-full items-center gap-3 rounded-lg border border-codex-border/80 bg-codex-bg/60 px-3 py-2.5 text-left text-sm text-slate-300 transition-colors hover:border-codex-accent/40 hover:bg-white/5 hover:text-slate-100 ${
+        expanded ? '' : 'justify-center px-2'
+      }`}
+    >
+      <Plus size={18} className="shrink-0 text-codex-accent" />
+      {expanded ? <span className="font-medium">Snel toevoegen</span> : null}
+    </button>
+  );
+}
+
 export function QuickCreate() {
   const qc = useQueryClient();
   const open = useUiStore((s) => s.quickCreateOpen);
@@ -192,7 +212,8 @@ export function QuickCreate() {
 
   return (
     <>
-      <div className="fixed left-1/2 z-40 -translate-x-1/2 max-md:bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:bottom-6">
+      {/* Mobile / tablet: floating FAB — on md+ the trigger lives in the sidebar */}
+      <div className="fixed left-1/2 z-40 -translate-x-1/2 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:hidden">
         <button
           type="button"
           onClick={openQuickCreate}

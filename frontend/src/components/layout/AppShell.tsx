@@ -12,7 +12,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-0 flex-1 flex-row items-stretch">
         <Sidebar />
         <main
-          className="min-h-0 min-w-0 flex-1 [&>:first-child]:max-md:pb-[calc(var(--codex-bottom-nav-height)+1.5rem+env(safe-area-inset-bottom,0px))] [&>:first-child]:md:pb-6"
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain [&>:first-child]:max-md:pb-[calc(var(--codex-bottom-nav-height)+1.5rem+env(safe-area-inset-bottom,0px))] [&>:first-child]:md:pb-6"
         >
           {children}
         </main>
