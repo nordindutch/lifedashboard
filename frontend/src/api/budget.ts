@@ -3,13 +3,21 @@ import type {
   AccountKind,
   AccountsPayload,
   ApiResponse,
+  BudgetAnalyticsPayload,
   BudgetCategory,
+  BudgetInsightsPayload,
   BudgetMonthPayload,
   DebtsPayload,
 } from '../types';
 
 export const getBudgetMonth = (month: string) =>
   parseApiResponse<BudgetMonthPayload>(apiClient.get(`/api/budget/${month}`));
+
+export const getBudgetAnalytics = () =>
+  parseApiResponse<BudgetAnalyticsPayload>(apiClient.get('/api/budget/analytics'));
+
+export const getBudgetInsights = () =>
+  parseApiResponse<BudgetInsightsPayload>(apiClient.get('/api/budget/insights'));
 
 export const updateBudgetMonth = (
   month: string,

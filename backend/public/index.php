@@ -203,6 +203,9 @@ $router->get('/api/budget/debts', [$debtController, 'index']);
 $router->post('/api/budget/debts', [$debtController, 'upsert']);
 $router->delete('/api/budget/debts/:id', [$debtController, 'destroy']);
 
+$router->get('/api/budget/analytics', [$budgetController, 'analytics']);
+$router->get('/api/budget/insights', [$budgetController, 'insights']);
+
 $router->get('/api/budget/:month', [$budgetController, 'getMonth']);
 $router->put('/api/budget/:month', [$budgetController, 'updateMonth']);
 $router->post('/api/budget/:month/income', [$budgetController, 'upsertIncome']);

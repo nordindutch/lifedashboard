@@ -7,6 +7,7 @@ namespace Codex\Controllers;
 use Codex\Core\Database;
 use Codex\Core\Request;
 use Codex\Core\Response;
+use Codex\Services\AnthropicService;
 use PDO;
 
 final class BudgetController
@@ -309,6 +310,50 @@ final class BudgetController
         Response::success($this->buildPayload($month));
     }
 
+    public function analytics(Request $request): void
+    {
+        unset($request);
+        $db = Database::getInstance();
+        Response::success($this->buildAnalyticsPayload($db));
+    }
+
+    public function insights(Request $request): void
+    {
+        unset($request);
+        $db = Database::getInstance();
+        $analytics = $this->buildAnalyticsPayload($db);
+        $anthropic = AnthropicService::makeFromSettings();
+        if ($anthropic === null) {
+            Response::error(
+                'not_configured',
+                'Anthropic API key not set (configure ANTHROPIC_API_KEY in .env or anthropic_api_key in settings)',
+                422,
+            );
+
+            return;
+        }
+
+        $system = implode("\n", [
+            'You are a concise personal finance coach for a Dutch-speaking user.',
+            'Respond in Dutch only. Maximum 5 short sentences. Plain text — no markdown, no bullet lists.',
+            'Focus on: trend (drifting/stable/growing), runway buffer, savings rate, and category or subscription risk if visible in the data.',
+            'Be specific with numbers from the JSON when helpful; avoid generic platitudes.',
+        ]);
+        $user = "Hier zijn geaggregeerde budgetdata (JSON). Geef een korte analyse:\n\n"
+            . json_encode($analytics, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $result = $anthropic->generate($system, $user, 700);
+        if ($result === null) {
+            Response::error('EXTERNAL_API_ERROR', 'Claude API call failed', 502);
+
+            return;
+        }
+
+        Response::success([
+            'text' => (string) ($result['text'] ?? ''),
+            'generated_at' => time(),
+        ]);
+    }
+
     private function monthFromRequest(Request $request): ?string
     {
         $month = (string) ($request->routeParams['month'] ?? '');
@@ -480,5 +525,229 @@ final class BudgetController
         }
 
         return $dt->modify('-1 month')->format('Y-m');
+    }
+
+    /**
+     * @return list<string> YYYY-MM, oldest → newest
+     */
+    private function lastNMonthKeys(int $n): array
+    {
+        $end = new \DateTimeImmutable('first day of this month');
+        $out = [];
+        for ($i = $n - 1; $i >= 0; $i--) {
+            $out[] = $end->modify('-' . $i . ' months')->format('Y-m');
+        }
+
+        return $out;
+    }
+
+    /**
+     * Same effective balance rules as buildPayload (linked checking account or stored value).
+     *
+     * @param array<string, mixed> $monthRow
+     */
+    private function effectiveCurrentBalanceFromRow(PDO $db, array $monthRow): float
+    {
+        $cbaRaw = $monthRow['current_balance_account_id'] ?? null;
+        $balanceAccountId = $cbaRaw !== null && $cbaRaw !== '' ? (int) $cbaRaw : null;
+        $storedBalance = (float) ($monthRow['current_balance'] ?? 0);
+        if ($balanceAccountId === null) {
+            return round($storedBalance, 2);
+        }
+        $linkStmt = $db->prepare('SELECT balance, kind FROM budget_accounts WHERE id = ? LIMIT 1');
+        $linkStmt->execute([$balanceAccountId]);
+        /** @var array<string, mixed>|false $linkRow */
+        $linkRow = $linkStmt->fetch(PDO::FETCH_ASSOC);
+        if ($linkRow !== false && ($linkRow['kind'] ?? '') === 'checking') {
+            return round((float) ($linkRow['balance'] ?? 0), 2);
+        }
+
+        return round($storedBalance, 2);
+    }
+
+    /**
+     * @param list<float> $y
+     */
+    private function linearRegressionSlopePerStep(array $y): float
+    {
+        $n = count($y);
+        if ($n < 2) {
+            return 0.0;
+        }
+        $sumX = 0.0;
+        $sumY = 0.0;
+        $sumXY = 0.0;
+        $sumXX = 0.0;
+        for ($i = 0; $i < $n; $i++) {
+            $x = (float) $i;
+            $yi = $y[$i];
+            $sumX += $x;
+            $sumY += $yi;
+            $sumXY += $x * $yi;
+            $sumXX += $x * $x;
+        }
+        $den = $n * $sumXX - $sumX * $sumX;
+        if (abs($den) < 1e-9) {
+            return 0.0;
+        }
+
+        return ($n * $sumXY - $sumX * $sumY) / $den;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildAnalyticsPayload(PDO $db): array
+    {
+        $monthKeys = $this->lastNMonthKeys(12);
+        $placeholders = implode(',', array_fill(0, count($monthKeys), '?'));
+        $stmt = $db->prepare("SELECT * FROM budget_months WHERE month IN ($placeholders)");
+        $stmt->execute($monthKeys);
+        /** @var array<string, array<string, mixed>> $rowsByMonth */
+        $rowsByMonth = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $rowsByMonth[(string) $row['month']] = $row;
+        }
+
+        $incomeStmt = $db->prepare('SELECT COALESCE(SUM(amount), 0) FROM budget_income WHERE month_id = ?');
+        $expStmt = $db->prepare('SELECT COALESCE(SUM(amount), 0) FROM budget_expenses WHERE month_id = ?');
+        $catStmt = $db->prepare(
+            'SELECT category, COALESCE(SUM(amount), 0) AS amount FROM budget_expenses WHERE month_id = ? GROUP BY category',
+        );
+
+        $lineSeries = [];
+        $nets = [];
+        foreach ($monthKeys as $mk) {
+            $row = $rowsByMonth[$mk] ?? null;
+            $monthId = $row !== null ? (int) $row['id'] : null;
+            $income = 0.0;
+            $expenses = 0.0;
+            if ($monthId !== null) {
+                $incomeStmt->execute([$monthId]);
+                $income = (float) $incomeStmt->fetchColumn();
+                $expStmt->execute([$monthId]);
+                $expenses = (float) $expStmt->fetchColumn();
+            }
+            $net = round($income - $expenses, 2);
+            $nets[] = $net;
+            $lineSeries[] = [
+                'month' => $mk,
+                'total_income' => round($income, 2),
+                'total_expenses' => round($expenses, 2),
+                'net' => $net,
+            ];
+        }
+
+        $opening = 0.0;
+        $firstKey = $monthKeys[0];
+        if (isset($rowsByMonth[$firstKey])) {
+            $opening = $this->effectiveCurrentBalanceFromRow($db, $rowsByMonth[$firstKey]);
+        }
+        $cum = $opening;
+        foreach ($lineSeries as $i => $_) {
+            $cum += $lineSeries[$i]['net'];
+            $lineSeries[$i]['balance_trajectory'] = round($cum, 2);
+            $lineSeries[$i]['projected'] = false;
+        }
+
+        $lastIdx = count($monthKeys) - 1;
+        $lastMonthDt = \DateTimeImmutable::createFromFormat('Y-m', $monthKeys[$lastIdx]);
+        if (!$lastMonthDt instanceof \DateTimeImmutable) {
+            $lastMonthDt = new \DateTimeImmutable('first day of this month');
+        }
+        $tailNets = array_slice($nets, -3);
+        $avgNet3 = count($tailNets) > 0 ? array_sum($tailNets) / count($tailNets) : 0.0;
+        $lastBalance = $lineSeries[$lastIdx]['balance_trajectory'] ?? $opening;
+        $projection = [];
+        $projBal = (float) $lastBalance;
+        for ($h = 1; $h <= 3; $h++) {
+            $projBal += $avgNet3;
+            $nextKey = $lastMonthDt->modify('+' . $h . ' months')->format('Y-m');
+            $projection[] = [
+                'month' => $nextKey,
+                'balance_trajectory' => round($projBal, 2),
+                'avg_net_assumption' => round($avgNet3, 2),
+                'projected' => true,
+            ];
+        }
+
+        $slope = $this->linearRegressionSlopePerStep($nets);
+        $direction = 'stable';
+        if ($slope < -25.0) {
+            $direction = 'drifting';
+        } elseif ($slope > 25.0) {
+            $direction = 'growing';
+        }
+
+        $categoryByMonth = [];
+        foreach ($monthKeys as $mk) {
+            $row = $rowsByMonth[$mk] ?? null;
+            $byCat = [];
+            foreach (self::CATEGORIES as $c) {
+                $byCat[$c] = 0.0;
+            }
+            if ($row !== null) {
+                $mid = (int) $row['id'];
+                $catStmt->execute([$mid]);
+                foreach ($catStmt->fetchAll(PDO::FETCH_ASSOC) as $cr) {
+                    $cat = (string) ($cr['category'] ?? '');
+                    if (isset($byCat[$cat])) {
+                        $byCat[$cat] = round((float) ($cr['amount'] ?? 0), 2);
+                    }
+                }
+            }
+            $categoryByMonth[] = [
+                'month' => $mk,
+                'by_category' => $byCat,
+            ];
+        }
+
+        $savingsRate = [];
+        foreach ($lineSeries as $pt) {
+            $inc = (float) $pt['total_income'];
+            $exp = (float) $pt['total_expenses'];
+            $rate = null;
+            if ($inc > 0.0001) {
+                $rate = round((($inc - $exp) / $inc) * 100, 1);
+            }
+            $savingsRate[] = [
+                'month' => (string) $pt['month'],
+                'rate_pct' => $rate,
+            ];
+        }
+
+        $liqStmt = $db->query(
+            "SELECT COALESCE(SUM(balance), 0) FROM budget_accounts WHERE kind IN ('checking', 'savings', 'cash')",
+        );
+        $liquidTotal = round((float) ($liqStmt !== false ? $liqStmt->fetchColumn() : 0), 2);
+        $last3Exp = array_slice(array_column($lineSeries, 'total_expenses'), -3);
+        $avgExp3 = count($last3Exp) > 0 ? array_sum($last3Exp) / count($last3Exp) : 0.0;
+        $avgExp3 = round($avgExp3, 2);
+        $runwayMonths = null;
+        if ($avgExp3 > 0.01) {
+            $runwayMonths = round($liquidTotal / $avgExp3, 1);
+        }
+
+        return [
+            'month_keys' => $monthKeys,
+            'line_series' => $lineSeries,
+            'projection' => $projection,
+            'trend' => [
+                'direction' => $direction,
+                'slope_euros_per_month' => round($slope, 2),
+                'label_nl' => $direction === 'growing'
+                    ? 'Je netto resultaat stijgt over deze periode.'
+                    : ($direction === 'drifting'
+                        ? 'Je netto resultaat daalt over deze periode.'
+                        : 'Je netto resultaat is redelijk stabiel.'),
+            ],
+            'runway' => [
+                'liquid_total' => $liquidTotal,
+                'avg_monthly_expenses_3m' => $avgExp3,
+                'months' => $runwayMonths,
+            ],
+            'savings_rate' => $savingsRate,
+            'category_by_month' => $categoryByMonth,
+        ];
     }
 }

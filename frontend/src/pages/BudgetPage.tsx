@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Copy, Plus } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { AccountsPanel } from '../components/budget/AccountsPanel';
+import { BudgetAnalyticsSection } from '../components/budget/BudgetAnalyticsSection';
 import { DebtsPanel } from '../components/budget/DebtsPanel';
 import { CrudRow } from '../components/ui/CrudRow';
 import { EditableField } from '../components/ui/EditableField';
@@ -225,6 +226,8 @@ export function BudgetPage() {
           Copy from previous
         </button>
       </div>
+
+      <BudgetAnalyticsSection />
 
       {q.isLoading ? (
         <p className="text-sm text-slate-400">Budget laden…</p>

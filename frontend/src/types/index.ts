@@ -264,6 +264,50 @@ export interface BudgetMonthPayload {
   summary: BudgetSummary;
 }
 
+export interface BudgetLineSeriesPoint {
+  month: string;
+  total_income: number;
+  total_expenses: number;
+  net: number;
+  balance_trajectory: number;
+  projected: boolean;
+}
+
+export interface BudgetProjectionPoint {
+  month: string;
+  balance_trajectory: number;
+  avg_net_assumption: number;
+  projected: boolean;
+}
+
+export type BudgetTrendDirection = 'drifting' | 'stable' | 'growing';
+
+export interface BudgetAnalyticsPayload {
+  month_keys: string[];
+  line_series: BudgetLineSeriesPoint[];
+  projection: BudgetProjectionPoint[];
+  trend: {
+    direction: BudgetTrendDirection;
+    slope_euros_per_month: number;
+    label_nl: string;
+  };
+  runway: {
+    liquid_total: number;
+    avg_monthly_expenses_3m: number;
+    months: number | null;
+  };
+  savings_rate: { month: string; rate_pct: number | null }[];
+  category_by_month: {
+    month: string;
+    by_category: Record<BudgetCategory, number>;
+  }[];
+}
+
+export interface BudgetInsightsPayload {
+  text: string;
+  generated_at: number;
+}
+
 export type AccountKind = 'checking' | 'savings' | 'cash' | 'investment' | 'other';
 
 export const ACCOUNT_KINDS: { value: AccountKind; label: string }[] = [
