@@ -83,10 +83,11 @@ final class AccountController
             }
 
             $this->index($request);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('AccountController::upsert failed: ' . $e->getMessage());
             Response::error(
                 'server_error',
-                'Could not save account. Run database migrations if budget_accounts is missing.',
+                'Could not save account: ' . $e->getMessage(),
                 500,
             );
         }
