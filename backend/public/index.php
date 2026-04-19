@@ -69,6 +69,8 @@ $allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:5273',
     'http://localhost:8180',
+    // Tauri v2 desktop webview (XHR/fetch to remote API)
+    'http://tauri.localhost',
 ];
 $prodUrl = getenv('FRONTEND_URL') ?: ($_ENV['FRONTEND_URL'] ?? '');
 if (is_string($prodUrl) && $prodUrl !== '') {
