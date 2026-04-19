@@ -33,7 +33,8 @@ final class AccountController
                 'items' => $items,
                 'total' => round($total, 2),
             ]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('AccountController: ' . $e->getMessage());
             Response::error(
                 'server_error',
                 'Could not load accounts. If this is a new install, run database migrations (budget_accounts table).',
@@ -104,7 +105,8 @@ final class AccountController
             $db->prepare('UPDATE budget_months SET current_balance_account_id = NULL WHERE current_balance_account_id = ?')->execute([$id]);
             $db->prepare('DELETE FROM budget_accounts WHERE id = ?')->execute([$id]);
             $this->index($request);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('AccountController: ' . $e->getMessage());
             Response::error('server_error', 'Could not delete account', 500);
         }
     }

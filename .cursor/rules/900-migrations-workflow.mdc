@@ -1,0 +1,95 @@
+---
+description: Database migration workflow — how to add schema changes safely.
+globs: ["backend/database/**", "backend/src/**Repository.php", "scripts/deploy.sh"]
+alwaysApply: false
+---
+Migration Workflow
+
+Adding a new migration
+
+1. Create backend/database/migrations/NNN_description.sql where NNN is the
+   next unused three-digit number
+2. Write the SQL — CREATE TABLE, ALTER TABLE ADD COLUMN, CREATE INDEX, etc.
+3. Wrap anything that could fail idempotently:
+   - CREATE TABLE IF NOT EXISTS
+   - CREATE INDEX IF NOT EXISTS
+   - Never use ALTER TABLE ADD COLUMN with IF NOT EXISTS (SQLite doesn't
+     support it — check if already added before writing the migration)
+4. Commit and push — auto-deploy runs the migration on the VPS
+
+That is the entire workflow. No changes to migrate.php, no PHP edits
+elsewhere.
+
+Never do this
+
+Never run schema changes from a runtime code path (controller, service,
+repository). Schema is the job of migrate.php and nothing else.
+
+Never modify an already-applied migration file. Once a migration has been
+applied on any environment (dev machine, VPS), treat the file as frozen.
+Need to fix something? Write a new migration.
+
+Never write ALTER TABLE for operations SQLite doesn't support (DROP COLUMN,
+RENAME COLUMN on old SQLite). Use the create-new → copy → drop-old → rename
+pattern inside the migration file instead.
+
+Never bundle schema + data migrations in one file. Create NNN_schema.sql
+followed by NNN+1_backfill.sql so the transaction boundaries are clean and
+rollback is possible.
+
+Testing a migration locally
+
+Before pushing, test against a copy of the production DB:
+
+```bash
+# Copy the prod database locally
+scp root@vps:/var/lib/docker/volumes/codex_sqlite_data/_data/codex.sqlite ./test.sqlite
+
+# Run the migration against it
+sqlite3 test.sqlite < backend/database/migrations/NNN_new.sql
+
+# Verify tables/columns
+sqlite3 test.sqlite ".schema my_table"
+sqlite3 test.sqlite "PRAGMA table_info(my_table)"
+```
+
+Rolling back
+
+Migrations are forward-only in this project. If a migration breaks production:
+
+1. Write a new migration that reverses the bad change
+2. Deploy it
+3. Don't delete the original migration file — other environments need to
+   apply it in sequence
+
+If the migration corrupts data, restore from backup and write a new migration
+that explains what happened in a comment at the top.
+
+Deploy script integration
+
+scripts/deploy.sh must call both scripts in order:
+
+1. mark_existing_migrations.php — safe to run every deploy, backfills the
+   tracker for databases that predate schema_migrations (no-op after first run)
+2. migrate.php — applies any new migrations not yet recorded
+
+This order matters: skipping the backfill on a legacy database causes
+migrate.php to try re-applying migrations that were manually applied before
+the tracker existed.
+
+The CI / local dev equivalent
+
+For local dev:
+
+```bash
+docker compose exec php php database/migrate.php
+```
+
+Drop the database to reset:
+
+```bash
+docker compose down
+docker volume rm lifedashboard_sqlite_data
+docker compose up -d
+docker compose exec php php database/migrate.php
+```

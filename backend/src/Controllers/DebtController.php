@@ -34,7 +34,8 @@ final class DebtController
                 'items' => $items,
                 'outstanding' => round($outstanding, 2),
             ]);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('DebtController: ' . $e->getMessage());
             Response::error(
                 'server_error',
                 'Could not load debts. If this is a new install, run database migrations (budget_debts table).',
@@ -111,7 +112,8 @@ final class DebtController
             $db = Database::getInstance();
             $db->prepare('DELETE FROM budget_debts WHERE id = ?')->execute([$id]);
             $this->index($request);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            error_log('DebtController: ' . $e->getMessage());
             Response::error('server_error', 'Could not delete debt', 500);
         }
     }

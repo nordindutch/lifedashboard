@@ -3,10 +3,10 @@
 
 declare(strict_types=1);
 
-$baseDir = dirname(__DIR__);
-$schemaPath = __DIR__ . '/schema.sql';
+$baseDir       = dirname(__DIR__);
+$schemaPath    = __DIR__ . '/schema.sql';
 $migrationsDir = __DIR__ . '/migrations';
-$dbPath = $baseDir . '/database/codex.sqlite';
+$dbPath        = $baseDir . '/database/codex.sqlite';
 
 $dbDir = dirname($dbPath);
 if (!is_dir($dbDir) && !mkdir($dbDir, 0755, true) && !is_dir($dbDir)) {
@@ -24,17 +24,15 @@ try {
     exit(1);
 }
 
-// Tracking table
 $pdo->exec(
     'CREATE TABLE IF NOT EXISTS schema_migrations (
         filename   TEXT    PRIMARY KEY,
         applied_at INTEGER NOT NULL DEFAULT (unixepoch())
-    )',
+    )'
 );
 
-// First-time schema bootstrap (sentinel = "__schema__")
 $hasSchemaSentinel = (bool) $pdo->query(
-    "SELECT 1 FROM schema_migrations WHERE filename = '__schema__'",
+    "SELECT 1 FROM schema_migrations WHERE filename = '__schema__'"
 )->fetchColumn();
 
 if (!$hasSchemaSentinel) {
@@ -61,7 +59,6 @@ if (!$hasSchemaSentinel) {
     }
 }
 
-// Apply pending migrations in alphabetical order
 if (!is_dir($migrationsDir)) {
     echo "No migrations directory — done.\n";
     exit(0);
@@ -78,9 +75,7 @@ foreach ($pdo->query('SELECT filename FROM schema_migrations')->fetchAll(PDO::FE
 $count = 0;
 foreach ($migrationFiles as $path) {
     $name = basename($path);
-    if (isset($applied[$name])) {
-        continue;
-    }
+    if (isset($applied[$name])) continue;
 
     $sql = file_get_contents($path);
     if ($sql === false) {
@@ -95,7 +90,7 @@ foreach ($migrationFiles as $path) {
             ->execute([$name]);
         $pdo->commit();
         echo "→ Applied {$name}\n";
-        ++$count;
+        $count++;
     } catch (Throwable $e) {
         $pdo->rollBack();
         fwrite(STDERR, "Migration {$name} failed: " . $e->getMessage() . "\n");
@@ -103,7 +98,5 @@ foreach ($migrationFiles as $path) {
     }
 }
 
-if ($count === 0) {
-    echo "All migrations up to date.\n";
-}
+if ($count === 0) echo "All migrations up to date.\n";
 echo "Migration OK: {$dbPath}\n";

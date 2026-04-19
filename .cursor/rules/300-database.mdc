@@ -4,12 +4,48 @@ globs: ["backend/database/**", "backend/src/**Repository.php"]
 alwaysApply: false
 ---
 Database Rules
-Schema Immutability
 
-Never modify schema.sql directly after the first migration
-All schema changes go in numbered migration files: migrations/001_add_column.sql, migrations/002_create_index.sql
-migrate.php tracks applied migrations in a _migrations table
-Production migrations must be reversible — include a -- DOWN section in each migration file
+Schema & Migrations
+
+schema.sql is the initial bootstrap only — applied once on fresh installs
+After the first deploy, schema.sql must never be modified. All schema changes
+go in numbered migration files under backend/database/migrations/
+
+Naming: NNN_short_description.sql (zero-padded, three digits)
+Good: 008_add_task_tags.sql
+Bad: 8_tags.sql, 008-add-tags.sql, addTags.sql
+
+Migrations are applied in alphabetical order by migrate.php. Tracking table
+is called schema_migrations (filename TEXT PRIMARY KEY, applied_at INTEGER).
+A sentinel entry '__schema__' records that schema.sql was applied.
+
+Migration Rules
+
+Each file runs in a single transaction — if any statement fails, nothing
+from that file is applied and the runner exits
+Each file must be idempotent-safe: use CREATE TABLE IF NOT EXISTS,
+CREATE INDEX IF NOT EXISTS, but ALTER TABLE ADD COLUMN is not idempotent
+in SQLite — only include it if the column definitely doesn't exist yet
+No DROP statements in production migrations without a compelling reason
+No data migrations in the same file as schema changes — split them into
+two files, schema first (NNN_change.sql) then data (NNN+1_populate.sql)
+Never run migrations from a controller or any runtime code path — only
+from the CLI migrate.php script triggered by scripts/deploy.sh
+Adding a new migration is the only change needed to introduce schema
+changes — no PHP changes in migrate.php, no entries anywhere else
+
+Before writing an ALTER TABLE
+
+SQLite has limited ALTER TABLE support. ADD COLUMN works but DROP COLUMN,
+RENAME COLUMN, and changing types need a full table rebuild:
+
+1. Create new table with the desired schema and a _new suffix
+2. INSERT INTO new_table SELECT ... FROM old_table
+3. DROP TABLE old_table
+4. ALTER TABLE new_table RENAME TO old_table
+5. Recreate indexes and triggers
+
+Do this inside the migration file as multiple statements.
 
 Query Patterns
 Always Filter Soft Deletes

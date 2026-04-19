@@ -1,0 +1,112 @@
+---
+description: Reusability patterns — shared primitives, factory hooks, and when to extract vs inline.
+globs: ["**/*"]
+alwaysApply: false
+---
+Reusability Rules
+
+When to Extract a Shared Primitive
+
+The "rule of three" applies — inline the first time, duplicate the second
+time, extract on the third. Don't speculatively build shared components for
+code that exists in one place.
+
+Signs a primitive should be extracted:
+
+Three or more components share the same JSX shape with different children
+Three or more hook files have nearly identical mutation patterns
+The same 10+ line block of utility code appears in multiple files
+A CRUD pattern (form → validate → save → invalidate) is repeated per resource
+
+Frontend Primitives (frontend/src/components/ui/)
+
+CrudRow — horizontal row wrapper with a trash button slot. Used by any
+editable list item (budget income/expense, accounts, debts). Takes children
+(the editable fields) and an onDelete callback.
+
+EditableField — text/number/date input that saves on blur only if changed.
+Used wherever a field should auto-save without a Save button. Props:
+value, onSave, type, inputMode, align, className.
+
+Modal, Drawer, Card, Button, Badge, EmptyState, PriorityPip — already exist.
+Any new page-level primitive with more than one caller lives here.
+
+Do not put feature-specific UI in components/ui/. BudgetSummaryPanel belongs
+in components/budget/. ProjectsPanel belongs in components/productivity/.
+
+Factory Hooks (frontend/src/hooks/)
+
+useResourceMutation(queryKey, apiFn) — wraps TanStack Query's useMutation and
+invalidates the queryKey on success. All resource create/update/delete hooks
+should be one-liners built on this:
+
+export const useUpsertAccount = () =>
+  useResourceMutation(['budget-accounts'], budgetApi.upsertAccount);
+
+Never inline useMutation + useQueryClient + invalidateQueries again — it's
+always the same five lines. Use the factory.
+
+When a mutation needs special handling (optimistic updates, onError side
+effects, custom success logic), inline useMutation for that one case. Don't
+expand useResourceMutation with options — keep it single-purpose.
+
+Backend Controller Splits
+
+Rule of thumb: one controller per resource. A controller should not exceed
+~500 lines. When it approaches that, split by resource.
+
+Good:
+- BudgetController — budget_months, income, expenses, copy-previous
+- AccountController — budget_accounts
+- DebtController — budget_debts
+
+Bad:
+- BudgetController handling months + accounts + debts + schema migrations
+  (this is what grew to 942 lines before splitting)
+
+Controllers share patterns via private helpers within their own file.
+Repositories share patterns via a future BaseRepository (not yet added).
+Don't premature-extract shared controller logic — let duplication appear
+three times first.
+
+Reusable API Patterns
+
+All list endpoints return { items: [...], total?: number } or a plain array
+depending on whether pagination applies. Paginated: { items, total, page, per_page }.
+Non-paginated: plain array T[].
+
+All upsert endpoints accept { id?: number, ...fields } — if id is present,
+update; otherwise create. Return the updated/created resource.
+
+All delete endpoints return { deleted: true } or the refreshed list.
+
+When these three patterns are followed, useResourceMutation and TanStack Query
+work with no custom wrapping.
+
+What Not to Reuse
+
+Don't extract:
+- A component used in exactly one place, even if it's long — splitting for
+  its own sake hurts readability
+- Utility functions with fewer than three callers — leave them co-located
+- "Configuration" objects that would need to be imported and customized
+  in every call site — inline config is often clearer
+- Styling wrappers like <PageContainer> when Tailwind classes do the job
+
+A good sign code is too abstract: the shared version is longer than the
+three duplicated versions would be, or the shared version has many optional
+props that encode the different use cases.
+
+File Size Alarm Thresholds
+
+When any file exceeds these limits, split or extract:
+
+- PHP controller: 500 lines
+- React page: 400 lines
+- React component: 250 lines
+- Hook file: 150 lines
+- Utility module: 200 lines
+
+These are soft limits — a file can exceed them if the content is genuinely
+cohesive. But reaching them should prompt the question: "is there a natural
+split here?"
