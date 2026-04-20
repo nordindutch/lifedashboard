@@ -48,40 +48,34 @@ function TrendBadge({ direction, label }: { direction: BudgetAnalyticsPayload['t
 }
 
 function BudgetInsightsCard() {
-  const q = useBudgetInsights();
-  if (q.isLoading) {
-    return (
-      <div className="rounded-xl border border-codex-border bg-codex-surface p-4">
-        <div className="h-4 w-32 animate-pulse rounded bg-white/10" />
-        <div className="mt-3 space-y-2">
-          <div className="h-3 w-full animate-pulse rounded bg-white/5" />
-          <div className="h-3 w-5/6 animate-pulse rounded bg-white/5" />
-        </div>
+  const q = useBudgetInsights({ enabled: false });
+  const msg = q.error instanceof Error ? q.error.message : '';
+  const noKey = /not configured|Anthropic|422/i.test(msg);
+  const text = q.data?.text?.trim() ?? '';
+  return (
+    <div className="rounded-xl border border-codex-border bg-gradient-to-br from-codex-surface to-slate-900/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-codex-muted">AI-analyse</h2>
+        <button
+          type="button"
+          onClick={() => void q.refetch()}
+          disabled={q.isFetching}
+          className="rounded-md border border-codex-border px-2.5 py-1 text-xs text-slate-200 transition hover:border-codex-accent/50 disabled:opacity-60"
+        >
+          {q.isFetching ? 'Analyseren…' : text ? 'Vernieuw analyse' : 'Genereer analyse'}
+        </button>
       </div>
-    );
-  }
-  if (q.isError) {
-    const msg = q.error instanceof Error ? q.error.message : '';
-    const noKey = /not configured|Anthropic|422/i.test(msg);
-    return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 text-sm text-amber-100/90">
-        <p className="font-medium text-amber-200/95">AI-inzicht</p>
-        <p className="mt-1 text-xs text-amber-100/80">
+      {q.isError ? (
+        <p className="mt-2 text-xs text-amber-200/90">
           {noKey
             ? 'Geen Anthropic API-sleutel geconfigureerd. Voeg ANTHROPIC_API_KEY toe of stel de sleutel in bij Instellingen.'
             : msg || 'Kon geen analyse laden.'}
         </p>
-      </div>
-    );
-  }
-  const text = q.data?.text?.trim() ?? '';
-  if (!text) {
-    return null;
-  }
-  return (
-    <div className="rounded-xl border border-codex-border bg-gradient-to-br from-codex-surface to-slate-900/40 p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-codex-muted">AI-analyse</h2>
-      <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-200">{text}</p>
+      ) : text ? (
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-slate-200">{text}</p>
+      ) : (
+        <p className="mt-2 text-xs text-codex-muted">Klik op de knop om een korte AI-analyse van je financiën op te halen.</p>
+      )}
     </div>
   );
 }

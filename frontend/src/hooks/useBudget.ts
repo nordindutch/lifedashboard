@@ -33,10 +33,11 @@ export function useBudgetAnalytics() {
   });
 }
 
-export function useBudgetInsights() {
+export function useBudgetInsights(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['budget-insights'],
     staleTime: 300_000,
+    enabled: options?.enabled ?? false,
     queryFn: async () => {
       const res = await budgetApi.getBudgetInsights();
       if (!res.success) {

@@ -111,7 +111,7 @@ export function RichEditor({ content, onChange, placeholder, readOnly, className
       ) : null}
       <EditorContent
         editor={editor}
-        className="prose prose-invert prose-sm max-w-none flex-1 overflow-y-auto px-4 py-3 text-slate-200 focus:outline-none [&_.ProseMirror]:min-h-[120px] [&_.ProseMirror]:outline-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-slate-600 [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror-focused_p.is-editor-empty:first-child::before]:opacity-0"
+        className="prose prose-invert prose-sm max-w-none flex-1 overflow-y-auto px-4 py-3 text-slate-200 focus:outline-none [&_.ProseMirror]:min-h-[120px] [&_.ProseMirror]:outline-none [&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ul]:pl-6 [&_.ProseMirror_ol]:pl-6 [&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ol]:my-2 [&_.ProseMirror_li]:my-0.5 [&_.ProseMirror_p.is-editor-empty:first-child::before]:float-left [&_.ProseMirror_p.is-editor-empty:first-child::before]:pointer-events-none [&_.ProseMirror_p.is-editor-empty:first-child::before]:text-slate-600 [&_.ProseMirror_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.ProseMirror-focused_p.is-editor-empty:first-child::before]:opacity-0"
       />
     </div>
   );
