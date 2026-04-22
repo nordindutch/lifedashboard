@@ -273,12 +273,12 @@ export function BudgetPage() {
               {data.income.map((row) => (
                 <CrudRow
                   key={row.id}
-                  className="group flex flex-col gap-2 rounded-lg border border-codex-border/40 p-2 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,120px)_auto] md:items-center md:gap-2 md:rounded-none md:border-0 md:p-0"
+                  className="group rounded-lg border border-codex-border/40 p-2 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,120px)_auto] md:items-center md:gap-2 md:rounded-none md:border-0 md:p-0"
                   onDelete={isArchive ? undefined : () => void deleteIncome.mutateAsync(row.id)}
                   deleteTitle="Verwijderen"
                   deleteButtonClassName="shrink-0 rounded p-1 text-slate-500 opacity-100 transition hover:text-rose-300 disabled:opacity-20 md:opacity-0 md:group-hover:opacity-100"
                 >
-                  <div className="flex min-w-0 items-center gap-2 md:contents">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 md:contents">
                     <input
                       type="checkbox"
                       checked={row.received}
@@ -326,7 +326,7 @@ export function BudgetPage() {
                     step="0.01"
                     disabled={isArchive}
                     align="right"
-                    className="min-w-0 w-full max-w-[11rem] rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200 md:max-w-none md:border-0 md:bg-transparent"
+                    className="w-20 shrink-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200 md:w-auto md:border-0 md:bg-transparent"
                   />
                 </CrudRow>
               ))}
@@ -359,6 +359,7 @@ export function BudgetPage() {
                     value={newIncomeAmount}
                     disabled={isArchive}
                     onChange={(e) => setNewIncomeAmount(e.target.value)}
+                    placeholder="€ -,--"
                     className="min-w-0 flex-1 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200 md:flex-none"
                   />
                   <button
@@ -390,12 +391,12 @@ export function BudgetPage() {
               {data.expenses.map((row) => (
                 <CrudRow
                   key={row.id}
-                  className="group flex flex-col gap-2 rounded-lg border border-codex-border/40 p-2 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,150px)_minmax(0,120px)_auto] md:items-center md:gap-2 md:rounded-none md:border-0 md:p-0"
+                  className="group rounded-lg border border-codex-border/40 p-2 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,150px)_minmax(0,120px)_auto] md:items-center md:gap-2 md:rounded-none md:border-0 md:p-0"
                   onDelete={isArchive ? undefined : () => void deleteExpense.mutateAsync(row.id)}
                   deleteTitle="Verwijderen"
-                  deleteButtonClassName="justify-self-end rounded p-1 text-slate-500 opacity-100 transition hover:text-rose-300 disabled:opacity-20 sm:justify-self-auto md:opacity-0 md:group-hover:opacity-100"
+                  deleteButtonClassName="shrink-0 rounded p-1 text-slate-500 opacity-100 transition hover:text-rose-300 disabled:opacity-20 md:opacity-0 md:group-hover:opacity-100"
                 >
-                  <div className="flex min-w-0 items-center gap-2 md:contents">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 md:contents">
                     <input
                       type="checkbox"
                       checked={row.paid}
@@ -441,7 +442,7 @@ export function BudgetPage() {
                         sort_order: row.sort_order,
                       })
                     }
-                    className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-xs text-slate-200"
+                    className="w-24 shrink-0 rounded border border-codex-border bg-codex-bg px-1 py-1.5 text-xs text-slate-200 md:w-auto md:px-2"
                   >
                     {BUDGET_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
@@ -467,7 +468,7 @@ export function BudgetPage() {
                     step="0.01"
                     disabled={isArchive}
                     align="right"
-                    className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200 md:border-0 md:bg-transparent"
+                    className="w-20 shrink-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200 md:w-auto md:border-0 md:bg-transparent"
                   />
                 </CrudRow>
               ))}
@@ -480,12 +481,12 @@ export function BudgetPage() {
                   placeholder="Uitgave toevoegen…"
                   className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-sm text-slate-200"
                 />
-                <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr_auto] md:contents">
+                <div className="flex items-center gap-2 md:contents">
                   <select
                     value={newExpenseCategory}
                     disabled={isArchive}
                     onChange={(e) => setNewExpenseCategory(e.target.value as BudgetCategory)}
-                    className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-xs text-slate-200"
+                    className="min-w-0 flex-1 rounded border border-codex-border bg-codex-bg px-1 py-1.5 text-xs text-slate-200 md:flex-none md:px-2"
                   >
                     {BUDGET_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
@@ -499,7 +500,8 @@ export function BudgetPage() {
                     value={newExpenseAmount}
                     disabled={isArchive}
                     onChange={(e) => setNewExpenseAmount(e.target.value)}
-                    className="min-w-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200"
+                    placeholder="€ -,--"
+                    className="w-20 shrink-0 rounded border border-codex-border bg-codex-bg px-2 py-1.5 text-right text-sm text-slate-200 md:w-auto"
                   />
                   <button
                     type="button"
@@ -516,7 +518,7 @@ export function BudgetPage() {
                         setNewExpenseAmount('');
                       })
                     }
-                    className="shrink-0 justify-self-start rounded border border-codex-border px-2 py-1.5 text-slate-300 disabled:opacity-40 sm:justify-self-auto"
+                    className="shrink-0 rounded border border-codex-border px-2 py-1.5 text-slate-300 disabled:opacity-40"
                   >
                     <Plus size={14} />
                   </button>

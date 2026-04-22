@@ -59,6 +59,14 @@ final class AiController
         $workStart = (int) ($settings['work_start_hour'] ?? 9);
         $workEnd = (int) ($settings['work_end_hour'] ?? 18);
         $timezone = (string) ($settings['timezone'] ?? 'UTC');
+
+        $endTimeOverride = isset($body['end_time']) && is_string($body['end_time']) ? trim($body['end_time']) : null;
+        if ($endTimeOverride !== null && preg_match('/^(\d{1,2}):(\d{2})$/', $endTimeOverride, $m)) {
+            $workEndLabel = sprintf('%02d:%02d', (int) $m[1], (int) $m[2]);
+        } else {
+            $workEndLabel = sprintf('%02d:00', $workEnd);
+        }
+
         $events = CalendarService::loadCachedForDay($planDate, $timezone);
 
         $anthropic = AnthropicService::makeFromSettings();
@@ -67,8 +75,8 @@ final class AiController
             return;
         }
 
-        $systemPrompt = $this->buildSystemPrompt($planDate, $workStart, $workEnd, $timezone);
-        $userPrompt = $this->buildUserPrompt($tasks, $events, $workStart, $workEnd, $timezone);
+        $systemPrompt = $this->buildSystemPrompt($planDate, $workStart, $workEndLabel, $timezone);
+        $userPrompt = $this->buildUserPrompt($tasks, $events, $workStart, $workEndLabel, $timezone);
 
         $result = $anthropic->generate($systemPrompt, $userPrompt, 2000);
         if ($result === null) {
@@ -110,10 +118,11 @@ final class AiController
         Response::paginated($result['items'], ['total' => $result['total'], 'page' => $page, 'per_page' => $perPage]);
     }
 
-    private function buildSystemPrompt(string $date, int $workStart, int $workEnd, string $timezone): string
+    private function buildSystemPrompt(string $date, int $workStart, string $workEnd, string $timezone): string
     {
         $tz = $this->safeTimezone($timezone);
         $nowLabel = (new \DateTimeImmutable('now', $tz))->format('Y-m-d H:i');
+        $startLabel = sprintf('%02d:00', $workStart);
         return implode("\n", [
             'You are a personal productivity assistant for a single user\'s Life OS.',
             'Your job is to create a realistic block schedule for the day that:',
@@ -129,13 +138,13 @@ final class AiController
             '- Groups shallow tasks together into batches where sensible',
             '- Adds short breaks (10-15 min) every 90 minutes of focused work',
             '- Breaks must never overlap tasks, calendar commitments, or transit blocks — only place breaks in true gaps',
-            '- Does not schedule work outside ' . $workStart . ':00–' . $workEnd . ':00',
+            '- Does not schedule work outside ' . $startLabel . '–' . $workEnd,
             '- Responds ONLY with valid JSON — no markdown, no explanation, just JSON',
             '',
             'Today\'s date: ' . $date,
             'Timezone: ' . $timezone,
             'Current local time: ' . $nowLabel,
-            'User work hours: ' . $workStart . ':00 – ' . $workEnd . ':00',
+            'User work hours: ' . $startLabel . ' – ' . $workEnd,
         ]);
     }
 
@@ -143,7 +152,7 @@ final class AiController
      * @param list<array<string, mixed>> $tasks
      * @param list<array<string, mixed>> $events
      */
-    private function buildUserPrompt(array $tasks, array $events, int $workStart, int $workEnd, string $timezone): string
+    private function buildUserPrompt(array $tasks, array $events, int $workStart, string $workEnd, string $timezone): string
     {
         $tz = $this->safeTimezone($timezone);
         $nowLocal = new \DateTimeImmutable('now', $tz);
@@ -226,7 +235,7 @@ final class AiController
             '- Break blocks: task_id null, is_break true — never overlap any other block (tasks, calendar, transit)',
             '- If planning for today (' . $nowDate . '), do not schedule any block starting before ' . $nowTime . ' local time',
             '- If there is not enough remaining time today, do not plan that task into schedule; put it in suggested_tasks with action "defer" or "reschedule"',
-            '- Cover the full work day from ' . $workStart . ':00 to ' . $workEnd . ':00 (' . $timezone . ')',
+            '- Cover the full work day from ' . sprintf('%02d:00', $workStart) . ' to ' . $workEnd . ' (' . $timezone . ')',
             '- If a task has no estimated_mins, choose a realistic duration and set estimated_mins in your response',
             '- Respond only with valid JSON',
         ]);

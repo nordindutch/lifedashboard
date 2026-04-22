@@ -2,6 +2,40 @@
 
 declare(strict_types=1);
 
+ob_start();
+
+set_exception_handler(static function (\Throwable $e): void {
+    ob_end_clean();
+    if (!headers_sent()) {
+        header('Content-Type: application/json');
+        http_response_code(500);
+    }
+    echo json_encode([
+        'success' => false,
+        'error' => [
+            'code' => 'internal_error',
+            'message' => $e->getMessage(),
+            'file' => basename($e->getFile()) . ':' . $e->getLine(),
+        ],
+    ]);
+    exit;
+});
+
+register_shutdown_function(static function (): void {
+    $err = error_get_last();
+    if ($err !== null && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        ob_end_clean();
+        if (!headers_sent()) {
+            header('Content-Type: application/json');
+            http_response_code(500);
+        }
+        echo json_encode([
+            'success' => false,
+            'error' => ['code' => 'internal_error', 'message' => 'An unexpected server error occurred'],
+        ]);
+    }
+});
+
 spl_autoload_register(static function (string $class): void {
     $prefix = 'Codex\\';
     $base = dirname(__DIR__) . '/src/';

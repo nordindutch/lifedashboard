@@ -23,6 +23,7 @@ export function useGenerateAiPlan() {
       plan_date?: string;
       include_task_ids?: number[];
       force_regenerate?: boolean;
+      end_time?: string;
     }) => {
       const res = await aiApi.generateAiPlan(body);
       if (!res.success) {

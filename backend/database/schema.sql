@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS ai_plans (
     calendar_context  TEXT,
     prompt_tokens     INTEGER,
     completion_tokens INTEGER,
-    model_used        TEXT    DEFAULT 'claude-sonnet-4-20250514',
+    model_used        TEXT    DEFAULT 'claude-sonnet-4-6',
     raw_response      TEXT,
     parsed_schedule   TEXT,
     reflection        TEXT,

@@ -13,6 +13,7 @@ export async function generateAiPlan(body: {
   plan_date?: string;
   include_task_ids?: number[];
   force_regenerate?: boolean;
+  end_time?: string;
 }): Promise<ApiResponse<AIPlan>> {
   return parseApiResponse<AIPlan>(apiClient.post('/api/ai/plan/generate', body));
 }

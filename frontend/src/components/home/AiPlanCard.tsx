@@ -1,7 +1,12 @@
 import { Brain, Coffee, RefreshCw, Train, Clock } from 'lucide-react';
+import { useState } from 'react';
 import { useGenerateAiPlan } from '../../hooks/useAiPlan';
 import type { AIPlan, ScheduleBlock } from '../../types';
 import { Card } from '../ui/Card';
+
+const END_TIME_OPTIONS = Array.from({ length: 24 }, (_, h) =>
+  [`${String(h).padStart(2, '0')}:00`, `${String(h).padStart(2, '0')}:30`]
+).flat().filter(t => t >= '12:00');
 
 type Block = ScheduleBlock & { is_transit?: boolean; estimated_mins?: number };
 
@@ -29,12 +34,14 @@ type Props = {
 export function AiPlanCard({ plan, className }: Props) {
   const generate = useGenerateAiPlan();
   const blocks   = (plan?.parsed_schedule ?? []) as Block[];
+  const [endTime, setEndTime] = useState('18:00');
 
   const handleGenerate = () => {
     generate.mutate({
       plan_type: 'adhoc',
       plan_date: new Date().toISOString().split('T')[0],
       force_regenerate: plan !== null,
+      end_time: endTime,
     });
   };
 
@@ -52,15 +59,27 @@ export function AiPlanCard({ plan, className }: Props) {
             </span>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={generate.isPending}
-          className="flex items-center gap-1.5 rounded-md border border-codex-border px-2 py-1 text-xs text-codex-muted hover:text-slate-200 disabled:opacity-50 transition-colors"
-        >
-          <RefreshCw size={12} className={generate.isPending ? 'animate-spin' : ''} />
-          {generate.isPending ? 'Plannen…' : plan ? 'Opnieuw' : 'Plan maken'}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <select
+            value={endTime}
+            onChange={e => setEndTime(e.target.value)}
+            disabled={generate.isPending}
+            className="rounded-md border border-codex-border bg-transparent px-1.5 py-1 text-xs text-codex-muted disabled:opacity-50 focus:outline-none"
+          >
+            {END_TIME_OPTIONS.map(t => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generate.isPending}
+            className="flex items-center gap-1.5 rounded-md border border-codex-border px-2 py-1 text-xs text-codex-muted hover:text-slate-200 disabled:opacity-50 transition-colors"
+          >
+            <RefreshCw size={12} className={generate.isPending ? 'animate-spin' : ''} />
+            {generate.isPending ? 'Plannen…' : plan ? 'Opnieuw' : 'Plan maken'}
+          </button>
+        </div>
       </div>
 
       {/* Reflection */}
