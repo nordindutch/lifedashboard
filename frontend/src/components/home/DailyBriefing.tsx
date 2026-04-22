@@ -1,7 +1,8 @@
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
-import { Clock3 } from 'lucide-react';
+import { Calendar, Clock3, LayoutGrid } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { syncCalendar, syncGmail } from '../../api/settings';
 import { useBriefing } from '../../hooks/useBriefing';
 import { useSettings } from '../../hooks/useSettings';
@@ -71,6 +72,7 @@ function BriefingSkeleton() {
 export function DailyBriefing() {
   const q = useBriefing();
   const { settings } = useSettings();
+  const navigate = useNavigate();
   const openMoodModal = useUiStore((s) => s.openMoodModal);
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [isSyncingEmail, setIsSyncingEmail] = useState(false);
@@ -196,6 +198,25 @@ export function DailyBriefing() {
           </div>
         </div>
       </header>
+
+      <div className="mb-4 grid grid-cols-2 gap-3 md:hidden">
+        <button
+          type="button"
+          onClick={() => navigate('/tasks')}
+          className="flex items-center gap-2.5 rounded-xl border border-codex-border bg-codex-surface px-4 py-3 text-left text-sm text-slate-300 hover:border-codex-accent/40 hover:text-slate-100 transition-colors"
+        >
+          <LayoutGrid size={16} className="shrink-0 text-indigo-400" />
+          <span className="font-medium">Taken</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/diary')}
+          className="flex items-center gap-2.5 rounded-xl border border-codex-border bg-codex-surface px-4 py-3 text-left text-sm text-slate-300 hover:border-codex-accent/40 hover:text-slate-100 transition-colors"
+        >
+          <Calendar size={16} className="shrink-0 text-violet-400" />
+          <span className="font-medium">Dagboek</span>
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-4 lg:items-stretch lg:gap-5">
         <div className="flex flex-col gap-4 lg:min-h-0">

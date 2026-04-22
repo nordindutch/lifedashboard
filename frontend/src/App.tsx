@@ -6,6 +6,7 @@ import { AppShell } from './components/layout/AppShell';
 import { useAuth, useBootstrap } from './hooks/useAuth';
 import { pathToTab } from './lib/routes';
 import { BudgetPage } from './pages/BudgetPage';
+import { CaloriesPage } from './pages/CaloriesPage';
 import { DiaryPage } from './pages/DiaryPage';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
@@ -108,6 +109,7 @@ function RouterShell() {
         <Route path="/notes" element={<NotesPage />} />
         <Route path="/diary" element={<DiaryPage />} />
         <Route path="/budget" element={<BudgetPage />} />
+        <Route path="/calories" element={<CaloriesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

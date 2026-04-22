@@ -13,6 +13,9 @@ export function pathToTab(path: string): AppTab {
   if (path.startsWith('/budget')) {
     return 'budget';
   }
+  if (path.startsWith('/calories')) {
+    return 'calories';
+  }
   if (path.startsWith('/settings')) {
     return 'settings';
   }
@@ -29,6 +32,8 @@ export function tabToPath(tab: AppTab): string {
       return '/diary';
     case 'budget':
       return '/budget';
+    case 'calories':
+      return '/calories';
     case 'settings':
       return '/settings';
     default:

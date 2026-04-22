@@ -52,6 +52,7 @@ spl_autoload_register(static function (string $class): void {
 use Codex\Controllers\AccountController;
 use Codex\Controllers\BriefingController;
 use Codex\Controllers\BudgetController;
+use Codex\Controllers\CalorieController;
 use Codex\Controllers\DebtController;
 use Codex\Controllers\AuthController;
 use Codex\Controllers\AiController;
@@ -65,6 +66,7 @@ use Codex\Core\Middleware;
 use Codex\Core\Request;
 use Codex\Core\Response;
 use Codex\Core\Router;
+use Codex\Repositories\CalorieRepository;
 use Codex\Repositories\DiaryRepository;
 use Codex\Repositories\AiPlanRepository;
 use Codex\Repositories\GoalRepository;
@@ -206,6 +208,15 @@ $aiCtrl = static function () use (&$aiController): AiController {
 
     return $aiController;
 };
+
+$calorieController = null;
+$calorieCtrl = static function () use (&$calorieController): CalorieController {
+    if ($calorieController === null) {
+        $calorieController = new CalorieController(CalorieRepository::make());
+    }
+
+    return $calorieController;
+};
 $router->get('/api/auth/me', [$authController, 'me']);
 $router->get('/api/auth/bootstrap', [$authController, 'bootstrap']);
 $router->post('/api/auth/login', [$authController, 'login']);
@@ -217,6 +228,11 @@ $router->get('/api/evening-plan', [$briefingController, 'eveningPlan']);
 $router->get('/api/ai/plan', static fn (Request $r) => $aiCtrl()->getPlan($r));
 $router->post('/api/ai/plan/generate', static fn (Request $r) => $aiCtrl()->generate($r));
 $router->get('/api/ai/history', static fn (Request $r) => $aiCtrl()->history($r));
+
+$router->get('/api/calories', static fn (Request $r) => $calorieCtrl()->list($r));
+$router->get('/api/calories/search', static fn (Request $r) => $calorieCtrl()->search($r));
+$router->post('/api/calories', static fn (Request $r) => $calorieCtrl()->add($r));
+$router->delete('/api/calories/:id', static fn (Request $r) => $calorieCtrl()->delete($r));
 $router->get('/api/integrations/google/oauth-url', [$settingsController, 'googleIntegrationOAuthUrl']);
 $router->get('/api/auth/google/callback', [$settingsController, 'googleCallback']);
 $router->delete('/api/auth/google', [$settingsController, 'revokeGoogle']);

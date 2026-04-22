@@ -1,4 +1,4 @@
-import { Calendar, Home, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, PiggyBank, Settings, StickyNote } from 'lucide-react';
+import { Calendar, Flame, Home, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, PiggyBank, Settings, StickyNote } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth, useLogout } from '../../hooks/useAuth';
 import { tabToPath } from '../../lib/routes';
@@ -10,7 +10,8 @@ const tabs: { id: AppTab; label: string; icon: typeof Home }[] = [
   { id: 'tasks', label: 'Taken', icon: LayoutGrid },
   { id: 'notes', label: 'Notities', icon: StickyNote },
   { id: 'diary', label: 'Dagboek', icon: Calendar },
-  { id: 'budget', label: 'Budget', icon: PiggyBank },
+  { id: 'budget',   label: 'Budget',      icon: PiggyBank },
+  { id: 'calories', label: 'Calorieën',   icon: Flame },
   { id: 'settings', label: 'Instellingen', icon: Settings },
 ];
 
