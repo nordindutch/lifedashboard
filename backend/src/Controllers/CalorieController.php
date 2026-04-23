@@ -68,7 +68,10 @@ final class CalorieController
             return;
         }
 
-        $results = $this->searchOpenFoodFacts($q) ?? $this->searchUsda($q);
+        $results = $this->searchOpenFoodFacts($q);
+        if ($results === null || $results === []) {
+            $results = $this->searchUsda($q);
+        }
         Response::success($results ?? []);
     }
 
@@ -119,6 +122,13 @@ final class CalorieController
             }
             $n = is_array($p['nutriments'] ?? null) ? $p['nutriments'] : [];
             $kcal = (float) ($n['energy-kcal_100g'] ?? $n['energy-kcal'] ?? 0);
+            if ($kcal <= 0) {
+                // Fall back to kJ field and convert (1 kcal = 4.184 kJ)
+                $kj = (float) ($n['energy_100g'] ?? $n['energy'] ?? 0);
+                if ($kj > 0) {
+                    $kcal = $kj / 4.184;
+                }
+            }
             if ($kcal <= 0) {
                 continue;
             }
