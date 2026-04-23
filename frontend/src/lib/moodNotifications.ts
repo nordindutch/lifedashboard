@@ -6,7 +6,12 @@ const isCapacitor =
   typeof window !== 'undefined' && typeof (window as unknown as { Capacitor?: unknown }).Capacitor !== 'undefined';
 
 let clickFocusRegistered = false;
-let scheduleStarted = false;
+let scheduleStartedDate = '';
+
+function todayStr(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
 
 // --- Tauri notification helpers ---
 
@@ -65,6 +70,9 @@ async function sendMoodNotificationTauri(hour: number): Promise<void> {
 async function requestPermissionCapacitor(): Promise<boolean> {
   try {
     const { LocalNotifications } = await import('@capacitor/local-notifications');
+    const status = await LocalNotifications.checkPermissions();
+    if (status.display === 'granted') return true;
+    if (status.display === 'denied') return false;
     const result = await LocalNotifications.requestPermissions();
     return result.display === 'granted';
   } catch {
@@ -132,8 +140,9 @@ export async function sendEveningNotificationCapacitor(): Promise<void> {
 // --- Main export ---
 
 export async function scheduleMoodNotifications(): Promise<void> {
-  if (scheduleStarted) return;
-  scheduleStarted = true;
+  const today = todayStr();
+  if (scheduleStartedDate === today) return;
+  scheduleStartedDate = today;
 
   if (isTauri) {
     const granted = await requestPermissionTauri();
