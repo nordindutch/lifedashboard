@@ -1,13 +1,13 @@
-import { Flame, Home, PiggyBank, Settings, StickyNote } from 'lucide-react';
+import { Home, LayoutGrid, PiggyBank, Settings, StickyNote } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { tabToPath } from '../../lib/routes';
 import { useUiStore, type AppTab } from '../../stores/uiStore';
 
 const tabs: { id: AppTab; label: string; icon: typeof Home }[] = [
-  { id: 'home',     label: 'Start',       icon: Home },
-  { id: 'notes',    label: 'Notities',    icon: StickyNote },
-  { id: 'calories', label: 'Calorieën',   icon: Flame },
-  { id: 'budget',   label: 'Budget',      icon: PiggyBank },
+  { id: 'home',     label: 'Start',        icon: Home },
+  { id: 'tasks',    label: 'Taken',        icon: LayoutGrid },
+  { id: 'notes',    label: 'Notities',     icon: StickyNote },
+  { id: 'budget',   label: 'Budget',       icon: PiggyBank },
   { id: 'settings', label: 'Instellingen', icon: Settings },
 ];
 

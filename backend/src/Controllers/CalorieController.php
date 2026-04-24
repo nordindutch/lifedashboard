@@ -68,15 +68,24 @@ final class CalorieController
             return;
         }
 
-        Response::success($this->searchLocalOff($q));
+        $local = $this->searchLocalOff($q);
+        // null = no local DB / read error. [] = no FTS hits — still fall back to the API in both cases.
+        if ($local !== null && $local !== []) {
+            $results = $local;
+        } else {
+            $results = $this->searchOffApi($q) ?? [];
+        }
+        Response::success($results);
     }
 
-    /** @return list<array<string, mixed>> */
-    private function searchLocalOff(string $q): array
+    /**
+     * @return list<array<string, mixed>>|null  null = local DB not available, caller should fall back
+     */
+    private function searchLocalOff(string $q): ?array
     {
         $dbPath = dirname(__DIR__, 2) . '/data/openfoodfacts.sqlite';
         if (!is_readable($dbPath)) {
-            return [];
+            return null;
         }
 
         try {
@@ -118,7 +127,98 @@ final class CalorieController
 
             return $out;
         } catch (\Throwable) {
-            return [];
+            return null;
         }
+    }
+
+    /** @return list<array<string, mixed>>|null  null = request failed */
+    private function searchOffApi(string $q): ?array
+    {
+        // API v2 `q` + `lc` on world.openfoodfacts.org often returns the same off-topic
+        // "popular" list for every query. Legacy search.pl with search_terms is reliable.
+        $url = 'https://world.openfoodfacts.org/cgi/search.pl?' . http_build_query([
+            'action'         => 'process',
+            'search_terms'   => $q,
+            'search_simple'  => '1',
+            'json'           => '1',
+            'page_size'      => '24',
+            'sort_by'        => 'unique_scans_n',
+        ]);
+
+        $ctx = stream_context_create(['http' => [
+            'method'        => 'GET',
+            'timeout'       => 12,
+            'ignore_errors' => true,
+            'header'        => implode("\r\n", [
+                'User-Agent: LifeDashboard/1.0 (self-hosted; Open Food Facts import)',
+                'Accept: application/json',
+            ]),
+        ]]);
+
+        $raw = $this->httpGet($url, $ctx);
+        if (!is_string($raw) || !str_starts_with(ltrim($raw), '{')) {
+            return null;
+        }
+
+        $json = json_decode($raw, true);
+        if (!is_array($json) || !isset($json['products'])) {
+            return null;
+        }
+
+        $out = [];
+        foreach ((array) $json['products'] as $p) {
+            if (!is_array($p)) continue;
+            $name = trim((string) ($p['product_name'] ?? ''));
+            if ($name === '') continue;
+            $n    = is_array($p['nutriments'] ?? null) ? $p['nutriments'] : [];
+            $kcal = (float) ($n['energy-kcal_100g'] ?? $n['energy-kcal'] ?? 0);
+            if ($kcal <= 0) {
+                $kj = (float) ($n['energy_100g'] ?? $n['energy'] ?? 0);
+                if ($kj > 0) {
+                    $kcal = $kj / 4.184;
+                }
+            }
+            if ($kcal <= 0) {
+                $kj100 = (float) ($n['energy-kj_100g'] ?? $n['energy-kj'] ?? 0);
+                if ($kj100 > 0) {
+                    $kcal = $kj100 / 4.184;
+                }
+            }
+            if ($kcal <= 0) continue;
+            $out[] = [
+                'product_name'  => $name,
+                'brands'        => trim((string) ($p['brands'] ?? '')),
+                'kcal_per_100g' => (int) round($kcal),
+            ];
+        }
+
+        return $out;
+    }
+
+    private function httpGet(string $url, $streamContext): ?string
+    {
+        $raw = @file_get_contents($url, false, $streamContext);
+        if (is_string($raw) && $raw !== '') {
+            return $raw;
+        }
+        if (!function_exists('curl_init')) {
+            return null;
+        }
+        $ch = curl_init($url);
+        if ($ch === false) {
+            return null;
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT        => 12,
+            CURLOPT_HTTPHEADER     => [
+                'User-Agent: LifeDashboard/1.0 (self-hosted; Open Food Facts import)',
+                'Accept: application/json',
+            ],
+        ]);
+        $out = curl_exec($ch);
+        curl_close($ch);
+        return is_string($out) && $out !== '' ? $out : null;
     }
 }
