@@ -268,7 +268,10 @@ export function BudgetPage() {
           ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <section className="min-w-0 overflow-hidden rounded-xl border border-codex-border bg-codex-surface p-4">
-            <h2 className="mb-3 text-sm font-medium text-slate-300">Inkomen</h2>
+            <div className="mb-3 flex items-baseline justify-between gap-2">
+              <h2 className="text-sm font-medium text-slate-300">Inkomen</h2>
+              <span className="text-sm font-semibold text-emerald-400">{formatEuro(summary.total_income)}</span>
+            </div>
             <div className="space-y-2">
               {data.income.map((row) => (
                 <CrudRow
@@ -386,7 +389,10 @@ export function BudgetPage() {
           </section>
 
           <section className="min-w-0 overflow-hidden rounded-xl border border-codex-border bg-codex-surface p-4">
-            <h2 className="mb-3 text-sm font-medium text-slate-300">Uitgaven</h2>
+            <div className="mb-3 flex items-baseline justify-between gap-2">
+              <h2 className="text-sm font-medium text-slate-300">Uitgaven</h2>
+              <span className="text-sm font-semibold text-rose-400">{formatEuro(summary.total_expenses)}</span>
+            </div>
             <div className="space-y-2">
               {data.expenses.map((row) => (
                 <CrudRow

@@ -68,143 +68,57 @@ final class CalorieController
             return;
         }
 
-        $results = $this->searchOpenFoodFacts($q);
-        if ($results === null || $results === []) {
-            $results = $this->searchUsda($q);
-        }
-        Response::success($results ?? []);
+        Response::success($this->searchLocalOff($q));
     }
 
-    /**
-     * @return list<array<string, mixed>>|null  null means the request itself failed (caller should fall back)
-     */
-    private function searchOpenFoodFacts(string $q): ?array
+    /** @return list<array<string, mixed>> */
+    private function searchLocalOff(string $q): array
     {
-        $url = 'https://world.openfoodfacts.org/api/v2/search?' . http_build_query([
-            'q'          => $q,
-            'fields'     => 'product_name,brands,nutriments',
-            'page_size'  => 15,
-            'sort_by'    => 'unique_scans_n',
-            'lc'         => 'nl',
-        ]);
-
-        $ctx = stream_context_create([
-            'http' => [
-                'method'        => 'GET',
-                'timeout'       => 6,
-                'ignore_errors' => true,
-                'header'        => implode("\r\n", [
-                    'User-Agent: LifeDashboard/1.0 (personal; +https://github.com/openfoodfacts/openfoodfacts-server)',
-                    'Accept: application/json',
-                ]),
-            ],
-        ]);
-
-        $raw = @file_get_contents($url, false, $ctx);
-        // Detect Cloudflare / maintenance page (non-JSON response)
-        if (!is_string($raw) || trim($raw) === '' || !str_starts_with(trim($raw), '{')) {
-            return null;
+        $dbPath = dirname(__DIR__, 2) . '/data/openfoodfacts.sqlite';
+        if (!is_readable($dbPath)) {
+            return [];
         }
 
-        $json = json_decode($raw, true);
-        if (!is_array($json) || !isset($json['products'])) {
-            return null;
+        try {
+            $pdo = new \PDO('sqlite:' . $dbPath, null, null, [
+                \PDO::ATTR_ERRMODE            => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+            ]);
+            $pdo->exec('PRAGMA query_only = ON');
+
+            // Build an FTS5 match expression: each word gets a prefix wildcard
+            $words = preg_split('/\s+/', $q, -1, PREG_SPLIT_NO_EMPTY);
+            if ($words === false || $words === []) {
+                return [];
+            }
+            $matchExpr = implode(' ', array_map(
+                static fn (string $w): string => '"' . str_replace('"', '', $w) . '"*',
+                $words,
+            ));
+
+            $stmt = $pdo->prepare(
+                'SELECT p.product_name, p.brands, p.kcal_per_100g
+                 FROM products_fts f
+                 JOIN products p ON p.id = f.rowid
+                 WHERE products_fts MATCH ?
+                 ORDER BY rank
+                 LIMIT 20',
+            );
+            $stmt->execute([$matchExpr]);
+            $rows = $stmt->fetchAll();
+
+            $out = [];
+            foreach ($rows as $row) {
+                $out[] = [
+                    'product_name'  => (string) $row['product_name'],
+                    'brands'        => (string) $row['brands'],
+                    'kcal_per_100g' => (int) $row['kcal_per_100g'],
+                ];
+            }
+
+            return $out;
+        } catch (\Throwable) {
+            return [];
         }
-
-        $out = [];
-        foreach ((array) $json['products'] as $p) {
-            if (!is_array($p)) {
-                continue;
-            }
-            $name = trim((string) ($p['product_name'] ?? ''));
-            if ($name === '') {
-                continue;
-            }
-            $n = is_array($p['nutriments'] ?? null) ? $p['nutriments'] : [];
-            $kcal = (float) ($n['energy-kcal_100g'] ?? $n['energy-kcal'] ?? 0);
-            if ($kcal <= 0) {
-                // Fall back to kJ field and convert (1 kcal = 4.184 kJ)
-                $kj = (float) ($n['energy_100g'] ?? $n['energy'] ?? 0);
-                if ($kj > 0) {
-                    $kcal = $kj / 4.184;
-                }
-            }
-            if ($kcal <= 0) {
-                continue;
-            }
-            $out[] = [
-                'product_name'  => $name,
-                'brands'        => trim((string) ($p['brands'] ?? '')),
-                'kcal_per_100g' => (int) round($kcal),
-            ];
-        }
-
-        return $out;
-    }
-
-    /**
-     * @return list<array<string, mixed>>|null
-     */
-    private function searchUsda(string $q): ?array
-    {
-        $url = 'https://api.nal.usda.gov/fdc/v1/foods/search?' . http_build_query([
-            'query'    => $q,
-            'pageSize' => 10,
-            'api_key'  => 'DEMO_KEY',
-            'dataType' => 'Foundation,SR Legacy,Branded',
-        ]);
-
-        $ctx = stream_context_create([
-            'http' => [
-                'method'        => 'GET',
-                'timeout'       => 8,
-                'ignore_errors' => true,
-                'header'        => "Accept: application/json\r\n",
-            ],
-        ]);
-
-        $raw = @file_get_contents($url, false, $ctx);
-        if (!is_string($raw) || trim($raw) === '') {
-            return null;
-        }
-
-        $json = json_decode($raw, true);
-        if (!is_array($json)) {
-            return null;
-        }
-
-        $out = [];
-        foreach ((array) ($json['foods'] ?? []) as $f) {
-            if (!is_array($f)) {
-                continue;
-            }
-            $name = trim((string) ($f['description'] ?? ''));
-            if ($name === '') {
-                continue;
-            }
-            $kcalPerServing = null;
-            foreach ((array) ($f['foodNutrients'] ?? []) as $n) {
-                if (is_array($n) && (int) ($n['nutrientId'] ?? 0) === 1008) {
-                    $kcalPerServing = (float) ($n['value'] ?? 0);
-                    break;
-                }
-            }
-            if ($kcalPerServing === null || $kcalPerServing <= 0) {
-                continue;
-            }
-            $servingG = isset($f['servingSize']) && strtolower((string) ($f['servingSizeUnit'] ?? '')) === 'g'
-                ? (float) $f['servingSize'] : null;
-            $kcal = ($servingG !== null && $servingG > 0)
-                ? $kcalPerServing / $servingG * 100
-                : $kcalPerServing;
-
-            $out[] = [
-                'product_name'  => $name,
-                'brands'        => trim((string) ($f['brandOwner'] ?? $f['brandName'] ?? '')),
-                'kcal_per_100g' => (int) round($kcal),
-            ];
-        }
-
-        return $out;
     }
 }
