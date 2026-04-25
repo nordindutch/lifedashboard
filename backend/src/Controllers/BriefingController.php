@@ -281,11 +281,16 @@ final class BriefingController
         if (!$force) {
             $tzObj = $this->safeTimezone($timezone);
             $localNow = new \DateTime('now', $tzObj);
-            $localHour = (int) $localNow->format('H');
-            $localMin = (int) $localNow->format('i');
-            $isAfter2230 = ($localHour > 22) || ($localHour === 22 && $localMin >= 30);
-            if (!$isAfter2230) {
-                return $existing;
+            $todayStr = $localNow->format('Y-m-d');
+            $isPastDay = $date < $todayStr;
+
+            if (!$isPastDay) {
+                $localHour = (int) $localNow->format('H');
+                $localMin = (int) $localNow->format('i');
+                $isAfter2230 = ($localHour > 22) || ($localHour === 22 && $localMin >= 30);
+                if (!$isAfter2230) {
+                    return $existing;
+                }
             }
         }
 
