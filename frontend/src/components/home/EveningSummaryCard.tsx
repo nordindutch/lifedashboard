@@ -45,7 +45,7 @@ export function EveningSummaryCard({ plan, date }: Props) {
     setPending(true);
     setError(null);
     try {
-      const res = await eveningPlanApi.getEveningPlan(planDate);
+      const res = await eveningPlanApi.getEveningPlan(planDate, content !== null);
       if (!res.success) {
         setError(res.error.message);
       } else {

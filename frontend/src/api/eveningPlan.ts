@@ -6,6 +6,8 @@ export interface EveningPlanPayload {
   evening_plan: AIPlan | null;
 }
 
-export async function getEveningPlan(date: string): Promise<ApiResponse<EveningPlanPayload>> {
-  return parseApiResponse<EveningPlanPayload>(apiClient.get('/api/evening-plan', { params: { date } }));
+export async function getEveningPlan(date: string, force = false): Promise<ApiResponse<EveningPlanPayload>> {
+  return parseApiResponse<EveningPlanPayload>(
+    apiClient.get('/api/evening-plan', { params: { date, ...(force ? { force: '1' } : {}) } }),
+  );
 }

@@ -169,10 +169,12 @@ final class BriefingController
         } catch (\Throwable) {
         }
 
+        $force = $request->getQueryString('force') === '1';
+
         $eveningPlan = null;
         try {
             $aiRepo = AiPlanRepository::make();
-            $eveningPlan = $this->resolveEveningPlan($date, $db, $timezone, $workStart, $workEnd, $events, $aiRepo, false);
+            $eveningPlan = $this->resolveEveningPlan($date, $db, $timezone, $workStart, $workEnd, $events, $aiRepo, $force);
         } catch (\Throwable) {
         }
 
