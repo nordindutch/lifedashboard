@@ -12,12 +12,13 @@ final class SnapshotService
     /**
      * @return array<string, mixed>
      */
-    public static function buildForDate(string $date, ?int $aiPlanId = null): array
+    public static function buildForDate(string $date, ?int $aiPlanId = null, string $timezone = 'UTC'): array
     {
         $db = Database::getInstance();
 
-        $dayStart = (int) strtotime($date . ' 00:00:00');
-        $dayEnd = (int) strtotime($date . ' 23:59:59');
+        $tzObj = self::safeTimezone($timezone);
+        $dayStart = (new \DateTimeImmutable($date . ' 00:00:00', $tzObj))->getTimestamp();
+        $dayEnd = (new \DateTimeImmutable($date . ' 23:59:59', $tzObj))->getTimestamp();
 
         $tasksPlanned = self::countWhere(
             $db,
@@ -26,12 +27,16 @@ final class SnapshotService
             [$dayStart, $dayEnd],
         );
 
-        $tasksCompleted = self::countWhere(
-            $db,
-            'tasks',
-            'completed_at >= ? AND completed_at <= ? AND deleted_at IS NULL',
-            [$dayStart, $dayEnd],
+        $completedStmt = $db->prepare(
+            "SELECT COUNT(*) FROM tasks
+             WHERE status = 'done' AND deleted_at IS NULL
+               AND (
+                 (completed_at >= ? AND completed_at <= ?)
+                 OR (completed_at IS NULL AND due_date >= ? AND due_date <= ?)
+               )",
         );
+        $completedStmt->execute([$dayStart, $dayEnd, $dayStart, $dayEnd]);
+        $tasksCompleted = (int) $completedStmt->fetchColumn();
 
         $tasksAdded = self::countWhere(
             $db,
@@ -108,15 +113,16 @@ final class SnapshotService
         return self::mapSnapshotRow($row);
     }
 
-    public static function getDiaryStreak(string $today): int
+    public static function getDiaryStreak(string $today, string $timezone = 'UTC'): int
     {
         $db = Database::getInstance();
+        $tzObj = self::safeTimezone($timezone);
         $streak = 0;
         $current = $today;
 
         for ($i = 0; $i < 365; $i++) {
-            $start = (int) strtotime($current . ' 00:00:00');
-            $end = (int) strtotime($current . ' 23:59:59');
+            $start = (new \DateTimeImmutable($current . ' 00:00:00', $tzObj))->getTimestamp();
+            $end = (new \DateTimeImmutable($current . ' 23:59:59', $tzObj))->getTimestamp();
 
             $stmt = $db->prepare(
                 'SELECT COUNT(*) FROM diary_logs
@@ -129,10 +135,21 @@ final class SnapshotService
             }
 
             $streak++;
-            $current = date('Y-m-d', strtotime($current . ' -1 day'));
+            $current = (new \DateTimeImmutable($current . ' 00:00:00', $tzObj))
+                ->modify('-1 day')
+                ->format('Y-m-d');
         }
 
         return $streak;
+    }
+
+    private static function safeTimezone(string $name): \DateTimeZone
+    {
+        try {
+            return new \DateTimeZone($name);
+        } catch (\Throwable) {
+            return new \DateTimeZone('UTC');
+        }
     }
 
     /**

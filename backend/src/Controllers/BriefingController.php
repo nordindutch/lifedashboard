@@ -122,8 +122,8 @@ final class BriefingController
 
         $snapshot = null;
         try {
-            $snapshot = SnapshotService::buildForDate($date, isset($aiPlan['id']) ? (int) $aiPlan['id'] : null);
-            $snapshot['diary_streak'] = SnapshotService::getDiaryStreak($date);
+            $snapshot = SnapshotService::buildForDate($date, isset($aiPlan['id']) ? (int) $aiPlan['id'] : null, $timezone);
+            $snapshot['diary_streak'] = SnapshotService::getDiaryStreak($date, $timezone);
         } catch (\Throwable) {
             // non-fatal
         }
@@ -331,11 +331,15 @@ final class BriefingController
         $dayEnd = $dayEndDt->getTimestamp();
 
         $doneStmt = $db->prepare(
-            'SELECT title, estimated_mins, actual_mins FROM tasks
-             WHERE completed_at >= ? AND completed_at <= ? AND deleted_at IS NULL
-             ORDER BY completed_at ASC LIMIT 20',
+            "SELECT title, estimated_mins, actual_mins FROM tasks
+             WHERE status = 'done' AND deleted_at IS NULL
+               AND (
+                 (completed_at >= ? AND completed_at <= ?)
+                 OR (completed_at IS NULL AND due_date >= ? AND due_date <= ?)
+               )
+             ORDER BY COALESCE(completed_at, due_date) ASC LIMIT 20",
         );
-        $doneStmt->execute([$dayStart, $dayEnd]);
+        $doneStmt->execute([$dayStart, $dayEnd, $dayStart, $dayEnd]);
         /** @var list<array<string, mixed>> $doneTasks */
         $doneTasks = $doneStmt->fetchAll(PDO::FETCH_ASSOC);
 

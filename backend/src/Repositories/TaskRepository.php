@@ -273,12 +273,21 @@ final class TaskRepository
         try {
             $stmt = $this->db->prepare(
                 'UPDATE tasks
-                 SET status = :status, display_order = :display_order, updated_at = unixepoch()
+                 SET status = :status,
+                     display_order = :display_order,
+                     completed_at = CASE
+                         WHEN :status2 = \'done\' AND completed_at IS NULL THEN unixepoch()
+                         WHEN :status3 != \'done\' THEN NULL
+                         ELSE completed_at
+                     END,
+                     updated_at = unixepoch()
                  WHERE id = :id AND deleted_at IS NULL',
             );
             foreach ($moves as $move) {
                 $stmt->execute([
                     'status' => (string) $move['new_status'],
+                    'status2' => (string) $move['new_status'],
+                    'status3' => (string) $move['new_status'],
                     'display_order' => (float) $move['new_display_order'],
                     'id' => (int) $move['task_id'],
                 ]);
