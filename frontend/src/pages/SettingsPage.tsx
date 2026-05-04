@@ -54,23 +54,35 @@ export function SettingsPage() {
     }
   }, []);
 
+  const loadGoogleStatus = async (): Promise<void> => {
+    setGoogleLoading(true);
+    try {
+      const res = await getIntegrationStatus();
+      if (res.success) {
+        setGoogleConnected(res.data.google);
+      } else {
+        setGoogleError(res.error.message);
+      }
+    } catch (e: unknown) {
+      setGoogleError(e instanceof Error ? e.message : 'Integratiestatus laden mislukt');
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async (): Promise<void> => {
-      setGoogleLoading(true);
-      try {
-        const res = await getIntegrationStatus();
-        if (res.success) {
-          setGoogleConnected(res.data.google);
-        } else {
-          setGoogleError(res.error.message);
-        }
-      } catch (e: unknown) {
-        setGoogleError(e instanceof Error ? e.message : 'Integratiestatus laden mislukt');
-      } finally {
-        setGoogleLoading(false);
+    void loadGoogleStatus();
+  }, []);
+
+  // Re-check status when app returns to foreground (e.g. after completing OAuth in external browser)
+  useEffect(() => {
+    const handleVisibility = (): void => {
+      if (document.visibilityState === 'visible') {
+        void loadGoogleStatus();
       }
     };
-    void load();
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
   if (isLoading) {
