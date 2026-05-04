@@ -10,6 +10,10 @@
 !frontend/.env.android
 !docker.env.example
 
+# --- Large data files ---
+backend/data/*.parquet
+backend/data/*.csv
+
 # --- SQLite (database files & WAL) ---
 *.sqlite
 *.sqlite-journal
