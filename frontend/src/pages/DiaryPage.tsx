@@ -29,7 +29,7 @@ export function DiaryPage() {
   };
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-4 p-4 pb-40 md:pb-28">
+    <div className="mx-auto flex max-w-6xl flex-col gap-4 p-4 pb-[calc(10rem+env(safe-area-inset-bottom,0px))] md:pb-28">
       <h1 className="text-xl font-semibold text-slate-100">Dagboek</h1>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:items-start">

@@ -28,7 +28,7 @@ export function QuickLogBar({ onSubmit }: Props) {
   };
 
   return (
-    <div className="fixed bottom-16 left-0 right-0 z-30 border-t border-codex-border bg-codex-bg/95 p-3 backdrop-blur md:bottom-0 md:relative md:border-t-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
+    <div className="fixed bottom-[calc(4rem+env(safe-area-inset-bottom,0px))] left-0 right-0 z-30 border-t border-codex-border bg-codex-bg/95 p-3 backdrop-blur md:bottom-0 md:relative md:border-t-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
       <div className="mx-auto flex max-w-3xl flex-col gap-2">
         <div className="flex flex-wrap gap-1">
           {TYPES.map((x) => (

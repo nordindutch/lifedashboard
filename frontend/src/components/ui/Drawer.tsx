@@ -12,7 +12,7 @@ type Props = {
 export function Drawer({ open, title, onClose, side = 'bottom', children }: Props) {
   const position =
     side === 'bottom'
-      ? { className: 'inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl', initial: { y: '100%' } }
+      ? { className: 'inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl pb-[env(safe-area-inset-bottom,0px)]', initial: { y: '100%' } }
       : { className: 'inset-y-0 right-0 w-full max-w-md rounded-l-2xl', initial: { x: '100%' } };
 
   return (
