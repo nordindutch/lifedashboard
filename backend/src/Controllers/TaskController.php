@@ -260,6 +260,20 @@ final class TaskController
         Response::success(['deleted' => true]);
     }
 
+    /** Maintenance: archive done tasks older than the retention window (default 7 days). */
+    public function archiveCompleted(Request $request): void
+    {
+        $body = $request->getBody();
+        $olderThanDays = isset($body['older_than_days']) ? (int) $body['older_than_days'] : 7;
+        if ($olderThanDays < 1 || $olderThanDays > 365) {
+            Response::error('validation_error', 'older_than_days must be between 1 and 365', 422, 'older_than_days');
+            return;
+        }
+
+        $archived = $this->tasks->archiveStaleCompleted($olderThanDays * 86400);
+        Response::success(['archived' => $archived]);
+    }
+
     /**
      * @param array<string, mixed> $body
      */

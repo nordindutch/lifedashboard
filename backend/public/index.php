@@ -275,6 +275,9 @@ $router->post('/api/tasks', static function (Request $request) use ($tasksContro
 $router->patch('/api/tasks/reorder', static function (Request $request) use ($tasksController): void {
     $tasksController()->reorder($request);
 });
+$router->post('/api/tasks/archive-completed', static function (Request $request) use ($tasksController): void {
+    $tasksController()->archiveCompleted($request);
+});
 $router->get('/api/tasks/:id', static function (Request $request) use ($tasksController): void {
     $tasksController()->show($request);
 });

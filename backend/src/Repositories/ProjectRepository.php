@@ -72,6 +72,8 @@ final class ProjectRepository
             return null;
         }
 
+        TaskRepository::make()->archiveStaleCompleted();
+
         $tasksStmt = $this->db->prepare(
             'SELECT * FROM tasks WHERE project_id = :project_id AND deleted_at IS NULL ORDER BY status ASC, display_order ASC, id ASC',
         );

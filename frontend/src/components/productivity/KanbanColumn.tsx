@@ -41,6 +41,11 @@ export const KanbanColumn = memo(function KanbanColumn({ status, label, tasks, o
         <Badge>{tasks.length}</Badge>
       </div>
       <div ref={setNodeRef} className="flex min-h-[80px] flex-col gap-2 p-2" data-status={status}>
+        {status === 'done' ? (
+          <p className="px-1 text-[11px] leading-snug text-codex-muted">
+            Afgerond ouder dan 7 dagen wordt automatisch gearchiveerd.
+          </p>
+        ) : null}
         {tasks.map((t) => (
           <SortableTaskCard key={t.id} task={t} onOpen={onOpenTask} />
         ))}

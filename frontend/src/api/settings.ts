@@ -1,5 +1,5 @@
 import { apiClient, parseApiResponse } from './client';
-import type { ApiResponse, AppSettings } from '../types';
+import type { ApiResponse, AppSettings, IntegrationStatus } from '../types';
 
 const API_BASE = ((import.meta.env.VITE_API_BASE_URL as string | undefined) || '').trim();
 
@@ -47,6 +47,6 @@ export async function syncGmail(): Promise<ApiResponse<{ synced: boolean; emails
   return parseApiResponse(apiClient.post('/api/gmail/sync', {}));
 }
 
-export async function getIntegrationStatus(): Promise<ApiResponse<{ google: boolean; openweather: boolean }>> {
-  return parseApiResponse(apiClient.get('/api/integrations/status'));
+export async function getIntegrationStatus(): Promise<ApiResponse<IntegrationStatus>> {
+  return parseApiResponse<IntegrationStatus>(apiClient.get('/api/integrations/status'));
 }

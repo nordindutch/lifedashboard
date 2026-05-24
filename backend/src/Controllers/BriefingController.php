@@ -13,6 +13,7 @@ use Codex\Repositories\TaskRepository;
 use Codex\Services\AnthropicService;
 use Codex\Services\CalendarService;
 use Codex\Services\GmailService;
+use Codex\Services\GoogleAuthService;
 use Codex\Services\SnapshotService;
 use Codex\Services\WeatherService;
 use PDO;
@@ -30,6 +31,8 @@ final class BriefingController
 
             return;
         }
+
+        TaskRepository::make()->archiveStaleCompleted();
 
         $db = Database::getInstance();
         $hub = $this->loadWorkdaySettings($db);
@@ -128,6 +131,15 @@ final class BriefingController
             // non-fatal
         }
 
+        $googleConnected = false;
+        $googleDisconnectReason = null;
+        $auth = GoogleAuthService::makeFromSettings();
+        if ($auth !== null) {
+            $googleStatus = $auth->resolveConnectionStatus();
+            $googleConnected = (bool) $googleStatus['connected'];
+            $googleDisconnectReason = $googleStatus['reason'];
+        }
+
         $payload = [
             'date' => $date,
             'weather' => $weather,
@@ -140,6 +152,10 @@ final class BriefingController
             'ai_plan' => $aiPlan,
             'snapshot' => $snapshot,
             'evening_plan' => $eveningPlan,
+            'integrations' => [
+                'google' => $googleConnected,
+                'google_disconnect_reason' => $googleDisconnectReason,
+            ],
         ];
         Response::success($payload);
     }

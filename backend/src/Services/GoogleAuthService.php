@@ -12,6 +12,9 @@ final class GoogleAuthService
     private const TOKEN_URL = 'https://oauth2.googleapis.com/token';
     private const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 
+    /** @var array<string, mixed>|null */
+    private ?array $lastTokenError = null;
+
     public function __construct(
         private readonly string $clientId,
         private readonly string $clientSecret,
@@ -186,11 +189,17 @@ final class GoogleAuthService
         }
         $refreshToken = isset($row['refresh_token']) ? (string) $row['refresh_token'] : '';
         if ($refreshToken === '') {
+            $this->clearStoredTokens();
+
             return null;
         }
 
         $refreshed = $this->refreshAccessToken($refreshToken);
         if ($refreshed === null) {
+            if ($this->isPermanentTokenError($this->lastTokenError)) {
+                $this->clearStoredTokens();
+            }
+
             return null;
         }
         if (!isset($refreshed['refresh_token'])) {
@@ -201,6 +210,36 @@ final class GoogleAuthService
         }
 
         return isset($refreshed['access_token']) ? (string) $refreshed['access_token'] : null;
+    }
+
+    /**
+     * @return array{connected: bool, reason: string|null}
+     */
+    public function resolveConnectionStatus(): array
+    {
+        if ($this->getStoredTokenRow() === null) {
+            return ['connected' => false, 'reason' => null];
+        }
+
+        if ($this->getValidAccessToken() !== null) {
+            return ['connected' => true, 'reason' => null];
+        }
+
+        if ($this->getStoredTokenRow() !== null) {
+            return ['connected' => true, 'reason' => 'sync_unavailable'];
+        }
+
+        return ['connected' => false, 'reason' => 'expired'];
+    }
+
+    public function clearStoredTokens(): void
+    {
+        try {
+            $db = Database::getInstance();
+            $db->prepare("DELETE FROM integration_tokens WHERE service = 'google'")->execute();
+        } catch (\Throwable) {
+            // non-fatal
+        }
     }
 
     public function revokeAndClear(): bool
@@ -216,8 +255,8 @@ final class GoogleAuthService
         }
 
         try {
-            $db = Database::getInstance();
-            $db->prepare("DELETE FROM integration_tokens WHERE service = 'google'")->execute();
+            $this->clearStoredTokens();
+
             return true;
         } catch (\Throwable) {
             return false;
@@ -225,10 +264,24 @@ final class GoogleAuthService
     }
 
     /**
+     * @param array<string, mixed>|null $error
+     */
+    private function isPermanentTokenError(?array $error): bool
+    {
+        if ($error === null) {
+            return false;
+        }
+        $code = strtolower((string) ($error['error'] ?? ''));
+
+        return in_array($code, ['invalid_grant', 'invalid_token'], true);
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     private function postForm(string $url, string $payload): ?array
     {
+        $this->lastTokenError = null;
         try {
             $ctx = stream_context_create([
                 'http' => [
@@ -248,6 +301,10 @@ final class GoogleAuthService
                 return null;
             }
             if (isset($json['error'])) {
+                $this->lastTokenError = is_array($json['error'])
+                    ? $json['error']
+                    : ['error' => (string) $json['error'], 'error_description' => $json['error_description'] ?? null];
+
                 return null;
             }
 

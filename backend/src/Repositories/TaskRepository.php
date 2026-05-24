@@ -9,6 +9,9 @@ use PDO;
 
 final class TaskRepository
 {
+    /** Completed tasks are soft-deleted (archived) after this many seconds. */
+    public const COMPLETED_ARCHIVE_AFTER_SECONDS = 604800; // 7 days
+
     public function __construct(private readonly PDO $db)
     {
     }
@@ -24,6 +27,8 @@ final class TaskRepository
      */
     public function findAll(array $filters = []): array
     {
+        $this->archiveStaleCompleted();
+
         $page = isset($filters['page']) ? max(1, (int) $filters['page']) : 1;
         $perPage = isset($filters['per_page']) ? (int) $filters['per_page'] : 50;
         $perPage = max(1, min(200, $perPage));
@@ -176,14 +181,15 @@ final class TaskRepository
     {
         $status = isset($data['status']) ? (string) $data['status'] : 'backlog';
         $displayOrder = isset($data['display_order']) ? (float) $data['display_order'] : $this->nextDisplayOrderForStatus($status);
+        $completedAt = $status === 'done' ? time() : null;
 
         $this->db->beginTransaction();
         try {
             $stmt = $this->db->prepare(
                 'INSERT INTO tasks
-                 (project_id, goal_id, parent_task_id, title, description, status, priority, display_order, estimated_mins, due_date)
+                 (project_id, goal_id, parent_task_id, title, description, status, priority, display_order, estimated_mins, due_date, completed_at)
                  VALUES
-                 (:project_id, :goal_id, :parent_task_id, :title, :description, :status, :priority, :display_order, :estimated_mins, :due_date)',
+                 (:project_id, :goal_id, :parent_task_id, :title, :description, :status, :priority, :display_order, :estimated_mins, :due_date, :completed_at)',
             );
             $stmt->execute([
                 'project_id' => $data['project_id'] ?? null,
@@ -196,6 +202,7 @@ final class TaskRepository
                 'display_order' => $displayOrder,
                 'estimated_mins' => $data['estimated_mins'] ?? null,
                 'due_date' => $data['due_date'] ?? null,
+                'completed_at' => $completedAt,
             ]);
             $id = (int) $this->db->lastInsertId();
             $this->db->commit();
@@ -336,6 +343,27 @@ final class TaskRepository
         $stmt->execute(['id' => $id]);
 
         return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * Soft-delete done tasks whose completion time is older than the retention window.
+     * Uses completed_at when set, otherwise updated_at for legacy rows.
+     */
+    public function archiveStaleCompleted(int $olderThanSeconds = self::COMPLETED_ARCHIVE_AFTER_SECONDS): int
+    {
+        $olderThanSeconds = max(86400, $olderThanSeconds);
+        $cutoff = time() - $olderThanSeconds;
+
+        $stmt = $this->db->prepare(
+            'UPDATE tasks
+             SET deleted_at = unixepoch(), updated_at = unixepoch()
+             WHERE deleted_at IS NULL
+               AND status = \'done\'
+               AND COALESCE(completed_at, updated_at) < :cutoff',
+        );
+        $stmt->execute(['cutoff' => $cutoff]);
+
+        return $stmt->rowCount();
     }
 
     /**

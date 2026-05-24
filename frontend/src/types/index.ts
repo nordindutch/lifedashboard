@@ -410,6 +410,18 @@ export interface DailyBriefing {
   ai_plan: AIPlan | null;
   evening_plan: AIPlan | null;
   snapshot: DailySnapshot | null;
+  integrations?: {
+    google: boolean;
+    google_disconnect_reason: GoogleDisconnectReason;
+  };
+}
+
+export type GoogleDisconnectReason = 'expired' | 'sync_unavailable' | null;
+
+export interface IntegrationStatus {
+  google: boolean;
+  google_disconnect_reason: GoogleDisconnectReason;
+  openweather: boolean;
 }
 
 export interface ApiSuccess<T> {

@@ -126,13 +126,6 @@ final class SettingsController
     {
         unset($request);
         $db = Database::getInstance();
-        $stmt = $db->query("SELECT service FROM integration_tokens");
-        /** @var list<array{service: string}> $rows */
-        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $services = [];
-        foreach ($rows as $row) {
-            $services[] = $row['service'];
-        }
         $openWeatherConfigured = false;
         $wx = $db->prepare(
             "SELECT key, value FROM settings WHERE key IN ('openweather_api_key', 'openweather_lat', 'openweather_lon')",
@@ -147,8 +140,18 @@ final class SettingsController
             $openWeatherConfigured = true;
         }
 
+        $googleConnected = false;
+        $googleDisconnectReason = null;
+        $auth = GoogleAuthService::makeFromSettings();
+        if ($auth !== null) {
+            $googleStatus = $auth->resolveConnectionStatus();
+            $googleConnected = (bool) $googleStatus['connected'];
+            $googleDisconnectReason = $googleStatus['reason'];
+        }
+
         Response::success([
-            'google' => in_array('google', $services, true),
+            'google' => $googleConnected,
+            'google_disconnect_reason' => $googleDisconnectReason,
             'openweather' => $openWeatherConfigured,
         ]);
     }
@@ -296,7 +299,7 @@ final class SettingsController
         }
         $accessToken = $service->getValidAccessToken();
         if ($accessToken === null) {
-            Response::error('unauthorized', 'Google is not connected. Connect account first.', 401);
+            Response::error('google_disconnected', 'Google is not connected or the session expired. Reconnect in Settings.', 401);
             return;
         }
         $calendarService = new CalendarService($accessToken);
@@ -319,7 +322,7 @@ final class SettingsController
         }
         $accessToken = $service->getValidAccessToken();
         if ($accessToken === null) {
-            Response::error('unauthorized', 'Google is not connected. Connect account first.', 401);
+            Response::error('google_disconnected', 'Google is not connected or the session expired. Reconnect in Settings.', 401);
             return;
         }
         $count = GmailService::fetchAndStore(20, $accessToken);

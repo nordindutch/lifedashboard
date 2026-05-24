@@ -54,6 +54,7 @@ export function TitleBar() {
         data-tauri-drag-region
         className="flex h-full min-w-0 flex-1 items-center gap-2 px-3"
       >
+        <img src="/favicon.png" alt="" className="h-4 w-4 shrink-0" aria-hidden />
         <span className="text-[11px] font-medium uppercase tracking-widest text-codex-muted/60">
           Project Codex
         </span>

@@ -1,6 +1,7 @@
 import { format } from 'date-fns';
 import { nl } from 'date-fns/locale';
 import { Calendar, Clock3, LayoutGrid } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { syncCalendar, syncGmail } from '../../api/settings';
@@ -17,6 +18,7 @@ import { EmailPreview } from './EmailPreview';
 import { EveningSummaryCard, eveningPlanHasRenderableContent } from './EveningSummaryCard';
 import { StatsStrip } from './StatsStrip';
 import { WeatherCard } from './WeatherCard';
+import { GoogleDisconnectBanner } from '../ui/GoogleDisconnectBanner';
 
 function BriefingSkeleton() {
   return (
@@ -71,9 +73,11 @@ function BriefingSkeleton() {
 
 export function DailyBriefing() {
   const q = useBriefing();
+  const queryClient = useQueryClient();
   const { settings } = useSettings();
   const navigate = useNavigate();
   const openMoodModal = useUiStore((s) => s.openMoodModal);
+  const pushToast = useUiStore((s) => s.pushToast);
   const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
   const [isSyncingEmail, setIsSyncingEmail] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -106,6 +110,10 @@ export function DailyBriefing() {
       const res = await syncCalendar();
       if (res.success) {
         await q.refetch();
+      } else if (res.error.code === 'google_disconnected') {
+        pushToast({ message: res.error.message, tone: 'error' });
+        await q.refetch();
+        void queryClient.invalidateQueries({ queryKey: ['integrations', 'status'] });
       }
     } finally {
       setIsSyncingCalendar(false);
@@ -118,6 +126,10 @@ export function DailyBriefing() {
       const res = await syncGmail();
       if (res.success) {
         await q.refetch();
+      } else if (res.error.code === 'google_disconnected') {
+        pushToast({ message: res.error.message, tone: 'error' });
+        await q.refetch();
+        void queryClient.invalidateQueries({ queryKey: ['integrations', 'status'] });
       }
     } finally {
       setIsSyncingEmail(false);
@@ -173,9 +185,15 @@ export function DailyBriefing() {
     + (Number.isNaN(minuteInActiveTimezone) ? 0 : minuteInActiveTimezone);
   const shouldShowDaySummary =
     b.date === todayInActiveTimezone && minutesSinceMidnight >= (22 * 60 + 30) && eveningPlanHasRenderableContent(b.evening_plan);
+  const googleDisconnectReason = b.integrations?.google_disconnect_reason ?? null;
+  const showGoogleDisconnectBanner = googleDisconnectReason === 'expired';
+  const hasStaleGoogleData = showGoogleDisconnectBanner && (b.events.length > 0 || b.emails.length > 0);
 
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-6 md:px-6">
+      {showGoogleDisconnectBanner ? (
+        <GoogleDisconnectBanner reason={googleDisconnectReason} staleData={hasStaleGoogleData} />
+      ) : null}
       <header className="mb-8 border-b border-codex-border pb-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-start gap-3">

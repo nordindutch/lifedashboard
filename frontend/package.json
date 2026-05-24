@@ -13,7 +13,11 @@
     "cap:open": "cd .. && npx --prefix frontend cap open android",
     "preview": "vite preview",
     "tauri:dev": "cd .. && tauri dev",
-    "tauri:build": "cd .. && tauri build"
+    "tauri:build": "cd .. && tauri build",
+    "tauri:build:clean": "cd ../src-tauri && cargo clean && cd ../frontend && npm run tauri:build",
+    "icons:tauri": "node ../scripts/convert-logo.mjs && node node_modules/@tauri-apps/cli/tauri.js icon ../assets/codex-logo.png -o ../src-tauri/icons",
+    "icons:android": "node ../scripts/generate-app-icons.mjs",
+    "icons": "npm run icons:tauri && npm run icons:android"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.0",
@@ -56,6 +60,7 @@
     "autoprefixer": "^10.4.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
-    "typescript": "^5.5.0"
+    "typescript": "^5.5.0",
+    "sharp": "^0.34.5"
   }
 }

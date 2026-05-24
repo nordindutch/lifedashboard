@@ -29,6 +29,14 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
+            // Windows taskbar / Alt-Tab use the HWND icon. Tauri embeds only the first
+            // layer of icon.ico at compile time; force the full PNG so icon updates apply.
+            if let Some(window) = app.get_webview_window("main") {
+                let icon = tauri::include_image!("icons/icon.png");
+                let _ = window.set_icon(icon);
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())

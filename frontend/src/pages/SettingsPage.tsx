@@ -1,13 +1,18 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { getGoogleOAuthUrl, getIntegrationStatus, revokeGoogle, syncCalendar, syncGmail, testWeather } from '../api/settings';
+import { getGoogleOAuthUrl, revokeGoogle, syncCalendar, syncGmail, testWeather } from '../api/settings';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
+import { GoogleDisconnectBanner } from '../components/ui/GoogleDisconnectBanner';
+import { useIntegrationStatus } from '../hooks/useIntegrationStatus';
 import { useSettings } from '../hooks/useSettings';
 import type { WeatherData } from '../types';
 
 export function SettingsPage() {
+  const queryClient = useQueryClient();
   const { settings, isLoading, updateSettings, isPending } = useSettings();
+  const { data: integrationStatus, isLoading: googleLoading, refetch: refetchIntegrationStatus } = useIntegrationStatus();
   const [apiKey, setApiKey] = useState('');
   const [lat, setLat] = useState('');
   const [lon, setLon] = useState('');
@@ -23,8 +28,8 @@ export function SettingsPage() {
   const [isTesting, setIsTesting] = useState(false);
   const [testError, setTestError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<WeatherData | null>(null);
-  const [googleConnected, setGoogleConnected] = useState<boolean>(false);
-  const [googleLoading, setGoogleLoading] = useState<boolean>(true);
+  const googleConnected = integrationStatus?.google ?? false;
+  const googleDisconnectReason = integrationStatus?.google_disconnect_reason ?? null;
   const [googleConnectPending, setGoogleConnectPending] = useState(false);
   const [googleMessage, setGoogleMessage] = useState<string | null>(null);
   const [googleError, setGoogleError] = useState<string | null>(null);
@@ -49,41 +54,22 @@ export function SettingsPage() {
     const reason = params.get('reason');
     if (google === 'connected') {
       setGoogleMessage('Google-account gekoppeld. Je kunt nu de agenda synchroniseren.');
+      void refetchIntegrationStatus();
     } else if (google === 'error') {
       setGoogleError(reason ? `Google-koppeling mislukt: ${reason}` : 'Google-koppeling mislukt.');
     }
-  }, []);
-
-  const loadGoogleStatus = async (): Promise<void> => {
-    setGoogleLoading(true);
-    try {
-      const res = await getIntegrationStatus();
-      if (res.success) {
-        setGoogleConnected(res.data.google);
-      } else {
-        setGoogleError(res.error.message);
-      }
-    } catch (e: unknown) {
-      setGoogleError(e instanceof Error ? e.message : 'Integratiestatus laden mislukt');
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadGoogleStatus();
-  }, []);
+  }, [refetchIntegrationStatus]);
 
   // Re-check status when app returns to foreground (e.g. after completing OAuth in external browser)
   useEffect(() => {
     const handleVisibility = (): void => {
       if (document.visibilityState === 'visible') {
-        void loadGoogleStatus();
+        void refetchIntegrationStatus();
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, []);
+  }, [refetchIntegrationStatus]);
 
   if (isLoading) {
     return <p className="p-4 text-sm text-codex-muted">Instellingen laden…</p>;
@@ -206,8 +192,8 @@ export function SettingsPage() {
         setGoogleError(res.error.message);
         return;
       }
-      setGoogleConnected(false);
       setGoogleMessage('Google losgekoppeld.');
+      void queryClient.invalidateQueries({ queryKey: ['integrations', 'status'] });
     } catch (e: unknown) {
       setGoogleError(e instanceof Error ? e.message : 'Google loskoppelen mislukt');
     } finally {
@@ -223,10 +209,13 @@ export function SettingsPage() {
       const res = await syncCalendar();
       if (!res.success) {
         setGoogleError(res.error.message);
+        if (res.error.code === 'google_disconnected') {
+          void queryClient.invalidateQueries({ queryKey: ['integrations', 'status'] });
+        }
         return;
       }
-      setGoogleConnected(true);
       setGoogleMessage(`Agenda gesynchroniseerd: ${res.data.events} gebeurtenis(sen) in cache.`);
+      void queryClient.invalidateQueries({ queryKey: ['integrations', 'status'] });
     } catch (e: unknown) {
       setGoogleError(e instanceof Error ? e.message : 'Agenda-sync mislukt');
     } finally {
@@ -242,10 +231,13 @@ export function SettingsPage() {
       const res = await syncGmail();
       if (!res.success) {
         setGoogleError(res.error.message);
+        if (res.error.code === 'google_disconnected') {
+          void queryClient.invalidateQueries({ queryKey: ['integrations', 'status'] });
+        }
         return;
       }
-      setGoogleConnected(true);
       setGoogleMessage(`Gmail gesynchroniseerd: ${res.data.emails} ongelezen in cache.`);
+      void queryClient.invalidateQueries({ queryKey: ['integrations', 'status'] });
     } catch (e: unknown) {
       setGoogleError(e instanceof Error ? e.message : 'Gmail-sync mislukt');
     } finally {
@@ -389,6 +381,9 @@ export function SettingsPage() {
 
       <Card>
         <div className="space-y-4">
+          {googleDisconnectReason === 'expired' ? (
+            <GoogleDisconnectBanner reason={googleDisconnectReason} />
+          ) : null}
           <div>
             <h2 className="text-sm font-medium text-slate-200">Google Agenda</h2>
             <p className="mt-1 text-xs text-codex-muted">
@@ -396,8 +391,24 @@ export function SettingsPage() {
             </p>
             <p className="mt-2 text-xs text-codex-muted">
               Status:{' '}
-              <span className={googleConnected ? 'text-emerald-400' : 'text-codex-muted'}>
-                {googleLoading ? 'controleren…' : googleConnected ? 'verbonden' : 'niet verbonden'}
+              <span
+                className={
+                  googleConnected
+                    ? googleDisconnectReason === 'sync_unavailable'
+                      ? 'text-amber-400'
+                      : 'text-emerald-400'
+                    : 'text-codex-muted'
+                }
+              >
+                {googleLoading
+                  ? 'controleren…'
+                  : googleConnected
+                    ? googleDisconnectReason === 'sync_unavailable'
+                      ? 'verbonden (sync tijdelijk niet beschikbaar)'
+                      : 'verbonden'
+                    : googleDisconnectReason === 'expired'
+                      ? 'sessie verlopen'
+                      : 'niet verbonden'}
               </span>
             </p>
           </div>
