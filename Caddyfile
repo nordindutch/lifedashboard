@@ -1,3 +1,8 @@
+# TLS is terminated by host Apache; Caddy serves HTTP only on localhost:8082.
+{
+    auto_https off
+}
+
 codex.nordinkole.nl {
     handle /api/* {
         reverse_proxy php:80

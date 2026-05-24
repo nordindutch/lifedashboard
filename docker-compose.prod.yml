@@ -1,4 +1,5 @@
 # Production stack — Caddy + PHP + SQLite
+# Caddy listens on host 127.0.0.1:8082 only; host Apache terminates TLS and proxies here.
 # Usage: docker compose -f docker-compose.prod.yml up -d --build
 
 services:
@@ -7,8 +8,7 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "127.0.0.1:8082:80"
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./frontend/dist:/srv/frontend:ro
