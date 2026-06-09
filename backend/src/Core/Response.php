@@ -6,6 +6,8 @@ namespace Codex\Core;
 
 final class Response
 {
+    private const JSON_FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE;
+
     /**
      * @param array<string, mixed> $data
      */
@@ -13,7 +15,7 @@ final class Response
     {
         http_response_code($status);
         header('Content-Type: application/json; charset=utf-8');
-        echo json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+        echo json_encode($data, self::JSON_FLAGS);
     }
 
     public static function success(mixed $data, int $status = 200, ?array $meta = null): void
