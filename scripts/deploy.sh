@@ -32,9 +32,11 @@ sleep 3
 
 # The sqlite_data volume shadows backend/database inside the container, so the repo's
 # migration scripts are invisible there. Sync them into the volume before running.
+# docker cp can't write into the volume directly (the parent /var/www/html mount is
+# read-only), so stage via /tmp and copy from inside the container.
 echo "→ Syncing migration scripts into database volume..."
-$COMPOSE exec -T php rm -rf /var/www/html/database/migrations
-$COMPOSE cp "${DEPLOY_DIR}/backend/database/." php:/var/www/html/database/
+$COMPOSE cp "${DEPLOY_DIR}/backend/database" php:/tmp/db-sync
+$COMPOSE exec -T php sh -c 'rm -rf /var/www/html/database/migrations && cp -a /tmp/db-sync/. /var/www/html/database/ && rm -rf /tmp/db-sync'
 
 echo "→ Backfilling migration tracker (safe to re-run)..."
 $COMPOSE exec -T php php /var/www/html/database/mark_existing_migrations.php
