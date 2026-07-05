@@ -3,7 +3,10 @@
     auto_https off
 }
 
-codex.nordinkole.nl {
+# :80 (not a hostname) — with a hostname site address Caddy binds the HTTPS
+# port even when auto_https is off, leaving :80 unbound and the compose
+# mapping 127.0.0.1:8082->80 dead.
+:80 {
     handle /api/* {
         reverse_proxy php:80
     }
