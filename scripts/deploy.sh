@@ -30,6 +30,12 @@ $COMPOSE up -d --build php caddy
 echo "→ Waiting for PHP container to be ready..."
 sleep 3
 
+# The sqlite_data volume shadows backend/database inside the container, so the repo's
+# migration scripts are invisible there. Sync them into the volume before running.
+echo "→ Syncing migration scripts into database volume..."
+$COMPOSE exec -T php rm -rf /var/www/html/database/migrations
+$COMPOSE cp "${DEPLOY_DIR}/backend/database/." php:/var/www/html/database/
+
 echo "→ Backfilling migration tracker (safe to re-run)..."
 $COMPOSE exec -T php php /var/www/html/database/mark_existing_migrations.php
 
