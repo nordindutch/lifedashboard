@@ -6,18 +6,18 @@ ob_start();
 
 set_exception_handler(static function (\Throwable $e): void {
     ob_end_clean();
+    // Full details go to the server log only — never to the client.
+    error_log(sprintf('[codex] Uncaught %s: %s in %s:%d', $e::class, $e->getMessage(), $e->getFile(), $e->getLine()));
     if (!headers_sent()) {
         header('Content-Type: application/json');
         http_response_code(500);
     }
-    echo json_encode([
-        'success' => false,
-        'error' => [
-            'code' => 'internal_error',
-            'message' => $e->getMessage(),
-            'file' => basename($e->getFile()) . ':' . $e->getLine(),
-        ],
-    ]);
+    $error = ['code' => 'internal_error', 'message' => 'An unexpected server error occurred'];
+    if (getenv('APP_DEBUG') === 'true') {
+        $error['message'] = $e->getMessage();
+        $error['file'] = basename($e->getFile()) . ':' . $e->getLine();
+    }
+    echo json_encode(['success' => false, 'error' => $error]);
     exit;
 });
 
@@ -88,6 +88,10 @@ if (is_readable($backendRoot . '/.env')) {
             [$k, $v] = explode('=', $line, 2);
             $k = trim($k);
             $v = trim($v);
+            // Strip optional surrounding quotes (KEY="value" / KEY='value')
+            if (strlen($v) >= 2 && ($v[0] === '"' || $v[0] === "'") && str_ends_with($v, $v[0])) {
+                $v = substr($v, 1, -1);
+            }
             // Do not apply empty values — they would wipe keys injected by Docker (e.g. CODEX_API_KEY).
             if ($v === '') {
                 continue;
@@ -146,51 +150,20 @@ if (!in_array($request->getPath(), $publicPaths, true)) {
 
 $router = new Router();
 
-// Lazy-init goals + DB only for /api/goals* — avoids 500 on /api/briefing when SQLite is missing or not migrated yet.
-$goalController = null;
-$goalsController = static function () use (&$goalController): GoalController {
-    if ($goalController === null) {
-        $goalController = new GoalController(GoalRepository::make());
-    }
-
-    return $goalController;
+// Lazy-init DB-backed controllers — avoids 500 on /api/briefing when SQLite is missing or not migrated yet.
+$lazy = static function (callable $factory): callable {
+    $instance = null;
+    return static function () use (&$instance, $factory) {
+        return $instance ??= $factory();
+    };
 };
 
-$diaryController = null;
-$diariesController = static function () use (&$diaryController): DiaryController {
-    if ($diaryController === null) {
-        $diaryController = new DiaryController(DiaryRepository::make());
-    }
-
-    return $diaryController;
-};
-
-$taskController = null;
-$tasksController = static function () use (&$taskController): TaskController {
-    if ($taskController === null) {
-        $taskController = new TaskController(TaskRepository::make());
-    }
-
-    return $taskController;
-};
-
-$projectController = null;
-$projectsController = static function () use (&$projectController): ProjectController {
-    if ($projectController === null) {
-        $projectController = new ProjectController(ProjectRepository::make());
-    }
-
-    return $projectController;
-};
-
-$noteController = null;
-$notesController = static function () use (&$noteController): NoteController {
-    if ($noteController === null) {
-        $noteController = new NoteController(NoteRepository::make());
-    }
-
-    return $noteController;
-};
+$goalsController = $lazy(static fn (): GoalController => new GoalController(GoalRepository::make()));
+$diariesController = $lazy(static fn (): DiaryController => new DiaryController(DiaryRepository::make()));
+$tasksController = $lazy(static fn (): TaskController => new TaskController(TaskRepository::make()));
+$projectsController = $lazy(static fn (): ProjectController => new ProjectController(ProjectRepository::make()));
+$notesController = $lazy(static fn (): NoteController => new NoteController(NoteRepository::make()));
+$aiCtrl = $lazy(static fn (): AiController => new AiController(AiPlanRepository::make()));
 
 $briefingController = new BriefingController();
 $budgetController = new BudgetController();
@@ -198,14 +171,6 @@ $accountController = new AccountController();
 $debtController = new DebtController();
 $authController = new AuthController();
 $settingsController = new SettingsController();
-$aiController = null;
-$aiCtrl = static function () use (&$aiController): AiController {
-    if ($aiController === null) {
-        $aiController = new AiController(AiPlanRepository::make());
-    }
-
-    return $aiController;
-};
 
 $router->get('/api/auth/me', [$authController, 'me']);
 $router->get('/api/auth/bootstrap', [$authController, 'bootstrap']);
@@ -250,46 +215,20 @@ $router->delete('/api/budget/:month/income/:id', [$budgetController, 'deleteInco
 $router->delete('/api/budget/:month/expenses/:id', [$budgetController, 'deleteExpense']);
 $router->post('/api/budget/:month/copy-previous', [$budgetController, 'copyFromPrevious']);
 
-$router->get('/api/diary', static function (Request $request) use ($diariesController): void {
-    $diariesController()->index($request);
-});
-$router->post('/api/diary', static function (Request $request) use ($diariesController): void {
-    $diariesController()->store($request);
-});
-$router->get('/api/diary/:id', static function (Request $request) use ($diariesController): void {
-    $diariesController()->show($request);
-});
-$router->put('/api/diary/:id', static function (Request $request) use ($diariesController): void {
-    $diariesController()->update($request);
-});
-$router->delete('/api/diary/:id', static function (Request $request) use ($diariesController): void {
-    $diariesController()->destroy($request);
-});
+$router->get('/api/diary', static fn (Request $r) => $diariesController()->index($r));
+$router->post('/api/diary', static fn (Request $r) => $diariesController()->store($r));
+$router->get('/api/diary/:id', static fn (Request $r) => $diariesController()->show($r));
+$router->put('/api/diary/:id', static fn (Request $r) => $diariesController()->update($r));
+$router->delete('/api/diary/:id', static fn (Request $r) => $diariesController()->destroy($r));
 
-$router->get('/api/tasks', static function (Request $request) use ($tasksController): void {
-    $tasksController()->index($request);
-});
-$router->post('/api/tasks', static function (Request $request) use ($tasksController): void {
-    $tasksController()->store($request);
-});
-$router->patch('/api/tasks/reorder', static function (Request $request) use ($tasksController): void {
-    $tasksController()->reorder($request);
-});
-$router->post('/api/tasks/archive-completed', static function (Request $request) use ($tasksController): void {
-    $tasksController()->archiveCompleted($request);
-});
-$router->get('/api/tasks/:id', static function (Request $request) use ($tasksController): void {
-    $tasksController()->show($request);
-});
-$router->put('/api/tasks/:id', static function (Request $request) use ($tasksController): void {
-    $tasksController()->update($request);
-});
-$router->delete('/api/tasks/:id', static function (Request $request) use ($tasksController): void {
-    $tasksController()->destroy($request);
-});
-$router->patch('/api/tasks/:id/canvas', static function (Request $request) use ($tasksController): void {
-    $tasksController()->patchCanvas($request);
-});
+$router->get('/api/tasks', static fn (Request $r) => $tasksController()->index($r));
+$router->post('/api/tasks', static fn (Request $r) => $tasksController()->store($r));
+$router->patch('/api/tasks/reorder', static fn (Request $r) => $tasksController()->reorder($r));
+$router->post('/api/tasks/archive-completed', static fn (Request $r) => $tasksController()->archiveCompleted($r));
+$router->get('/api/tasks/:id', static fn (Request $r) => $tasksController()->show($r));
+$router->put('/api/tasks/:id', static fn (Request $r) => $tasksController()->update($r));
+$router->delete('/api/tasks/:id', static fn (Request $r) => $tasksController()->destroy($r));
+$router->patch('/api/tasks/:id/canvas', static fn (Request $r) => $tasksController()->patchCanvas($r));
 
 $router->get('/api/notes', static fn (Request $r) => $notesController()->index($r));
 $router->post('/api/notes', static fn (Request $r) => $notesController()->store($r));
@@ -297,37 +236,17 @@ $router->get('/api/notes/:id', static fn (Request $r) => $notesController()->sho
 $router->put('/api/notes/:id', static fn (Request $r) => $notesController()->update($r));
 $router->delete('/api/notes/:id', static fn (Request $r) => $notesController()->destroy($r));
 
-$router->get('/api/projects', static function (Request $request) use ($projectsController): void {
-    $projectsController()->index($request);
-});
-$router->post('/api/projects', static function (Request $request) use ($projectsController): void {
-    $projectsController()->store($request);
-});
-$router->get('/api/projects/:id', static function (Request $request) use ($projectsController): void {
-    $projectsController()->show($request);
-});
-$router->put('/api/projects/:id', static function (Request $request) use ($projectsController): void {
-    $projectsController()->update($request);
-});
-$router->delete('/api/projects/:id', static function (Request $request) use ($projectsController): void {
-    $projectsController()->destroy($request);
-});
+$router->get('/api/projects', static fn (Request $r) => $projectsController()->index($r));
+$router->post('/api/projects', static fn (Request $r) => $projectsController()->store($r));
+$router->get('/api/projects/:id', static fn (Request $r) => $projectsController()->show($r));
+$router->put('/api/projects/:id', static fn (Request $r) => $projectsController()->update($r));
+$router->delete('/api/projects/:id', static fn (Request $r) => $projectsController()->destroy($r));
 
-$router->get('/api/goals', static function (Request $request) use ($goalsController): void {
-    $goalsController()->index($request);
-});
-$router->post('/api/goals', static function (Request $request) use ($goalsController): void {
-    $goalsController()->store($request);
-});
-$router->get('/api/goals/:id', static function (Request $request) use ($goalsController): void {
-    $goalsController()->show($request);
-});
-$router->put('/api/goals/:id', static function (Request $request) use ($goalsController): void {
-    $goalsController()->update($request);
-});
-$router->delete('/api/goals/:id', static function (Request $request) use ($goalsController): void {
-    $goalsController()->destroy($request);
-});
+$router->get('/api/goals', static fn (Request $r) => $goalsController()->index($r));
+$router->post('/api/goals', static fn (Request $r) => $goalsController()->store($r));
+$router->get('/api/goals/:id', static fn (Request $r) => $goalsController()->show($r));
+$router->put('/api/goals/:id', static fn (Request $r) => $goalsController()->update($r));
+$router->delete('/api/goals/:id', static fn (Request $r) => $goalsController()->destroy($r));
 
 if ($router->dispatch($request)) {
     exit;

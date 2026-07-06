@@ -86,6 +86,10 @@ final class AuthController
         ], 201);
     }
 
+    /** Max failed logins per IP within the throttle window before returning 429. */
+    private const LOGIN_MAX_FAILURES = 5;
+    private const LOGIN_THROTTLE_WINDOW = 900; // 15 minutes
+
     public function login(Request $request): void
     {
         $body = $request->getBody();
@@ -98,23 +102,26 @@ final class AuthController
         }
 
         $db = Database::getInstance();
+        $ip = $this->clientIp();
+        if ($this->isLoginThrottled($db, $ip)) {
+            Response::error('too_many_attempts', 'Too many failed login attempts. Try again later.', 429);
+            return;
+        }
+
         $stmt = $db->prepare(
             'SELECT id, email, name, avatar_url, password_hash FROM users WHERE email = ? COLLATE NOCASE LIMIT 1',
         );
         $stmt->execute([$email]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!is_array($row)) {
-            Response::error('unauthorized', 'Invalid email or password', 401);
-            return;
-        }
-
-        $hash = $row['password_hash'] ?? null;
+        $hash = is_array($row) ? ($row['password_hash'] ?? null) : null;
         if (!is_string($hash) || $hash === '' || !password_verify($password, $hash)) {
+            $this->recordFailedLogin($db, $ip);
             Response::error('unauthorized', 'Invalid email or password', 401);
             return;
         }
 
+        $this->clearFailedLogins($db, $ip);
         $userId = (int) $row['id'];
         $session = $this->issueSession($userId);
         $user = $this->fetchUserRow($userId);
@@ -173,6 +180,53 @@ final class AuthController
         ]);
 
         Response::success(['logged_out' => true]);
+    }
+
+    private function clientIp(): string
+    {
+        // Caddy/Apache sit in front and set X-Forwarded-For; first entry is the client.
+        $xff = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '';
+        if (is_string($xff) && $xff !== '') {
+            $first = trim(explode(',', $xff)[0]);
+            if ($first !== '') {
+                return $first;
+            }
+        }
+
+        return (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
+    }
+
+    private function ensureLoginAttemptsTable(\PDO $db): void
+    {
+        $db->exec(
+            'CREATE TABLE IF NOT EXISTS login_attempts (
+                ip TEXT NOT NULL,
+                attempted_at INTEGER NOT NULL
+            )',
+        );
+    }
+
+    private function isLoginThrottled(\PDO $db, string $ip): bool
+    {
+        $this->ensureLoginAttemptsTable($db);
+        $db->prepare('DELETE FROM login_attempts WHERE attempted_at < ?')
+            ->execute([time() - self::LOGIN_THROTTLE_WINDOW]);
+
+        $stmt = $db->prepare('SELECT COUNT(*) FROM login_attempts WHERE ip = ?');
+        $stmt->execute([$ip]);
+
+        return (int) $stmt->fetchColumn() >= self::LOGIN_MAX_FAILURES;
+    }
+
+    private function recordFailedLogin(\PDO $db, string $ip): void
+    {
+        $db->prepare('INSERT INTO login_attempts (ip, attempted_at) VALUES (?, ?)')
+            ->execute([$ip, time()]);
+    }
+
+    private function clearFailedLogins(\PDO $db, string $ip): void
+    {
+        $db->prepare('DELETE FROM login_attempts WHERE ip = ?')->execute([$ip]);
     }
 
     /**

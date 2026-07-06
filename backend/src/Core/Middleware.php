@@ -58,7 +58,11 @@ final class Middleware
         }
 
         $db = Database::getInstance();
-        $db->prepare('DELETE FROM sessions WHERE expires_at < ?')->execute([time()]);
+        // Purge expired sessions on ~5% of requests — a write on every request causes
+        // needless SQLite lock contention; expired rows are also excluded by the SELECT below.
+        if (random_int(1, 20) === 1) {
+            $db->prepare('DELETE FROM sessions WHERE expires_at < ?')->execute([time()]);
+        }
 
         $stmt = $db->prepare(
             'SELECT s.user_id, s.expires_at FROM sessions s
