@@ -22,6 +22,45 @@ import { formatAmountInputDisplay, parseAmountInput } from '../lib/amountInput';
 import { useUiStore } from '../stores/uiStore';
 import { BUDGET_CATEGORIES, CATEGORY_COLORS, type BudgetCategory, type BudgetMonth } from '../types';
 
+type IncomeSort = 'standaard' | 'naam' | 'bedrag_hoog' | 'bedrag_laag' | 'open_eerst';
+type ExpenseSort = IncomeSort | 'categorie';
+
+const INCOME_SORT_OPTIONS: { value: IncomeSort; label: string }[] = [
+  { value: 'standaard', label: 'Standaard' },
+  { value: 'naam', label: 'Naam (A–Z)' },
+  { value: 'bedrag_hoog', label: 'Bedrag (hoog → laag)' },
+  { value: 'bedrag_laag', label: 'Bedrag (laag → hoog)' },
+  { value: 'open_eerst', label: 'Nog open eerst' },
+];
+
+const EXPENSE_SORT_OPTIONS: { value: ExpenseSort; label: string }[] = [
+  ...INCOME_SORT_OPTIONS,
+  { value: 'categorie', label: 'Categorie' },
+];
+
+function compareBySort<T extends { name: string; amount: number; sort_order: number }>(
+  a: T,
+  b: T,
+  sort: IncomeSort | ExpenseSort,
+  isOpen: (row: T) => boolean,
+  categoryIndex?: (row: T) => number,
+): number {
+  switch (sort) {
+    case 'naam':
+      return a.name.localeCompare(b.name, 'nl') || a.sort_order - b.sort_order;
+    case 'bedrag_hoog':
+      return b.amount - a.amount || a.sort_order - b.sort_order;
+    case 'bedrag_laag':
+      return a.amount - b.amount || a.sort_order - b.sort_order;
+    case 'open_eerst':
+      return Number(isOpen(b)) - Number(isOpen(a)) || a.sort_order - b.sort_order;
+    case 'categorie':
+      return (categoryIndex?.(a) ?? 0) - (categoryIndex?.(b) ?? 0) || a.sort_order - b.sort_order;
+    default:
+      return a.sort_order - b.sort_order;
+  }
+}
+
 function currentMonthKey(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -149,10 +188,24 @@ export function BudgetPage() {
   const [newExpenseName, setNewExpenseName] = useState('');
   const [newExpenseAmount, setNewExpenseAmount] = useState('');
   const [newExpenseCategory, setNewExpenseCategory] = useState<BudgetCategory>('Vaste Last');
+  const [incomeSort, setIncomeSort] = useState<IncomeSort>('standaard');
+  const [expenseSort, setExpenseSort] = useState<ExpenseSort>('standaard');
 
   const isArchive = month < currentMonthKey();
   const data = q.data;
   const summary = data?.summary;
+
+  const sortedIncome = useMemo(() => {
+    const rows = data?.income ?? [];
+    return [...rows].sort((a, b) => compareBySort(a, b, incomeSort, (r) => !r.received));
+  }, [data?.income, incomeSort]);
+
+  const sortedExpenses = useMemo(() => {
+    const rows = data?.expenses ?? [];
+    return [...rows].sort((a, b) =>
+      compareBySort(a, b, expenseSort, (r) => !r.paid, (r) => BUDGET_CATEGORIES.indexOf(r.category)),
+    );
+  }, [data?.expenses, expenseSort]);
 
   const chartData = useMemo(() => {
     if (!summary) {
@@ -270,10 +323,24 @@ export function BudgetPage() {
           <section className="min-w-0 overflow-hidden rounded-xl border border-codex-border bg-codex-surface p-4">
             <div className="mb-3 flex items-baseline justify-between gap-2">
               <h2 className="text-sm font-medium text-slate-300">Inkomen</h2>
-              <span className="text-sm font-semibold text-emerald-400">{formatEuro(summary.total_income)}</span>
+              <div className="flex items-baseline gap-2">
+                <select
+                  value={incomeSort}
+                  onChange={(e) => setIncomeSort(e.target.value as IncomeSort)}
+                  className="rounded border border-codex-border bg-codex-bg px-1.5 py-0.5 text-xs text-slate-400"
+                  aria-label="Inkomen sorteren"
+                >
+                  {INCOME_SORT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-sm font-semibold text-emerald-400">{formatEuro(summary.total_income)}</span>
+              </div>
             </div>
             <div className="space-y-2">
-              {data.income.map((row) => (
+              {sortedIncome.map((row) => (
                 <CrudRow
                   key={row.id}
                   className="group rounded-lg border border-codex-border/40 p-2 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,120px)_auto] md:items-center md:gap-2 md:rounded-none md:border-0 md:p-0"
@@ -391,10 +458,24 @@ export function BudgetPage() {
           <section className="min-w-0 overflow-hidden rounded-xl border border-codex-border bg-codex-surface p-4">
             <div className="mb-3 flex items-baseline justify-between gap-2">
               <h2 className="text-sm font-medium text-slate-300">Uitgaven</h2>
-              <span className="text-sm font-semibold text-rose-400">{formatEuro(summary.total_expenses)}</span>
+              <div className="flex items-baseline gap-2">
+                <select
+                  value={expenseSort}
+                  onChange={(e) => setExpenseSort(e.target.value as ExpenseSort)}
+                  className="rounded border border-codex-border bg-codex-bg px-1.5 py-0.5 text-xs text-slate-400"
+                  aria-label="Uitgaven sorteren"
+                >
+                  {EXPENSE_SORT_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-sm font-semibold text-rose-400">{formatEuro(summary.total_expenses)}</span>
+              </div>
             </div>
             <div className="space-y-2">
-              {data.expenses.map((row) => (
+              {sortedExpenses.map((row) => (
                 <CrudRow
                   key={row.id}
                   className="group rounded-lg border border-codex-border/40 p-2 md:grid md:grid-cols-[auto_minmax(0,1fr)_minmax(0,150px)_minmax(0,120px)_auto] md:items-center md:gap-2 md:rounded-none md:border-0 md:p-0"
