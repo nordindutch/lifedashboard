@@ -1,63 +1,73 @@
-import { Calendar, Home, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, PiggyBank, Settings, StickyNote } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth, useLogout } from '../../hooks/useAuth';
-import { tabToPath } from '../../lib/routes';
-import { useUiStore, type AppTab } from '../../stores/uiStore';
+import { isNavItemActive, navItems, type ResolvedNavItem } from '../../modules/registry';
+import { useActiveModules } from '../../modules/useModules';
+import { useUiStore } from '../../stores/uiStore';
 import { QuickCreateSidebarTrigger } from './QuickCreate';
 
-const tabs: { id: AppTab; label: string; icon: typeof Home }[] = [
-  { id: 'home', label: 'Start', icon: Home },
-  { id: 'tasks', label: 'Taken', icon: LayoutGrid },
-  { id: 'notes', label: 'Notities', icon: StickyNote },
-  { id: 'diary', label: 'Dagboek', icon: Calendar },
-  { id: 'budget',   label: 'Budget',       icon: PiggyBank },
-  { id: 'settings', label: 'Instellingen', icon: Settings },
-];
+function NavGroup({ items, expanded, pathname }: { items: ResolvedNavItem[]; expanded: boolean; pathname: string }) {
+  return (
+    <>
+      {items.map((t) => {
+        const Icon = t.icon;
+        const on = isNavItemActive(t, pathname);
+        return (
+          <NavLink
+            key={`${t.moduleId}:${t.id}`}
+            to={t.path}
+            title={t.label}
+            aria-current={on ? 'page' : undefined}
+            className={`flex min-h-touch items-center gap-3 rounded-xl px-3.5 text-left text-sm font-semibold ${
+              on ? 'bg-[#1d2130] text-codex-accent' : 'text-codex-muted hover:bg-white/5 hover:text-codex-text'
+            } ${expanded ? '' : 'justify-center px-0'}`}
+          >
+            <Icon className="h-5 w-5 shrink-0" aria-hidden />
+            {expanded ? <span>{t.label}</span> : null}
+          </NavLink>
+        );
+      })}
+    </>
+  );
+}
 
+/**
+ * Desktop-zijbalk (240 px). Groepen komen uit de moduleregistry:
+ * primair bovenaan, daaronder secundair en overig.
+ */
 export function Sidebar() {
-  const navigate = useNavigate();
-  const active = useUiStore((s) => s.activeTab);
+  const { pathname } = useLocation();
+  const modules = useActiveModules();
   const expanded = useUiStore((s) => s.sidebarExpanded);
   const toggle = useUiStore((s) => s.toggleSidebar);
   const { data: user } = useAuth();
   const logoutMutation = useLogout();
 
+  const primary = navItems(modules, 'primary');
+  const secondary = [...navItems(modules, 'secondary'), ...navItems(modules, 'more')];
+
   return (
     <aside
-      className={`hidden shrink-0 border-r border-codex-border bg-codex-surface md:sticky md:top-0 md:z-30 md:flex md:h-screen md:min-h-0 md:max-h-full md:flex-col md:overflow-y-auto ${
+      className={`hidden shrink-0 border-r border-codex-border bg-[#0d0e14] md:sticky md:top-0 md:z-30 md:flex md:h-screen md:min-h-0 md:max-h-full md:flex-col md:overflow-y-auto ${
         expanded ? 'w-60' : 'w-16'
       }`}
     >
-      <div className="flex h-14 items-center justify-between gap-2 border-b border-codex-border px-3">
-        {expanded ? <span className="truncate text-sm font-semibold">Project Codex</span> : null}
+      <div className="flex h-14 items-center justify-between gap-2 px-3">
+        {expanded ? <span className="truncate px-1 text-lg font-extrabold tracking-tight">Codex</span> : null}
         <button
           type="button"
           onClick={toggle}
-          className="rounded-lg p-2 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+          className="flex min-h-touch min-w-touch items-center justify-center rounded-xl text-codex-muted hover:bg-white/5 hover:text-codex-text"
           aria-label={expanded ? 'Zijbalk inklappen' : 'Zijbalk uitklappen'}
+          aria-expanded={expanded}
         >
-          {expanded ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
+          {expanded ? <PanelLeftClose className="h-5 w-5" aria-hidden /> : <PanelLeftOpen className="h-5 w-5" aria-hidden />}
         </button>
       </div>
-      <nav className="flex flex-1 flex-col gap-1 p-2">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          const on = active === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => navigate(tabToPath(t.id))}
-              title={t.label}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2 text-left text-sm ${
-                on ? 'bg-white/10 text-codex-accent' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
-              }`}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              {expanded ? <span>{t.label}</span> : null}
-            </button>
-          );
-        })}
+      <nav className="flex flex-1 flex-col gap-1.5 p-2" aria-label="Hoofdnavigatie">
+        <NavGroup items={primary} expanded={expanded} pathname={pathname} />
+        {secondary.length > 0 ? <div className="my-3 h-px bg-codex-border" role="separator" /> : null}
+        <NavGroup items={secondary} expanded={expanded} pathname={pathname} />
       </nav>
       <div className="px-2 pb-2">
         <QuickCreateSidebarTrigger />
@@ -78,9 +88,9 @@ export function Sidebar() {
             type="button"
             onClick={() => logoutMutation.mutate()}
             title="Uitloggen"
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-white/5 hover:text-rose-400 ${expanded ? '' : 'justify-center'}`}
+            className={`flex min-h-touch w-full items-center gap-3 rounded-xl px-3 text-sm text-codex-muted hover:bg-white/5 hover:text-codex-risk ${expanded ? '' : 'justify-center px-0'}`}
           >
-            <LogOut className="h-4 w-4 shrink-0" />
+            <LogOut className="h-4 w-4 shrink-0" aria-hidden />
             {expanded ? <span>Uitloggen</span> : null}
           </button>
         </div>

@@ -19,7 +19,6 @@ import {
   useUpsertIncome,
 } from '../hooks/useBudget';
 import { formatAmountInputDisplay, parseAmountInput } from '../lib/amountInput';
-import { useUiStore } from '../stores/uiStore';
 import { BUDGET_CATEGORIES, CATEGORY_COLORS, type BudgetCategory, type BudgetMonth } from '../types';
 
 type IncomeSort = 'standaard' | 'naam' | 'bedrag_hoog' | 'bedrag_laag' | 'open_eerst';
@@ -173,8 +172,8 @@ function BudgetCurrentBalanceField({
 
 export function BudgetPage() {
   const [month, setMonth] = useState(currentMonthKey);
-  const budgetAnalyticsVisible = useUiStore((s) => s.budgetAnalyticsVisible);
-  const toggleBudgetAnalyticsVisible = useUiStore((s) => s.toggleBudgetAnalyticsVisible);
+  const [budgetAnalyticsVisible, setBudgetAnalyticsVisible] = useState(true);
+  const toggleBudgetAnalyticsVisible = () => setBudgetAnalyticsVisible((v) => !v);
   const q = useBudget(month);
   const upsertIncome = useUpsertIncome(month);
   const upsertExpense = useUpsertExpense(month);

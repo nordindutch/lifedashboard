@@ -1,20 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { useEffect } from 'react';
+import { Suspense } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { useAuth, useBootstrap } from './hooks/useAuth';
-import { pathToTab } from './lib/routes';
-import { BudgetPage } from './pages/BudgetPage';
-import { DiaryPage } from './pages/DiaryPage';
-import { HomePage } from './pages/HomePage';
+import { DEFAULT_PATH } from './modules/registry';
+import { useActiveModules } from './modules/useModules';
 import { LoginPage } from './pages/LoginPage';
-import { NotesPage } from './pages/NotesPage';
-import { ProductivityPage } from './pages/ProductivityPage';
+import { MorePage } from './pages/MorePage';
 import { SetupPage } from './pages/SetupPage';
-import { SettingsPage } from './pages/SettingsPage';
 import { isApiBaseUrlConfigured } from './api/client';
-import { useUiStore } from './stores/uiStore';
 
 const isTauriApp =
   typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -25,9 +20,36 @@ const queryClient = new QueryClient({
   },
 });
 
+function Spinner() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center bg-codex-bg" role="status" aria-label="Laden">
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-codex-border border-t-codex-accent" />
+    </div>
+  );
+}
+
+/** Routes uit de moduleregistry (lazy geladen), plus het Meer-scherm. */
+function ModuleRoutes() {
+  const modules = useActiveModules();
+  return (
+    <Suspense fallback={<Spinner />}>
+      <Routes>
+        {modules.flatMap((m) =>
+          m.routes.map((r) => {
+            const Component = r.component;
+            return <Route key={`${m.id}:${r.path}`} path={r.path} element={<Component />} />;
+          }),
+        )}
+        <Route path="/more" element={<MorePage />} />
+        <Route path="/" element={<Navigate to={DEFAULT_PATH} replace />} />
+        <Route path="*" element={<Navigate to={DEFAULT_PATH} replace />} />
+      </Routes>
+    </Suspense>
+  );
+}
+
 function RouterShell() {
   const location = useLocation();
-  const setActiveTab = useUiStore((s) => s.setActiveTab);
   const { data: user, isLoading: authLoading } = useAuth();
   const {
     data: bootstrap,
@@ -36,10 +58,6 @@ function RouterShell() {
     refetch: refetchBootstrap,
     error: bootstrapQueryError,
   } = useBootstrap();
-
-  useEffect(() => {
-    setActiveTab(pathToTab(location.pathname));
-  }, [location.pathname, setActiveTab]);
 
   if (authLoading || bootstrapLoading) {
     return (
@@ -60,20 +78,18 @@ function RouterShell() {
         </p>
         {tauriMissingBase ? (
           <p className="max-w-lg text-xs leading-relaxed text-amber-200/90">
-            Tauri builds must embed your API origin at build time. Set{' '}
-            <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">VITE_API_BASE_URL=https://your-domain</code>{' '}
-            in <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">frontend/.env.tauri.local</code> (or{' '}
-            <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">.env.production.local</code>), then run{' '}
-            <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">npm run build:tauri</code> and{' '}
-            <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">cargo tauri build</code> again. No trailing
-            slash on the URL.
+            Tauri-builds moeten de API-origin bij het bouwen meekrijgen. Zet{' '}
+            <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">VITE_API_BASE_URL=https://jouw-domein</code>{' '}
+            in <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">frontend/.env.tauri.local</code> en bouw
+            opnieuw met <code className="rounded bg-white/10 px-1 py-0.5 text-[11px]">npm run build:tauri</code>. Geen
+            slash aan het einde van de URL.
           </p>
         ) : null}
         <p className="text-xs text-codex-muted">{message}</p>
         <button
           type="button"
           onClick={() => void refetchBootstrap()}
-          className="rounded-lg border border-codex-border bg-codex-surface px-4 py-2 text-sm text-slate-200 hover:border-codex-accent/50"
+          className="min-h-touch rounded-xl border border-codex-border bg-codex-surface px-4 text-sm text-slate-200 hover:border-codex-accent/50"
         >
           Opnieuw
         </button>
@@ -102,15 +118,7 @@ function RouterShell() {
 
   return (
     <AppShell>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/tasks" element={<ProductivityPage />} />
-        <Route path="/notes" element={<NotesPage />} />
-        <Route path="/diary" element={<DiaryPage />} />
-        <Route path="/budget" element={<BudgetPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <ModuleRoutes />
     </AppShell>
   );
 }

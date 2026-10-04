@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getGoogleOAuthUrl, revokeGoogle, syncCalendar, syncGmail, testWeather } from '../api/settings';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
+import { ModulesCard } from '../components/settings/ModulesCard';
 import { EmptyState } from '../components/ui/EmptyState';
 import { GoogleDisconnectBanner } from '../components/ui/GoogleDisconnectBanner';
 import { useIntegrationStatus } from '../hooks/useIntegrationStatus';
@@ -248,6 +249,7 @@ export function SettingsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-4 md:p-6">
       <h1 className="text-xl font-semibold text-slate-100">Instellingen</h1>
+      <ModulesCard />
       <Card>
         <div className="space-y-4">
           <div>

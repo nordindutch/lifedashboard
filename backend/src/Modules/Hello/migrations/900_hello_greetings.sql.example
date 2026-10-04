@@ -1,0 +1,7 @@
+-- Voorbeeldmigratie. Hernoem naar NNN_hello_greetings.sql (uniek nummer over de hele repo)
+-- om hem door database/migrate.php te laten uitvoeren.
+CREATE TABLE IF NOT EXISTS hello_greetings (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    message    TEXT    NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);

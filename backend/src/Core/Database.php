@@ -17,9 +17,7 @@ final class Database
             return self::$instance;
         }
 
-        $baseDir = dirname(__DIR__, 2);
-        $path = $baseDir . '/database/codex.sqlite';
-        $dsn = 'sqlite:' . $path;
+        $dsn = 'sqlite:' . self::path();
 
         try {
             $pdo = new PDO($dsn, null, null, [
@@ -39,6 +37,20 @@ final class Database
 
         self::$instance = $pdo;
         return self::$instance;
+    }
+
+    /**
+     * Pad naar het SQLite-bestand. Standaard backend/database/codex.sqlite;
+     * te overschrijven met CODEX_DB_PATH (tests, CI, alternatieve volumes).
+     */
+    public static function path(): string
+    {
+        $env = getenv('CODEX_DB_PATH');
+        if (is_string($env) && $env !== '') {
+            return $env;
+        }
+
+        return dirname(__DIR__, 2) . '/database/codex.sqlite';
     }
 
     public static function resetForTesting(): void

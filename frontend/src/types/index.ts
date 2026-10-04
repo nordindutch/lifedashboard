@@ -450,4 +450,6 @@ export interface AppSettings {
   work_start_hour: number;
   work_end_hour: number;
   kanban_columns: TaskStatus[];
+  /** Module-id's die de gebruiker heeft uitgeschakeld (zie modules/registry.ts) */
+  disabled_modules?: string[];
 }
