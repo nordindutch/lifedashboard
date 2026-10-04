@@ -8,14 +8,42 @@ final class Response
 {
     private const JSON_FLAGS = JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE;
 
+    /** Testmodus: geen HTTP-headers zetten, wel status en payload onthouden. */
+    private static bool $capture = false;
+    private static int $lastStatus = 200;
+    private static mixed $lastPayload = null;
+
     /**
      * @param array<string, mixed> $data
      */
     public static function json(mixed $data, int $status = 200): void
     {
-        http_response_code($status);
-        header('Content-Type: application/json; charset=utf-8');
+        if (self::$capture) {
+            self::$lastStatus = $status;
+            self::$lastPayload = $data;
+        } else {
+            http_response_code($status);
+            header('Content-Type: application/json; charset=utf-8');
+        }
         echo json_encode($data, self::JSON_FLAGS);
+    }
+
+    /** Alleen voor tests: headers overslaan en de laatste respons bewaren. */
+    public static function enableCapture(bool $on = true): void
+    {
+        self::$capture = $on;
+        self::$lastStatus = 200;
+        self::$lastPayload = null;
+    }
+
+    public static function capturedStatus(): int
+    {
+        return self::$lastStatus;
+    }
+
+    public static function capturedPayload(): mixed
+    {
+        return self::$lastPayload;
     }
 
     public static function success(mixed $data, int $status = 200, ?array $meta = null): void

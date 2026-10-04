@@ -500,19 +500,29 @@ final class BudgetController
             ];
         }, $catRows);
 
+        // Rente op schulden met "meetellen in maandbudget": telt als nog te betalen uitgave.
+        $interestItems = DebtController::interestItemsForBudget($db);
+        $totalInterest = 0.0;
+        foreach ($interestItems as $item) {
+            $totalInterest += (float) $item['amount'];
+        }
+        $totalInterest = round($totalInterest, 2);
+
         return [
             'month' => $monthData,
             'income' => $income,
             'expenses' => $expenses,
             'summary' => [
                 'total_income' => round($totalIncome, 2),
-                'total_expenses' => round($totalExpenses, 2),
+                'total_expenses' => round($totalExpenses + $totalInterest, 2),
                 'received' => round($received, 2),
                 'paid' => round($paid, 2),
                 'pending_income' => round($pendingIncome, 2),
-                'pending_expenses' => round($pendingExpenses, 2),
-                'projected_balance' => round($effectiveBalance + $pendingIncome - $pendingExpenses, 2),
+                'pending_expenses' => round($pendingExpenses + $totalInterest, 2),
+                'projected_balance' => round($effectiveBalance + $pendingIncome - $pendingExpenses - $totalInterest, 2),
                 'by_category' => $byCategory,
+                'interest_items' => $interestItems,
+                'total_interest' => $totalInterest,
             ],
         ];
     }

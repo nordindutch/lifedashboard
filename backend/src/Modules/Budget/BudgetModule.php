@@ -34,6 +34,8 @@ final class BudgetModule extends AbstractModule
 
         $router->get('/api/budget/debts', [$debts, 'index']);
         $router->post('/api/budget/debts', [$debts, 'upsert']);
+        $router->get('/api/budget/debts/:id', [$debts, 'show']);
+        $router->post('/api/budget/debts/:id/payments', [$debts, 'registerPayment']);
         $router->delete('/api/budget/debts/:id', [$debts, 'destroy']);
 
         $router->get('/api/budget/analytics', [$budget, 'analytics']);
