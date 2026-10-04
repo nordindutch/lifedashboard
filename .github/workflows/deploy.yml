@@ -1,0 +1,57 @@
+name: Deploy
+
+# Deployt naar de Vimexx VPS via SSH. Start automatisch na een geslaagde CI-run op main
+# (workflow_run) en vanuit release.yml na een versietag. Het script op de server
+# (deploy/deploy.sh) maakt een back-up van codex.sqlite, draait migraties, herstart de
+# containers, controleert /api/health en rolt terug als dat mislukt.
+#
+# Benodigde secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY (optioneel DEPLOY_PORT, DEPLOY_PATH).
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Branch of tag om te deployen'
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch of tag om te deployen'
+        required: false
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: SSH deploy
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH || '$HOME/codex' }}"
+            git fetch --tags origin
+            git checkout -f "${{ inputs.ref || github.event.workflow_run.head_branch || 'main' }}"
+            git pull --ff-only origin "${{ inputs.ref || github.event.workflow_run.head_branch || 'main' }}" || true
+            chmod +x deploy/deploy.sh
+            ./deploy/deploy.sh

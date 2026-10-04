@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend (typecheck, tests, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Versiebestanden gelijk?
+        run: node scripts/sync-version.mjs --check
+      - name: Install
+        run: npm ci --prefix frontend --no-audit --no-fund
+      - name: Typecheck
+        run: npm --prefix frontend run typecheck
+      - name: Unit tests
+        run: npm --prefix frontend test
+      - name: Build
+        run: npm --prefix frontend run build
+        env:
+          CODEX_BUILD: ${{ github.sha }}
+
+  backend:
+    name: Backend (PHP tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: pdo_sqlite, sqlite3
+          coverage: none
+      - name: Composer install
+        working-directory: backend
+        run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Migraties op een lege database
+        working-directory: backend
+        run: CODEX_DB_PATH=/tmp/ci.sqlite php database/migrate.php && CODEX_DB_PATH=/tmp/ci.sqlite php database/migrate.php --list
+      - name: PHPUnit
+        working-directory: backend
+        run: composer test

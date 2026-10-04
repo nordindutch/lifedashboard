@@ -14,6 +14,11 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }));
+        // Zelf-update via latest.json op GitHub Releases (zie tauri.conf.json > plugins.updater).
+        // De controle zelf gebeurt in de frontend (src/lib/updater.ts) met een Nederlandse melding.
+        builder = builder
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_process::init());
     }
 
     builder

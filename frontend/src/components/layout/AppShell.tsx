@@ -5,12 +5,14 @@ import { BottomNav } from './BottomNav';
 import { QuickCreate } from './QuickCreate';
 import { Sidebar } from './Sidebar';
 import { TitleBar } from './TitleBar';
+import { UpdateBanner } from './UpdateBanner';
 import { ToastHost } from '../ui/ToastHost';
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-codex-bg">
       <TitleBar />
+      <UpdateBanner />
       <GoogleConnectionWatcher />
       <div className="flex min-h-0 flex-1 flex-row items-stretch">
         <Sidebar />

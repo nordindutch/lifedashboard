@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
@@ -6,6 +7,11 @@ import react from '@vitejs/plugin-react';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? 'http://127.0.0.1:8180';
+
+/** Eén versiebron: de root package.json (zie scripts/sync-version.mjs). */
+const appVersion = String(
+  (JSON.parse(readFileSync(path.resolve(__dirname, '../package.json'), 'utf8')) as { version?: string }).version ?? '0.0.0',
+);
 
 /*
  * Bug 1 — Tauri title bar: When `isTauri` is false at build time, Vite aliases
@@ -29,6 +35,8 @@ export default defineConfig(({ mode }) => {
       'src/stubs/tauri-plugin-notification.ts',
     );
     resolveAlias['@tauri-apps/api/window'] = path.resolve(__dirname, 'src/stubs/tauri-api-window.ts');
+    resolveAlias['@tauri-apps/plugin-updater'] = path.resolve(__dirname, 'src/stubs/tauri-plugin-updater.ts');
+    resolveAlias['@tauri-apps/plugin-process'] = path.resolve(__dirname, 'src/stubs/tauri-plugin-process.ts');
   }
   if (!isAndroid) {
     resolveAlias['@capacitor/status-bar'] = path.resolve(
@@ -39,6 +47,10 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+      __APP_BUILD__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? process.env.CODEX_BUILD ?? 'dev'),
+    },
     ...(Object.keys(resolveAlias).length > 0 ? { resolve: { alias: resolveAlias } } : {}),
 
     server: {

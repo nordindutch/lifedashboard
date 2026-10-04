@@ -1,6 +1,13 @@
 # Project Codex
 
-Personal Life OS dashboard: daily briefing, Kanban, spatial canvas, diary, and AI planning.
+Persoonlijk dashboard met budget als hoofdonderdeel (maandbudget, rekeningen, schulden met rente, analyse),
+plus taken, notities, dagboek en dagelijkse briefing. Web, Windows (Tauri 2) en Android (Capacitor 8).
+
+- Modules toevoegen: [docs/ADD_MODULE.md](docs/ADD_MODULE.md)
+- Deployment, releases en updates: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+- Beslissingen en aannames: [docs/DECISIONS.md](docs/DECISIONS.md)
+
+Versie: `version` in de root `package.json`; release met `npm run release -- <versie> --push`.
 
 ## Requirements
 
@@ -16,6 +23,8 @@ cp .env.example .env
 
 php database/migrate.php
 ```
+
+Tests: `composer install && composer test` (PHPUnit, tijdelijke SQLite via `CODEX_DB_PATH`).
 
 Serve the front controller (example):
 
@@ -34,6 +43,7 @@ cp .env.example .env
 
 npm install
 npm run dev
+npm test          # vitest (rekenlogica budget)
 ```
 
 Vite proxies `/api` to `http://127.0.0.1:8180` by default (see `vite.config.ts`). Docker: see `DOCKER.md` (app **5273**, API **8180** on the host).

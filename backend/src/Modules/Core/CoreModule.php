@@ -37,6 +37,8 @@ final class CoreModule extends AbstractModule
             '/api/auth/login',
             '/api/auth/setup',
             '/api/auth/bootstrap',
+            '/api/version',
+            '/api/health',
         ];
     }
 
@@ -46,6 +48,10 @@ final class CoreModule extends AbstractModule
         $settings = new SettingsController();
         $briefing = new BriefingController();
         $ai = $this->lazy(static fn (): AiController => new AiController(AiPlanRepository::make()));
+        $version = new VersionController();
+
+        $router->get('/api/version', [$version, 'index']);
+        $router->get('/api/health', [$version, 'health']);
 
         $router->get('/api/auth/me', [$auth, 'me']);
         $router->get('/api/auth/bootstrap', [$auth, 'bootstrap']);

@@ -49,3 +49,30 @@ Nieuwste bovenaan.
 - **Afvinken is optimistisch**: de cache wordt direct bijgewerkt met dezelfde rekenregels als de server
   (`recomputeSummary`), met terugdraaien bij een fout en een herlaad na afloop.
 - **Breakpoint voor de desktopindeling** is dezelfde 720 px als de schil (`useIsDesktop`).
+
+## Deployment en updates (fase 3)
+
+- **Versiebron is de root package.json.** `scripts/sync-version.mjs` schrijft hem overal heen; CI controleert
+  dat met `--check`. Android `versionCode` = major x 10000 + minor x 100 + patch, zodat hij altijd stijgt en
+  rechtstreeks uit de versie af te leiden is (ook door `/api/version`).
+- **Android versionCode springt van 1 naar 200** (versie 0.2.0). Dat is toegestaan: hoger is genoeg.
+- **Deploy via SSH vanuit GitHub Actions** in plaats van een pull-gebaseerde cron op de server. Dat geeft
+  directe feedback (rode run bij een mislukte migratie) en één plek voor de logs. Het script werkt ook
+  handmatig op de server.
+- **Rollback herstelt de database uit de back-up van vlak vóór de migratie** en checkt de vorige commit uit.
+  Migraties blijven forward-only (zoals de bestaande regels); de rollback is een noodrem, geen down-migratie.
+- **`/api/version` en `/api/health` zijn publiek** (geen sessie). Ze lekken alleen het versienummer en of de
+  database bereikbaar is; dat is nodig voor de healthcheck van het deploy-script en de updatecontrole vóór
+  het inloggen.
+- **Desktop-updater met passieve installatie** (`installMode: passive`): de installer toont voortgang maar
+  stelt geen vragen. De melding zelf staat in de app in het Nederlands; de controle gebeurt 2,5 seconde na het
+  opstarten, zodat die nooit het inloggen vertraagt, en fouten (geen netwerk, geen sleutel) worden stil
+  overgeslagen.
+- **Publieke updater-sleutel is een placeholder** (`REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY`). De privé-sleutel
+  moet door de eigenaar worden gegenereerd en mag nooit in de repo; daarom is hij hier niet aangemaakt.
+- **Android: in-app updatecontrole met downloadlink**, geen live-updates. Zie docs/DEPLOYMENT.md voor de
+  afweging; kern: de app laadt de web-UI al live van de server.
+- **Release op tag, deploy op main.** Kleine web-wijzigingen hoeven geen apps te bouwen. De release-workflow
+  roept na de web-build dezelfde deploy-workflow aan, zodat de server op de getagde versie komt.
+- **Vite staat nu expliciet in devDependencies** (was alleen transitief), zodat `npm run build` in CI en lokaal
+  dezelfde versie gebruikt.
