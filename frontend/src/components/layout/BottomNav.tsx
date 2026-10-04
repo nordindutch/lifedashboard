@@ -33,7 +33,7 @@ export function BottomNav() {
             <li key={`${t.moduleId}:${t.id}`} className="flex-1">
               <NavLink to={t.path} className={linkClass(on)} aria-current={on ? 'page' : undefined}>
                 <Icon className="h-[22px] w-[22px]" strokeWidth={on ? 2.25 : 1.9} aria-hidden />
-                <span>{t.label}</span>
+                <span>{t.shortLabel ?? t.label}</span>
               </NavLink>
             </li>
           );

@@ -13,6 +13,8 @@ export interface ModuleNavItem {
   /** Uniek binnen de module */
   id: string;
   label: string;
+  /** Korter label voor de mobiele tabbalk (bijvoorbeeld "Maand" in plaats van "Budget") */
+  shortLabel?: string;
   icon: LucideIcon;
   /** Pad waar het item naartoe navigeert */
   path: string;

@@ -26,3 +26,26 @@ Nieuwste bovenaan.
 - **De voorbeeldmodule hello** zit achter de feature flag `VITE_FLAG_HELLO` en heeft een voorbeeldmigratie met
   de extensie `.sql.example`, zodat productie geen hello-tabel krijgt.
 - **Sidebar start uitgeklapt** (240 px, zoals het desktopontwerp). De gebruiker kan hem nog steeds inklappen.
+
+## Budget herbouw (fase 2)
+
+- **Rente op schulden telt alleen mee in de huidige en toekomstige maanden.** Archiefmaanden zijn historie; de
+  rente van vandaag hoort daar niet in. Opgenomen in `summary.interest_items` en `summary.total_interest`, en
+  meegerekend in `pending_expenses`, `total_expenses` en `projected_balance`. De analyse (per categorie over
+  twaalf maanden) leest nog steeds alleen `budget_expenses`; rente verschijnt daar als aparte regel voor de
+  huidige maand.
+- **Aflossingen worden gelogd** in `budget_debt_payments` (migratie 012) en verhogen `paid_amount`. Zo blijft
+  het bestaande datamodel (amount, paid_amount, paid) intact en is er historie op het schuld-detailscherm.
+- **"Kopieer vorige maand" neemt ook het minimumsaldo en de gekoppelde betaalrekening over**, maar alleen als de
+  nieuwe maand nog de standaardwaarden heeft. Eerder begon elke nieuwe maand met minimum -2400.
+- **Gekozen maand staat in de URL** (`/budget?m=2026-09`), zodat terugnavigeren en delen werken en Rekeningen
+  en Analyse geen maandstatus hoeven te delen.
+- **Saldo en minimum wijzigen** zit achter een tik op het saldo (lade "Saldo en minimum"). Het ontwerp toont
+  dat scherm niet, maar de koppeling met een betaalrekening en het minimum moesten bereikbaar blijven.
+- **Analyse gebruikt geen recharts meer**; balken zijn gewone elementen met aria-labels. Het pakket `recharts`
+  wordt nergens meer gebruikt en kan in een vervolgstap uit package.json.
+- **Het oude pilletje "Snel toevoegen" (taak of afspraak)** staat op mobiel alleen nog op Start en Taken, zodat
+  het de plusknop van Budget niet overlapt. Op desktop blijft het in de zijbalk.
+- **Afvinken is optimistisch**: de cache wordt direct bijgewerkt met dezelfde rekenregels als de server
+  (`recomputeSummary`), met terugdraaien bij een fout en een herlaad na afloop.
+- **Breakpoint voor de desktopindeling** is dezelfde 720 px als de schil (`useIsDesktop`).

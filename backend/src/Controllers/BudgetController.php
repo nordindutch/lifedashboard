@@ -289,6 +289,16 @@ final class BudgetController
             $prevMonth = $this->previousMonth($month);
             $prevMonthId = $this->findMonthId($db, $prevMonth);
             if ($prevMonthId !== null) {
+                // Minimumsaldo en gekoppelde betaalrekening van vorige maand overnemen
+                // zolang deze maand nog de standaardwaarden heeft.
+                $db->prepare(
+                    'UPDATE budget_months SET
+                        minimum_balance = (SELECT minimum_balance FROM budget_months WHERE id = :prev),
+                        current_balance_account_id = COALESCE(current_balance_account_id,
+                            (SELECT current_balance_account_id FROM budget_months WHERE id = :prev2))
+                     WHERE id = :id AND minimum_balance = -2400 AND current_balance = 0',
+                )->execute(['prev' => $prevMonthId, 'prev2' => $prevMonthId, 'id' => $monthId]);
+
                 $copyIncome = $db->prepare(
                     'INSERT INTO budget_income (month_id, name, amount, received, sort_order, created_at, updated_at)
                      SELECT :month_id, name, amount, 0, sort_order, unixepoch(), unixepoch()
@@ -501,7 +511,8 @@ final class BudgetController
         }, $catRows);
 
         // Rente op schulden met "meetellen in maandbudget": telt als nog te betalen uitgave.
-        $interestItems = DebtController::interestItemsForBudget($db);
+        // Alleen voor de huidige en toekomstige maanden; archiefmaanden zijn historie.
+        $interestItems = $month >= $this->currentMonthKey() ? DebtController::interestItemsForBudget($db) : [];
         $totalInterest = 0.0;
         foreach ($interestItems as $item) {
             $totalInterest += (float) $item['amount'];
@@ -525,6 +536,11 @@ final class BudgetController
                 'total_interest' => $totalInterest,
             ],
         ];
+    }
+
+    private function currentMonthKey(): string
+    {
+        return (new \DateTimeImmutable('first day of this month'))->format('Y-m');
     }
 
     private function previousMonth(string $month): string

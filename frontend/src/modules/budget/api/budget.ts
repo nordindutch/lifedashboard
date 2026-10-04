@@ -1,4 +1,4 @@
-import { apiClient, parseApiResponse } from './client';
+import { apiClient, parseApiResponse } from '../../../api/client';
 import type {
   AccountKind,
   AccountsPayload,
@@ -7,8 +7,9 @@ import type {
   BudgetCategory,
   BudgetInsightsPayload,
   BudgetMonthPayload,
+  DebtDetail,
   DebtsPayload,
-} from '../types';
+} from '../../../types';
 
 export const getBudgetMonth = (month: string) =>
   parseApiResponse<BudgetMonthPayload>(apiClient.get(`/api/budget/${month}`));
@@ -77,7 +78,7 @@ export const deleteAccount = (id: number) =>
 
 export const getDebts = () => parseApiResponse<DebtsPayload>(apiClient.get('/api/budget/debts'));
 
-export const upsertDebt = (body: {
+export interface UpsertDebtBody {
   id?: number;
   name: string;
   amount: number;
@@ -86,7 +87,17 @@ export const upsertDebt = (body: {
   paid: boolean;
   notes?: string | null;
   sort_order?: number;
-}) => parseApiResponse<DebtsPayload>(apiClient.post('/api/budget/debts', body));
+  interest_rate_pct?: number;
+  include_interest_in_budget?: boolean;
+}
+
+export const upsertDebt = (body: UpsertDebtBody) =>
+  parseApiResponse<DebtsPayload>(apiClient.post('/api/budget/debts', body));
+
+export const getDebt = (id: number) => parseApiResponse<DebtDetail>(apiClient.get(`/api/budget/debts/${id}`));
+
+export const registerDebtPayment = (id: number, body: { amount: number; note?: string | null }) =>
+  parseApiResponse<DebtsPayload>(apiClient.post(`/api/budget/debts/${id}/payments`, body));
 
 export const deleteDebt = (id: number) =>
   parseApiResponse<DebtsPayload>(apiClient.delete(`/api/budget/debts/${id}`));

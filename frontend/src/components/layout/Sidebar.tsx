@@ -44,7 +44,7 @@ export function Sidebar() {
   const logoutMutation = useLogout();
 
   const primary = navItems(modules, 'primary');
-  const secondary = [...navItems(modules, 'secondary'), ...navItems(modules, 'more')];
+  const secondary = [...navItems(modules, 'secondary'), ...navItems(modules, 'more')].sort((a, b) => a.order - b.order);
 
   return (
     <aside

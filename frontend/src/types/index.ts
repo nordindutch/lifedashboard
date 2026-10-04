@@ -255,6 +255,15 @@ export interface BudgetSummary {
   pending_expenses: number;
   projected_balance: number;
   by_category: { category: BudgetCategory; amount: number }[];
+  /** Maandelijkse rente van schulden met "meetellen in maandbudget" (telt mee in pending_expenses) */
+  interest_items: BudgetInterestItem[];
+  total_interest: number;
+}
+
+export interface BudgetInterestItem {
+  debt_id: number;
+  name: string;
+  amount: number;
 }
 
 export interface BudgetMonthPayload {
@@ -342,6 +351,12 @@ export interface Debt {
   paid_amount: number;
   /** Outstanding balance: amount - paid_amount (server-computed) */
   remaining: number;
+  /** Rente per jaar in procenten */
+  interest_rate_pct: number;
+  /** Maandelijkse rente als uitgavepost meenemen in het maandbudget */
+  include_interest_in_budget: boolean;
+  /** Rente van deze maand: remaining x pct / 100 / 12 (server-computed) */
+  monthly_interest: number;
   deadline: UnixTimestamp | null;
   paid: boolean;
   notes: string | null;
@@ -353,6 +368,21 @@ export interface Debt {
 export interface DebtsPayload {
   items: Debt[];
   outstanding: number;
+  /** Som van de maandrente over alle openstaande schulden */
+  monthly_interest: number;
+}
+
+export interface DebtPayment {
+  id: number;
+  debt_id: number;
+  amount: number;
+  note: string | null;
+  paid_at: UnixTimestamp;
+  created_at: UnixTimestamp;
+}
+
+export interface DebtDetail extends Debt {
+  payments: DebtPayment[];
 }
 
 export interface WeatherData {

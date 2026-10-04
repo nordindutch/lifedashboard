@@ -7,7 +7,7 @@ import { useActiveModules } from '../modules/useModules';
 /** Mobiel "Meer"-scherm: alles wat niet in de tabbalk past, uit de moduleregistry. */
 export function MorePage() {
   const modules = useActiveModules();
-  const items = [...navItems(modules, 'secondary'), ...navItems(modules, 'more')];
+  const items = [...navItems(modules, 'secondary'), ...navItems(modules, 'more')].sort((a, b) => a.order - b.order);
   const { data: user } = useAuth();
   const logoutMutation = useLogout();
 

@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { CalendarPlus, CheckSquare, Plus, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useLocation } from 'react-router-dom';
 import { createCalendarEvent } from '../../api/calendar';
 import { useProjects } from '../../hooks/useProjects';
 import { useCreateTask } from '../../hooks/useTasks';
@@ -58,8 +59,13 @@ export function QuickCreateSidebarTrigger() {
   );
 }
 
+/** Routes waar de mobiele pil "Snel toevoegen" (taak of afspraak) zichtbaar is. */
+const MOBILE_TRIGGER_PREFIXES = ['/tasks', '/home'];
+
 export function QuickCreate() {
   const qc = useQueryClient();
+  const { pathname } = useLocation();
+  const showMobileTrigger = MOBILE_TRIGGER_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const open = useUiStore((s) => s.quickCreateOpen);
   const openQuickCreate = useUiStore((s) => s.openQuickCreate);
   const closeQuickCreate = useUiStore((s) => s.closeQuickCreate);
@@ -212,8 +218,9 @@ export function QuickCreate() {
 
   return (
     <>
-      {/* Mobile / tablet: floating FAB — on md+ the trigger lives in the sidebar */}
-      <div className="fixed left-1/2 z-40 -translate-x-1/2 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] md:hidden">
+      {/* Mobiel: zwevende pil, alleen op pagina's die taken of afspraken gebruiken; op md+ staat de knop in de zijbalk */}
+      {showMobileTrigger ? (
+      <div className="fixed left-1/2 z-40 -translate-x-1/2 bottom-[calc(var(--codex-bottom-nav-height)+1rem+env(safe-area-inset-bottom,0px))] md:hidden">
         <button
           type="button"
           onClick={openQuickCreate}
@@ -223,6 +230,7 @@ export function QuickCreate() {
           Snel toevoegen
         </button>
       </div>
+      ) : null}
 
       <AnimatePresence>
         {open ? (
